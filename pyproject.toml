@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "architecture-recovery"
+version = "0.1.0"
+description = "Deterministic software architecture recovery from source repositories"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "networkx>=3.2",
+  "pydantic>=2.7",
+  "PyYAML>=6.0",
+  "tree-sitter>=0.22",
+  "tree-sitter-python>=0.23",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+architecture-recovery = "architecture_recovery.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"

@@ -1,0 +1,2 @@
+[console_scripts]
+architecture-recovery = architecture_recovery.cli:main

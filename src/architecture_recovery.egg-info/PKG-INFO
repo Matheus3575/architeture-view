@@ -1,0 +1,56 @@
+Metadata-Version: 2.4
+Name: architecture-recovery
+Version: 0.1.0
+Summary: Deterministic software architecture recovery from source repositories
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: networkx>=3.2
+Requires-Dist: pydantic>=2.7
+Requires-Dist: PyYAML>=6.0
+Requires-Dist: tree-sitter>=0.22
+Requires-Dist: tree-sitter-python>=0.23
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+
+# Architecture Recovery Engine
+
+MVP determinístico para transformar um repositório Python em uma Architecture
+Intermediate Representation (Architecture IR), com evidências rastreáveis e
+exportação para JSON, GraphML e Mermaid.
+
+## Instalação
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+## Uso local
+
+```bash
+architecture-recovery analyze . --output architecture.json --graph architecture.graphml
+```
+
+Também é possível escolher a representação principal (`json`, `graphml` ou
+`mermaid`):
+
+```bash
+architecture-recovery analyze . --format mermaid --output architecture.mmd
+```
+
+## Uso remoto
+
+URLs HTTPS, SSH e Git são clonadas com profundidade 1 em um diretório
+temporário. A revisão pode ser informada com `--ref` ou `--branch`:
+
+```bash
+architecture-recovery analyze https://github.com/org/project.git \
+  --branch main --output architecture.json --graph architecture.graphml
+```
+
+A IR preserva a origem em `repository.source_url`. Dockerfiles e arquivos
+Docker Compose são analisados junto com o código e suas relações de deploy e
+dependência aparecem no grafo.
+
+O parser usa Tree-sitter quando disponível. Um fallback baseado no módulo
+`ast` da biblioteca padrão permite executar o MVP sem dependências nativas
+adicionais.
