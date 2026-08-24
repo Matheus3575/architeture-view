@@ -1,6 +1,6 @@
 # Algorithm Development Status
 
-> Status snapshot: 2026-08-16. This document describes the current implementation. Accepted ADRs remain authoritative.
+> Status snapshot: 2026-08-24. This document describes the current implementation. Accepted ADRs remain authoritative.
 
 ## Current status
 
@@ -29,6 +29,7 @@ Repository
   -> Symbol Resolution
   -> Raw Code Graph
   -> Framework Adapters / Semantic Facts
+  -> Infrastructure Semantics / Infrastructure Facts
   -> Source-Origin Classification
   -> Graph Aggregation
   -> Architectural Graph
@@ -51,7 +52,7 @@ evidence. Renderers consume the IR and do not perform analysis.
 | M2.2 | Complete with bounded coverage | Local assignments, aliases, constructor flow, `self.attribute` and simple returns |
 | M3 | Complete | FrameworkAdapter foundation, FastAPI reference semantics, evidence and UNKNOWN benchmark |
 | M4 | Complete | Conservative first-party component candidates, unassigned nodes and traceable affinity evidence |
-| Next implementation step | Recommended | Infrastructure Semantics, unless boundary evidence becomes a blocker |
+| M5 | Complete | Docker/Compose infrastructure facts, conservative resource kinds, explicit configuration mapping and traceable relations |
 | Framework semantics | Complete v1 | FastAPI reference adapter; Django/Flask remain future adapters |
 | Component detection | Complete with bounded coverage | Module-level candidates; no architectural pattern inference |
 | Architecture inference | Future | Pattern hypotheses with confidence and traceability |
@@ -71,3 +72,4 @@ For architectural interpretation, consult `DECISIONS.md` and accepted ADRs
 before this status document. Update this file when a milestone changes the
 observable algorithm or its guarantees; record experiments in
 `ANALYSIS_LOG.md` and durable cross-cutting decisions in an ADR.
+| Next implementation step | Recommended | Architecture Pattern Inference, with infrastructure remaining evidence rather than architecture proof |

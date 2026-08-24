@@ -18,6 +18,7 @@ def test_controlled_benchmarks_pass_and_report_metrics():
         "duplicate_edge_evidence",
         "dynamic_dispatch",
         "basic_data_flow",
+        "infrastructure_semantics",
     }
     assert all(result["passed"] for result in results)
     assert all(result["execution_passed"] for result in results)

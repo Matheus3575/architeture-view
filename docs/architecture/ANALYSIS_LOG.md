@@ -656,3 +656,55 @@ M4 is intentionally module-granular and conservative. It does not represent
 multiple competing candidate groups for the same module, calculate semantic
 similarity, perform sophisticated community detection or infer architectural
 roles such as service/repository/controller. These belong to later work.
+
+---
+
+# M5 - Infrastructure Semantics
+
+## Status
+
+Completed implementation and controlled benchmark experiment.
+
+## Scope
+
+M5 adds a small infrastructure-neutral fact layer for Dockerfiles and Docker
+Compose. It performs static parsing only; it does not execute containers,
+resolve shell commands, access Docker, pull images or make network calls.
+
+The implemented adapters expose:
+
+- Dockerfile FROM, EXPOSE, ENV, WORKDIR, COPY, ENTRYPOINT and CMD;
+- Compose service names, images, builds, ports, environment, env_file,
+  volumes, networks and depends_on;
+- explicit Compose service dependency relations;
+- conservative classifications for databases, caches, message brokers,
+  containers and UNKNOWN resources.
+
+Resource classification uses image and service-name evidence. Generic names such
+as database without corroborating evidence remain UNKNOWN.
+
+## Code-to-infrastructure relations
+
+A bounded configuration pass recognizes statically observed environment variable
+accesses such as os.getenv("DATABASE_URL") and os.environ.get("REDIS_URL").
+It only connects the variable to a Compose service when the Compose value
+explicitly names that service. Dynamic environment names, unresolved URLs and
+unmatched services remain unconnected.
+
+The IR preserves:
+
+- observed module to configuration relations;
+- observed configuration to Compose target relations;
+- inferred component to infrastructure relations;
+- evidence references and confidence/status on each relation.
+
+Infrastructure resources remain outside first-party component membership. The Raw
+Graph retains low-level container/configuration nodes and edges.
+
+## Performance and limitations
+
+The adapters make one bounded pass over infrastructure files. Code mapping uses
+indexed parsed calls, Compose services and environment maps; it does not scan
+all symbols per component. Dockerfile continuation semantics, Compose
+interpolation, env-file contents, Kubernetes, CI, Terraform and runtime
+behavior remain future extensions.

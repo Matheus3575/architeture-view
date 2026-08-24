@@ -82,6 +82,24 @@ class ArchitectureValidator:
                 if ref not in evidence_ids:
                     errors.append(f"Framework fact {fact.kind} references unknown evidence: {ref}")
 
+        infrastructure_ids = {resource.id for resource in ir.infrastructure_resources}
+        infrastructure_ids.update(raw_node_ids)
+        infrastructure_ids.update(architectural_node_ids)
+        for resource in ir.infrastructure_resources:
+            for ref in resource.evidence_refs:
+                if ref not in evidence_ids:
+                    errors.append(f"Infrastructure resource {resource.id} references unknown evidence: {ref}")
+        for relation in ir.infrastructure_relations:
+            if relation.source not in infrastructure_ids:
+                errors.append(f"Infrastructure relation source does not exist: {relation.source}")
+            if relation.target not in infrastructure_ids:
+                errors.append(f"Infrastructure relation target does not exist: {relation.target}")
+            if not relation.evidence_refs:
+                errors.append(f"Infrastructure relation has no evidence: {relation.source} -> {relation.target}")
+            for ref in relation.evidence_refs:
+                if ref not in evidence_ids:
+                    errors.append(f"Infrastructure relation references unknown evidence: {ref}")
+
         return ValidationReport(valid=not errors, errors=errors, warnings=warnings)
 
     @staticmethod

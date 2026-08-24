@@ -5,31 +5,20 @@ not a new architectural decision.
 
 ## M4 result
 
-M4 is complete. The engine now produces conservative, evidence-based
-first-party component candidates and explicitly preserves unassigned modules.
-M3 framework-neutral facts remain inputs, while architectural pattern
-inference remains separate.
+M4 is complete. The engine produces conservative, evidence-based first-party
+component candidates and preserves unassigned modules. Component detection and
+architecture pattern inference remain separate.
 
-The implemented reference adapter interprets, without re-parsing source ad hoc:
+## M5 result
 
-- `APIRouter` construction;
-- `@app.get` and `@router.get`;
-- `Depends`;
-- Pydantic schema references;
-- `response_model`;
-- endpoint registration.
+M5 is complete. Docker and Compose now produce infrastructure-neutral,
+evidence-backed resources and relations without changing Component Detection.
+UNKNOWN and unsupported configuration remain explicit.
 
-It should add framework evidence and semantic relations only where the
-existing ontology supports them. It must not replace Raw Graph observations
-or create architectural relations without evidence.
+## Recommended next milestone: Architecture Pattern Inference
 
-## Recommended next milestone: Infrastructure Semantics
-
-The M4 benchmark has perfect covered candidate/member/evidence recall, zero
-false groupings and no source-origin regression across 12 fixtures. The next
-useful evidence layer is richer infrastructure semantics so component
-candidates can later be evaluated across Docker, Compose, Kubernetes and CI
-boundaries.
+The next step is to evaluate architectural hypotheses from code, framework,
+component and infrastructure evidence while preserving UNKNOWN and traceability.
 
 ## Alternatives
 
@@ -37,32 +26,15 @@ boundaries.
 
 This remains important for editable installs, multiple Python environments,
 complex Poetry configurations, namespace packages and local/installed module
-name collisions. The current boundary handles ordinary roots, `src` layouts,
-monorepos and namespace fixtures, but these advanced cases are not fully
-covered.
-
-Choose this before Infrastructure Semantics only if source-origin errors
-appear in a real target repository or editable-install/namespace cases become
-a priority.
-
-### Infrastructure Semantics
-
-This is now the recommended next milestone for richer Docker, Compose,
-Kubernetes and CI facts. It must remain separate from component detection and
-architecture pattern inference.
+name collisions. Choose it before inference only if source-origin errors appear
+in a real target repository or these cases become a priority.
 
 ## Later sequence
 
-```text
 Component Detection
         -> Infrastructure Semantics
         -> Architecture Pattern Inference
         -> Optional LLM interpretation
-```
-
-Component Detection and Architecture Pattern Inference must remain separate:
-the first proposes components; the second evaluates architecture hypotheses
-from the resulting component graph and supporting evidence.
 
 ## Do not do next
 
@@ -70,3 +42,4 @@ from the resulting component graph and supporting evidence.
 - Do not implement general Python data-flow analysis as part of M2.2.
 - Do not infer MVC, Clean, Hexagonal or Microservices from directory names.
 - Do not make the renderer responsible for analysis.
+- Do not turn Infrastructure Semantics into a generic DevOps analyzer.

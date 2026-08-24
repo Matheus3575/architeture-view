@@ -262,6 +262,32 @@ class ClassificationReport(BaseModel):
     counts: dict[str, int] = Field(default_factory=dict)
 
 
+class InfrastructureResource(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    name: str
+    kind: str  # DATABASE, CACHE, MESSAGE_BROKER, SERVICE, CONTAINER, STORAGE, NETWORK, UNKNOWN
+    status: EvidenceStatus = EvidenceStatus.OBSERVED
+    source: SourceRef | None = None
+    evidence_refs: list[str] = Field(default_factory=list)
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class InfrastructureRelation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    source: str
+    target: str
+    type: str
+    status: EvidenceStatus = EvidenceStatus.OBSERVED
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    evidence_refs: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class ArchitectureIR(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -285,6 +311,9 @@ class ArchitectureIR(BaseModel):
     # Additive optional extension: framework facts are not graph nodes or
     # architecture hypotheses, and older consumers may safely ignore them.
     framework_facts: list[FrameworkFact] = Field(default_factory=list)
+    # Additive optional extension for M5: infrastructure resources and relations
+    infrastructure_resources: list[InfrastructureResource] = Field(default_factory=list)
+    infrastructure_relations: list[InfrastructureRelation] = Field(default_factory=list)
     validation: ValidationReport = Field(default_factory=ValidationReport)
 
     @field_validator("schema_version")
@@ -327,6 +356,14 @@ class ArchitectureIR(BaseModel):
                 item.get("source", {}).get("path", "") if item.get("source") else "",
                 item.get("source", {}).get("start_line", 0) if item.get("source") else 0,
             ),
+        )
+        data["infrastructure_resources"] = sorted(
+            data.get("infrastructure_resources", []),
+            key=lambda item: item["id"]
+        )
+        data["infrastructure_relations"] = sorted(
+            data.get("infrastructure_relations", []),
+            key=lambda item: (item["source"], item["target"], item["type"], item.get("id") or "")
         )
         data["architecture"]["hypotheses"] = sorted(
             data["architecture"]["hypotheses"], key=lambda item: item["pattern"]

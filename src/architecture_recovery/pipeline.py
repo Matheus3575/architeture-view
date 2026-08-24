@@ -106,7 +106,8 @@ def _analyze_local_repository(
     framework_results = registry.analyze(framework_context)
     framework_facts = [fact for result in framework_results for fact in result.facts]
     framework_evidence = [evidence for result in framework_results for evidence in result.evidence]
-    InfrastructureAnalyzer().augment(graph, snapshot)
+    infra_analyzer = InfrastructureAnalyzer()
+    infra_analyzer.augment(graph, snapshot)
     classifications = classifier.classify_graph(graph)
     aggregated = ArchitecturalGraphBuilder(aggregation_config).build(graph, snapshot)
     architectural_graph = PropertyGraph(
@@ -114,15 +115,25 @@ def _analyze_local_repository(
         edges=aggregated.edges,
         evidence=aggregated.evidence,
     )
+
+    arch_graph_model = ArchitecturalGraph(
+        nodes=list(aggregated.nodes.values()),
+        edges=aggregated.edges,
+    )
+
     component_detection = ComponentDetector().detect(
         ComponentDetectionContext(
             raw_graph=graph,
-            architectural_graph=ArchitecturalGraph(
-                nodes=list(aggregated.nodes.values()),
-                edges=aggregated.edges,
-            ),
+            architectural_graph=arch_graph_model,
             framework_facts=tuple(framework_facts),
         )
+    )
+
+    infra_analyzer.resolve(
+        graph,
+        tuple(parsed_files),
+        component_detection.candidates,
+        arch_graph_model,
     )
 
     evidence_by_id = {
@@ -133,6 +144,7 @@ def _analyze_local_repository(
             *framework_evidence,
             *aggregated.evidence.values(),
             *component_detection.evidence,
+            *infra_analyzer.evidence,
         ]
     }
     ir = ArchitectureIR(
@@ -146,10 +158,7 @@ def _analyze_local_repository(
             edges=graph.edges,
             unresolved_calls=graph.unresolved_calls,
         ),
-        architectural_graph=ArchitecturalGraph(
-            nodes=list(aggregated.nodes.values()),
-            edges=aggregated.edges,
-        ),
+        architectural_graph=arch_graph_model,
         classifications=classifications,
         stack=stack,
         nodes=list(graph.nodes.values()),
@@ -160,6 +169,8 @@ def _analyze_local_repository(
         component_detection_metrics=component_detection.metrics,
         evidence=list(evidence_by_id.values()),
         framework_facts=framework_facts,
+        infrastructure_resources=infra_analyzer.resources,
+        infrastructure_relations=infra_analyzer.relations,
     ).canonicalize()
     validator = ArchitectureValidator()
     structural_report = validator.validate(ir)

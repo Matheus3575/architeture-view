@@ -104,3 +104,25 @@ baseline passes both for all fixtures.
 - Unlisted valid observations are not classified as false positives.
 - Performance is observed operationally, not used as a pass/fail threshold.
 - New benchmark cases are required before claiming coverage for new semantics.
+
+## M5 status
+
+The benchmark now contains 13 deterministic fixtures, including
+benchmarks/fixtures/infrastructure_semantics/. Its ground truth covers
+Dockerfile and Compose resource discovery, database/cache/container/UNKNOWN
+classification, service dependencies, environment configuration mapping,
+code-to-infrastructure relations, forbidden false relations, evidence
+traceability and repeatability.
+
+The M5 fixture results are:
+
+infrastructure_resource_precision: 1.0
+infrastructure_resource_recall: 1.0
+infrastructure_relation_precision: 1.0
+infrastructure_relation_recall: 1.0
+infrastructure_evidence_recall: 1.0
+false_infrastructure_relation_rate: 0.0
+deterministic: true
+
+The fixture analysis remained bounded and static. It does not execute Docker,
+make network calls or inspect local container state.

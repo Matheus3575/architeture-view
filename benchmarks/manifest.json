@@ -60,6 +60,11 @@
       "name": "basic_data_flow",
       "repository": "benchmarks/fixtures/basic_data_flow",
       "ground_truth": "ground_truth/basic_data_flow.json"
+    },
+    {
+      "name": "infrastructure_semantics",
+      "repository": "benchmarks/fixtures/infrastructure_semantics",
+      "ground_truth": "ground_truth/infrastructure_semantics.json"
     }
   ]
 }

@@ -66,6 +66,7 @@ def evaluate_case(first, second, ground_truth: dict[str, Any]) -> dict[str, Any]
     evidence_metrics = _evaluate_edge_support(first, ground_truth, failures)
     framework_metrics = _evaluate_framework_facts(first, ground_truth, failures)
     component_metrics = _evaluate_component_detection(first, ground_truth, failures)
+    infrastructure_metrics = _evaluate_infrastructure(first, ground_truth, failures)
 
     deterministic = first.model_dump_json() == second.model_dump_json()
     if not deterministic:
@@ -83,6 +84,7 @@ def evaluate_case(first, second, ground_truth: dict[str, Any]) -> dict[str, Any]
         **evidence_metrics,
         **framework_metrics,
         **component_metrics,
+        **infrastructure_metrics,
         "unknown_node_rate": _unknown_node_rate(first),
         "raw_node_count": len(first.raw_graph.nodes),
         "raw_edge_count": len(first.raw_graph.edges),
@@ -403,6 +405,98 @@ def _evaluate_component_detection(ir, ground_truth, failures):
         "component_unassigned_recall": _ratio(len(expected_unassigned & actual_unassigned), len(expected_unassigned)),
         "component_evidence_recall": _ratio(evidence_matched, len(required)),
         "component_candidates_traceable": traceable,
+    }
+
+
+def _evaluate_infrastructure(ir, ground_truth, failures):
+    spec = ground_truth.get("infrastructure")
+    actual_resources = list(ir.infrastructure_resources)
+    actual_relations = list(ir.infrastructure_relations)
+
+    if spec is None:
+        return {
+            "infrastructure_resource_count": len(actual_resources),
+            "infrastructure_relation_count": len(actual_relations),
+            "infrastructure_resource_precision": None,
+            "infrastructure_resource_recall": None,
+            "infrastructure_relation_precision": None,
+            "infrastructure_relation_recall": None,
+            "infrastructure_evidence_recall": None,
+            "false_infrastructure_relation_rate": None,
+        }
+
+    expected_resources = spec.get("required_resources", [])
+    matched_resources = 0
+    for expected in expected_resources:
+        found = False
+        for actual in actual_resources:
+            if actual.id == expected["id"]:
+                found = True
+                if actual.kind != expected["kind"]:
+                    failures.append(
+                        f"wrong infrastructure resource kind for {actual.id}: expected {expected['kind']} got {actual.kind}"
+                    )
+                if actual.name != expected["name"]:
+                    failures.append(
+                        f"wrong infrastructure resource name for {actual.id}: expected {expected['name']} got {actual.name}"
+                    )
+                break
+        if found:
+            matched_resources += 1
+        else:
+            failures.append(f"missing required infrastructure resource: {expected['id']}")
+
+    forbidden_resources = spec.get("forbidden_resources", [])
+    present_forbidden_resources = []
+    for forbidden in forbidden_resources:
+        if any(actual.id == forbidden for actual in actual_resources):
+            present_forbidden_resources.append(forbidden)
+            failures.append(f"forbidden infrastructure resource found: {forbidden}")
+
+    expected_relations = spec.get("required_relations", [])
+    matched_relations = 0
+    for expected in expected_relations:
+        found = False
+        for actual in actual_relations:
+            if actual.source == expected["source"] and actual.target == expected["target"]:
+                found = True
+                if expected.get("type") and actual.type != expected["type"]:
+                    failures.append(
+                        f"wrong infrastructure relation type for {actual.source}->{actual.target}: expected {expected['type']} got {actual.type}"
+                    )
+                break
+        if found:
+            matched_relations += 1
+        else:
+            failures.append(f"missing required infrastructure relation: {expected['source']} -> {expected['target']}")
+
+    forbidden_relations = spec.get("forbidden_relations", [])
+    present_forbidden_relations = []
+    for forbidden in forbidden_relations:
+        if any(actual.source == forbidden["source"] and actual.target == forbidden["target"] for actual in actual_relations):
+            present_forbidden_relations.append(forbidden)
+            failures.append(f"forbidden infrastructure relation found: {forbidden['source']} -> {forbidden['target']}")
+
+    evidence_ids = {evidence.id for evidence in ir.evidence}
+    traceable = all(
+        res.evidence_refs and set(res.evidence_refs) <= evidence_ids
+        for res in actual_resources
+    ) and all(
+        rel.evidence_refs and set(rel.evidence_refs) <= evidence_ids
+        for rel in actual_relations
+    )
+    if spec.get("all_resources_traceable") and not traceable:
+        failures.append("infrastructure resource/relation without valid evidence traceability")
+
+    return {
+        "infrastructure_resource_count": len(actual_resources),
+        "infrastructure_relation_count": len(actual_relations),
+        "infrastructure_resource_recall": _ratio(matched_resources, len(expected_resources)),
+        "infrastructure_resource_precision": _ratio(matched_resources - len(present_forbidden_resources), len(actual_resources)),
+        "infrastructure_relation_recall": _ratio(matched_relations, len(expected_relations)),
+        "infrastructure_relation_precision": _ratio(matched_relations - len(present_forbidden_relations), len(actual_relations)),
+        "infrastructure_evidence_recall": 1.0 if traceable else 0.0,
+        "false_infrastructure_relation_rate": _ratio(len(present_forbidden_relations), len(forbidden_relations)),
     }
 
 

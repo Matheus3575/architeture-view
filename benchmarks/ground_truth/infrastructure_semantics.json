@@ -1,0 +1,181 @@
+{
+  "source_origins": [
+    {
+      "path": "main.py",
+      "origin": "first_party"
+    }
+  ],
+  "raw_nodes": {
+    "required": [
+      "container:postgres",
+      "container:redis",
+      "container:api",
+      "container:database",
+      "container:Dockerfile",
+      "configuration:DATABASE_URL",
+      "configuration:REDIS_URL",
+      "configuration:UNKNOWN_URL"
+    ],
+    "forbidden": [
+      "configuration:FAKE_DB"
+    ]
+  },
+  "raw_edges": {
+    "required": [
+      {
+        "source": "container:api",
+        "target": "container:postgres",
+        "type": "CONNECTS_TO"
+      },
+      {
+        "source": "container:api",
+        "target": "container:redis",
+        "type": "CONNECTS_TO"
+      },
+      {
+        "source": "module:main",
+        "target": "configuration:DATABASE_URL",
+        "type": "DEPENDS_ON"
+      },
+      {
+        "source": "module:main",
+        "target": "configuration:REDIS_URL",
+        "type": "DEPENDS_ON"
+      },
+      {
+        "source": "configuration:DATABASE_URL",
+        "target": "container:postgres",
+        "type": "CONNECTS_TO"
+      },
+      {
+        "source": "configuration:REDIS_URL",
+        "target": "container:redis",
+        "type": "CONNECTS_TO"
+      }
+    ],
+    "forbidden": [
+      {
+        "source": "module:main",
+        "target": "container:database",
+        "type": "DEPENDS_ON"
+      },
+      {
+        "source": "configuration:DATABASE_URL",
+        "target": "container:database",
+        "type": "CONNECTS_TO"
+      },
+      {
+        "source": "configuration:UNKNOWN_URL",
+        "target": "container:postgres",
+        "type": "CONNECTS_TO"
+      }
+    ]
+  },
+  "infrastructure": {
+    "required_resources": [
+      {
+        "id": "infrastructure:compose:docker-compose.yml:postgres",
+        "name": "postgres",
+        "kind": "DATABASE"
+      },
+      {
+        "id": "infrastructure:compose:docker-compose.yml:redis",
+        "name": "redis",
+        "kind": "CACHE"
+      },
+      {
+        "id": "infrastructure:compose:docker-compose.yml:api",
+        "name": "api",
+        "kind": "CONTAINER"
+      },
+      {
+        "id": "infrastructure:compose:docker-compose.yml:database",
+        "name": "database",
+        "kind": "UNKNOWN"
+      },
+      {
+        "id": "infrastructure:dockerfile:Dockerfile",
+        "name": "Dockerfile",
+        "kind": "CONTAINER"
+      },
+      {
+        "id": "configuration:DATABASE_URL",
+        "name": "DATABASE_URL",
+        "kind": "CONFIGURATION"
+      },
+      {
+        "id": "configuration:REDIS_URL",
+        "name": "REDIS_URL",
+        "kind": "CONFIGURATION"
+      },
+      {
+        "id": "configuration:UNKNOWN_URL",
+        "name": "UNKNOWN_URL",
+        "kind": "CONFIGURATION"
+      }
+    ],
+    "forbidden_resources": [
+      "configuration:FAKE_DB"
+    ],
+    "required_relations": [
+      {
+        "source": "infrastructure:compose:docker-compose.yml:api",
+        "target": "infrastructure:compose:docker-compose.yml:postgres",
+        "type": "depends_on"
+      },
+      {
+        "source": "infrastructure:compose:docker-compose.yml:api",
+        "target": "infrastructure:compose:docker-compose.yml:redis",
+        "type": "depends_on"
+      },
+      {
+        "source": "module:main",
+        "target": "configuration:DATABASE_URL",
+        "type": "depends_on"
+      },
+      {
+        "source": "module:main",
+        "target": "configuration:REDIS_URL",
+        "type": "depends_on"
+      },
+      {
+        "source": "configuration:DATABASE_URL",
+        "target": "infrastructure:compose:docker-compose.yml:postgres",
+        "type": "connects_to"
+      },
+      {
+        "source": "configuration:REDIS_URL",
+        "target": "infrastructure:compose:docker-compose.yml:redis",
+        "type": "connects_to"
+      },
+      {
+        "source": "component:main.py",
+        "target": "infrastructure:compose:docker-compose.yml:postgres",
+        "type": "depends_on"
+      },
+      {
+        "source": "component:main.py",
+        "target": "infrastructure:compose:docker-compose.yml:redis",
+        "type": "depends_on"
+      },
+      {
+        "source": "module:main",
+        "target": "configuration:UNKNOWN_URL",
+        "type": "depends_on"
+      }
+    ],
+    "forbidden_relations": [
+      {
+        "source": "module:main",
+        "target": "infrastructure:compose:docker-compose.yml:database",
+        "type": "depends_on"
+      },
+      {
+        "source": "configuration:DATABASE_URL",
+        "target": "infrastructure:compose:docker-compose.yml:database",
+        "type": "connects_to"
+      }
+    ],
+    "all_resources_traceable": true
+  }
+}

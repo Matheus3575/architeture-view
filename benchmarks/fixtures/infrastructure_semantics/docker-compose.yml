@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  api:
+    build: .
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgres://postgres:password@postgres:5432/db
+      REDIS_URL: redis://redis:6379/0
+      UNKNOWN_URL: http://some-other-service:8080
+
+  database:
+    image: alpine:latest
