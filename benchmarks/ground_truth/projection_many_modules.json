@@ -1,0 +1,27 @@
+{
+  "hypotheses": {
+    "required": [],
+    "forbidden": []
+  },
+  "read_model": {
+    "require_all_edges_valid": true,
+    "require_traceability": true,
+    "require_determinism": true,
+    "projection": {
+      "required_significant": [
+        "application:projection_many_modules",
+        "component:app.py",
+        "component:domain.py",
+        "external.fastapi"
+      ],
+      "required_low_or_unknown": [
+        "component:internal"
+      ],
+      "forbid_projected": [
+        "component:internal"
+      ],
+      "require_projected_edges_valid": true,
+      "require_projection_traceability": true
+    }
+  }
+}

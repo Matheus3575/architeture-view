@@ -169,6 +169,14 @@ def _evaluate_hypotheses(ir, ground_truth, failures):
 def _evaluate_read_model(first, second, ground_truth, failures):
     spec = ground_truth.get("read_model")
     empty = {
+        "architectural_significance_recall": None,
+        "architectural_significance_precision": None,
+        "high_level_node_count": None,
+        "detailed_node_count": None,
+        "projection_reduction_ratio": None,
+        "projected_edge_validity": None,
+        "projection_traceability": None,
+        "low_significance_preservation": None,
         "read_model_node_count": None,
         "read_model_edge_count": None,
         "read_model_edges_valid": None,
@@ -205,6 +213,25 @@ def _evaluate_read_model(first, second, ground_truth, failures):
     )
     if spec.get("require_all_edges_valid") and not valid_edges:
         failures.append("visualization read model contains an orphan edge")
+    projection_spec = spec.get("projection", {})
+    actual_significance = {item.subject: item.significance.value for item in first_model.architectural_significance}
+    expected_significant = set(projection_spec.get("required_significant", []))
+    expected_low = set(projection_spec.get("required_low_or_unknown", []))
+    matched_significant = len(expected_significant & set(actual_significance))
+    if expected_significant:
+        missing = sorted(expected_significant - set(actual_significance))
+        if missing:
+            failures.append(f"missing architectural significance subjects: {missing}")
+    if projection_spec.get("forbid_projected", []):
+        forbidden_projected = set(projection_spec["forbid_projected"]) & set(node_ids)
+        failures.extend(f"forbidden high-level projection node: {item}" for item in sorted(forbidden_projected))
+    if expected_low and not expected_low <= set(actual_significance):
+        failures.append("low/unknown significance was not preserved")
+    projection_metadata = first_model.metadata
+    if projection_spec.get("require_projected_edges_valid") and not projection_metadata.get("projected_edge_validity"):
+        failures.append("projected edges are invalid")
+    if projection_spec.get("require_projection_traceability") and not projection_metadata.get("projection_traceability"):
+        failures.append("projection is not traceable")
     actual_kinds = {node.kind for node in first_model.nodes}
     missing_node_kinds = sorted(
         set(spec.get("required_node_kinds", [])) - actual_kinds
@@ -222,7 +249,7 @@ def _evaluate_read_model(first, second, ground_truth, failures):
     evidence_ids = {item.id for item in first_model.evidence}
     traceable = all(
         ref in evidence_ids
-        for item in [*first_model.nodes, *first_model.edges, *first_model.hypotheses]
+        for item in [*first_model.nodes, *first_model.edges, *first_model.hypotheses, *first_model.architectural_significance]
         for ref in item.evidence_refs
     )
     if spec.get("require_traceability") and not traceable:
@@ -378,6 +405,14 @@ def _evaluate_read_model(first, second, ground_truth, failures):
             failures.append(f"SVG missing layout groups: {sorted(missing_groups)}")
 
     return {
+        "architectural_significance_recall": _ratio(matched_significant, len(expected_significant)),
+        "architectural_significance_precision": _ratio(len(expected_significant & set(node_ids)), projection_metadata.get("high_level_node_count") or 0),
+        "high_level_node_count": projection_metadata.get("high_level_node_count"),
+        "detailed_node_count": projection_metadata.get("detailed_node_count"),
+        "projection_reduction_ratio": projection_metadata.get("projection_reduction_ratio"),
+        "projected_edge_validity": projection_metadata.get("projected_edge_validity"),
+        "projection_traceability": projection_metadata.get("projection_traceability"),
+        "low_significance_preservation": bool(expected_low <= set(actual_significance)) if expected_low else projection_metadata.get("low_significance_preservation"),
         "read_model_node_count": len(first_model.nodes),
         "read_model_edge_count": len(first_model.edges),
         "read_model_edges_valid": valid_edges,

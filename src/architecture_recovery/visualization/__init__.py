@@ -1,3 +1,4 @@
+from .projection import ArchitecturalSignificance, ArchitecturalProjectionBuilder, HighLevelArchitectureProjection, ProjectedEdge, SignificanceLevel
 from .read_model import (
     VisualizationEdge,
     VisualizationEvidence,
@@ -9,6 +10,11 @@ from .read_model import (
 )
 
 __all__ = [
+    "ArchitecturalSignificance",
+    "ArchitecturalProjectionBuilder",
+    "HighLevelArchitectureProjection",
+    "ProjectedEdge",
+    "SignificanceLevel",
     "VisualizationEdge",
     "VisualizationEvidence",
     "VisualizationHypothesis",

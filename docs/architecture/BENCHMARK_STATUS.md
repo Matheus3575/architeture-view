@@ -180,3 +180,7 @@ The controlled benchmark suite now contains 29 cases, including six Hexagonal fi
 ## M6.6 status
 
 The benchmark suite adds eight Microservices fixtures covering clear HTTP and messaging boundaries, containers, modular monoliths, names-only structures, container-only structures, ambiguity and a negative case. Ground truths evaluate status, traceability, support, UNKNOWN correctness, contradiction preservation and deterministic analysis.
+
+## M8.1 status
+
+The benchmark suite adds a synthetic many-module projection case. It measures significance recall/precision, detailed versus high-level node counts, reduction ratio, projected edge validity, projection traceability, LOW/UNKNOWN preservation and determinism. The reduction ratio is reported as an operational metric and is not treated as quality by itself.

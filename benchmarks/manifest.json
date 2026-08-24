@@ -185,6 +185,11 @@
       "name": "microservices_negative",
       "repository": "benchmarks/fixtures/microservices_negative",
       "ground_truth": "ground_truth/microservices_negative.json"
+    },
+    {
+      "name": "projection_many_modules",
+      "repository": "benchmarks/fixtures/projection_many_modules",
+      "ground_truth": "ground_truth/projection_many_modules.json"
     }
   ]
 }

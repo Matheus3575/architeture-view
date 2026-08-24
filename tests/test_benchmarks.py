@@ -42,6 +42,7 @@ def test_controlled_benchmarks_pass_and_report_metrics():
         "microservices_containers_only",
         "microservices_ambiguous",
         "microservices_negative",
+        "projection_many_modules",
     }
     assert all(result["passed"] for result in results)
     assert all(result["execution_passed"] for result in results)

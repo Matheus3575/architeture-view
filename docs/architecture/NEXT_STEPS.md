@@ -111,3 +111,7 @@ M6.5 is complete. Hexagonal is an independent conservative hypothesis based on d
 ## M6.6 result
 
 M6.6 is complete as a conservative Microservices detector. Independent application facts plus explicit cross-unit communication are required for inference; modular monoliths and infrastructure-only layouts remain UNKNOWN. The next recommended step is improving existing boundary evidence coverage, not adding another inference heuristic.
+
+## M8.1 result
+
+M8.1 is complete. High-level projection now decides architectural visibility before the renderer while preserving detailed significance records and traceability. The next recommended milestone is materialized Architectural Decision Recovery over existing evidence, not more visual filtering.

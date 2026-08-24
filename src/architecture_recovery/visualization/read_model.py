@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .projection import ArchitecturalProjectionBuilder, ArchitecturalSignificance, HighLevelArchitectureProjection
+
 from architecture_recovery.ir import (
     ArchitectureIR,
     Edge,
@@ -44,6 +46,9 @@ class VisualizationEdge(BaseModel):
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     evidence_refs: list[str] = Field(default_factory=list)
     origin_ref: str | None = None
+    raw_edge_ids: list[str] = Field(default_factory=list)
+    support_count: int = Field(default=1, ge=1)
+    supporting_observations: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class VisualizationHypothesis(BaseModel):
@@ -77,6 +82,7 @@ class VisualizationReadModel(BaseModel):
     edges: list[VisualizationEdge] = Field(default_factory=list)
     hypotheses: list[VisualizationHypothesis] = Field(default_factory=list)
     evidence: list[VisualizationEvidence] = Field(default_factory=list)
+    architectural_significance: list[ArchitecturalSignificance] = Field(default_factory=list)
     unknowns: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -88,6 +94,7 @@ class VisualizationReadModel(BaseModel):
             key=lambda item: (item["source"], item["target"], item["kind"], item["id"]),
         )
         data["hypotheses"] = sorted(data["hypotheses"], key=lambda item: item["pattern"])
+        data["architectural_significance"] = sorted(data["architectural_significance"], key=lambda item: item["subject"])
         data["evidence"] = sorted(data["evidence"], key=lambda item: item["id"])
         data["unknowns"] = sorted(set(data["unknowns"]))
         return VisualizationReadModel.model_validate(data)
@@ -309,18 +316,74 @@ class VisualizationReadModelBuilder:
             )
             for item in ir.evidence
         ]
+        projection = ArchitecturalProjectionBuilder().build(ir)
+        significance_by_subject = {item.subject: item for item in projection.significances}
+        selected_ids = set(projection.projected_node_ids)
+        semantic_ids = {
+            item.id for item in nodes.values()
+            if item.origin_ref and (item.origin_ref.startswith("framework_") or item.origin_ref.startswith("framework:") or item.kind == "unknown")
+        }
+        retained_ids = selected_ids | semantic_ids
+        nodes = {
+            node_id: node.model_copy(update={"layout_hints": {
+                **node.layout_hints,
+                **({
+                    "architectural_significance": significance_by_subject[node_id].significance.value,
+                    "significance_score": significance_by_subject[node_id].score,
+                    "contains_refs": significance_by_subject[node_id].contains_refs,
+                } if node_id in significance_by_subject else {}),
+            }})
+            for node_id, node in nodes.items()
+            if node_id in retained_ids
+        }
+        projected_edges = {
+            item.id: VisualizationEdge(
+                id=item.id, source=item.source, target=item.target, kind=item.kind,
+                status=item.status, confidence=item.confidence, evidence_refs=item.evidence_refs,
+                origin_ref=f"projection_edge:{item.id}", raw_edge_ids=item.raw_edge_ids,
+                support_count=item.support_count, supporting_observations=item.supporting_observations,
+            )
+            for item in projection.projected_edges
+            if item.source in nodes and item.target in nodes
+        }
+        projected_keys = {(item.source, item.target, item.kind) for item in projected_edges.values()}
+        for edge in edges.values():
+            key = (edge.source, edge.target, edge.kind)
+            if edge.source in nodes and edge.target in nodes and edge.origin_ref and (
+                edge.origin_ref.startswith("framework_fact:") or edge.origin_ref.startswith("infrastructure_relation:")
+            ) and key not in projected_keys:
+                projected_edges[edge.id] = edge
+        edges = projected_edges
+        unknowns.update(projection.unknown_refs)
+        evidence_ids = {item.id for item in ir.evidence}
+        projection_traceability = all(
+            ref in evidence_ids
+            for item in [*projection.significances, *projection.projected_edges]
+            for ref in item.evidence_refs
+        )
+        projected_edge_validity = all(
+            edge.source in nodes and edge.target in nodes for edge in projection.projected_edges
+        )
         result = VisualizationReadModel(
             repository=ir.repository,
             nodes=list(nodes.values()),
             edges=list(edges.values()),
             hypotheses=hypotheses,
             evidence=evidence,
+            architectural_significance=projection.significances,
             unknowns=sorted(unknowns),
             metadata={
                 "source_schema_version": ir.schema_version,
                 "architectural_graph_node_count": len(ir.architectural_graph.nodes),
                 "architectural_graph_edge_count": len(ir.architectural_graph.edges),
-                "transformation": "architecture-ir-to-visualization-read-model-v1",
+                "detailed_node_count": projection.detailed_node_count,
+                "high_level_node_count": projection.high_level_node_count,
+                "projection_reduction_ratio": projection.reduction_ratio,
+                "projected_edge_validity": projected_edge_validity,
+                "projection_traceability": projection_traceability,
+                "low_significance_preservation": bool(projection.low_significance_refs),
+                "projection_mode": "evidence_based_high_level_v1",
+                "transformation": "architecture-ir-to-visualization-read-model-v2",
             },
         ).canonicalize()
         validation = validate_visualization_read_model(result, {item.id for item in ir.evidence})
@@ -399,7 +462,7 @@ def validate_visualization_read_model(
         if edge.target not in node_id_set:
             errors.append(f"Visualization edge target does not exist: {edge.target}")
     if evidence_ids is not None:
-        for item in [*model.nodes, *model.edges, *model.hypotheses]:
+        for item in [*model.nodes, *model.edges, *model.hypotheses, *model.architectural_significance]:
             for ref in item.evidence_refs:
                 if ref not in evidence_ids:
                     errors.append(f"Visualization element references unknown evidence: {ref}")

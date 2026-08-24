@@ -792,3 +792,26 @@ The detector preserves evidence and contradictions, including single-entrypoint
 and shared-infrastructure signals, and returns `UNKNOWN` when independent
 boundaries or communication cannot be established. It uses bounded indexes and
 no additional scan, parser, symbol resolution, renderer or schema change.
+
+## M8.1 — Architectural Significance and High-Level Projection
+
+M8.1 introduces a renderer-neutral `ArchitecturalProjectionBuilder` between
+ArchitectureIR and VisualizationReadModel. It explicitly distinguishes a
+structural fact from architectural significance, and the detailed architecture
+model from the high-level architecture projection. Significance is represented
+per subject with HIGH, MEDIUM, LOW or UNKNOWN, score, reasons, evidence refs
+and `contains_refs` for future drill-down.
+
+Promotion requires evidence-backed semantic anchors such as application or
+component detection, entrypoints/framework facts, explicit infrastructure or
+architectural relations, or observed infrastructure resources. Degree alone,
+names, directory placement and size do not promote a node. LOW and UNKNOWN
+subjects remain in the significance model even when omitted from the primary
+projection. Projected edges are grouped by projected endpoints and relation,
+with support count, raw edge IDs, observations and evidence refs preserved.
+
+The read model now consumes the high-level projection without changing
+ArchitectureIR or renderer responsibilities. The project treats architecture
+in two dimensions: relevant high-level structures and materialized technical
+decisions. Decision recovery remains a future milestone and no human intent is
+inferred here.
