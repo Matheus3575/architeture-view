@@ -145,6 +145,46 @@
       "name": "hex_negative",
       "repository": "benchmarks/fixtures/hex_negative",
       "ground_truth": "ground_truth/hex_negative.json"
+    },
+    {
+      "name": "microservices_http",
+      "repository": "benchmarks/fixtures/microservices_http",
+      "ground_truth": "ground_truth/microservices_http.json"
+    },
+    {
+      "name": "microservices_broker",
+      "repository": "benchmarks/fixtures/microservices_broker",
+      "ground_truth": "ground_truth/microservices_broker.json"
+    },
+    {
+      "name": "microservices_containers",
+      "repository": "benchmarks/fixtures/microservices_containers",
+      "ground_truth": "ground_truth/microservices_containers.json"
+    },
+    {
+      "name": "microservices_modular",
+      "repository": "benchmarks/fixtures/microservices_modular",
+      "ground_truth": "ground_truth/microservices_modular.json"
+    },
+    {
+      "name": "microservices_names_only",
+      "repository": "benchmarks/fixtures/microservices_names_only",
+      "ground_truth": "ground_truth/microservices_names_only.json"
+    },
+    {
+      "name": "microservices_containers_only",
+      "repository": "benchmarks/fixtures/microservices_containers_only",
+      "ground_truth": "ground_truth/microservices_containers_only.json"
+    },
+    {
+      "name": "microservices_ambiguous",
+      "repository": "benchmarks/fixtures/microservices_ambiguous",
+      "ground_truth": "ground_truth/microservices_ambiguous.json"
+    },
+    {
+      "name": "microservices_negative",
+      "repository": "benchmarks/fixtures/microservices_negative",
+      "ground_truth": "ground_truth/microservices_negative.json"
     }
   ]
 }

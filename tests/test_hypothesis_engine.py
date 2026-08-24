@@ -1,5 +1,5 @@
 from architecture_recovery.architecture import ArchitectureHypothesisEngine
-from architecture_recovery.ir import ArchitectureIR, ArchitecturalGraph, Edge, EdgeType, Evidence, EvidenceSource, EvidenceStatus, FrameworkFact, Node, NodeType, RawCodeGraph, RepositoryInfo, SourceOrigin, SourceRef
+from architecture_recovery.ir import ArchitectureIR, ArchitecturalGraph, Edge, EdgeType, Evidence, EvidenceSource, EvidenceStatus, FrameworkFact, Node, NodeType, RawCodeGraph, RepositoryInfo, SourceOrigin, SourceRef, InfrastructureResource, InfrastructureRelation
 
 
 def _ir(with_contradiction=True):
@@ -172,3 +172,73 @@ def test_hexagonal_core_infrastructure_only_is_not_confirmed():
     assert hypothesis.status == EvidenceStatus.UNKNOWN
     assert hypothesis.supporting_evidence == []
     assert hypothesis.contradicting_evidence == ["hex-contradiction"]
+
+
+def _microservices_ir(*, communication=True, applications=2, shared_infrastructure=False, containers_only=False):
+    nodes = [
+        Node(id="a", type=NodeType.MODULE, name="a", origin=SourceOrigin.FIRST_PARTY),
+        Node(id="b", type=NodeType.MODULE, name="b", origin=SourceOrigin.FIRST_PARTY),
+    ]
+    evidence = []
+    facts = []
+    for index, module in enumerate(("a", "b")[:applications]):
+        ref = f"ms-app-{module}"
+        facts.append(FrameworkFact(kind="APPLICATION", subject=f"app_{module}", evidence_refs=[ref], attributes={"module": module}))
+        evidence.append(Evidence(id=ref, source_type=EvidenceSource.FRAMEWORK_ADAPTER, detail=ref, source=SourceRef(path=f"{module}.py", start_line=1)))
+    edges = []
+    if communication and applications == 2:
+        edges.append(Edge(id="ms-call", source="a", target="b", type=EdgeType.CALLS, evidence_refs=["ms-call"]))
+        evidence.append(Evidence(id="ms-call", source_type=EvidenceSource.CALL_GRAPH, detail="cross application call", source=SourceRef(path="a.py", start_line=2)))
+    resources = []
+    relations = []
+    if containers_only or shared_infrastructure:
+        for module in ("a", "b"):
+            resource_id = "shared-db" if shared_infrastructure else f"container-{module}"
+            resources.append(InfrastructureResource(id=resource_id, name=resource_id, kind="CONTAINER", evidence_refs=[f"ms-app-{module}"]))
+            relations.append(InfrastructureRelation(id=f"deploy-{module}", source=module, target=resource_id, type="deploys", evidence_refs=[f"ms-app-{module}"]))
+    return ArchitectureIR(
+        repository=RepositoryInfo(name="microservices", path="."),
+        raw_graph=RawCodeGraph(nodes=nodes, edges=edges),
+        architectural_graph=ArchitecturalGraph(nodes=nodes, edges=edges),
+        framework_facts=facts,
+        infrastructure_resources=resources,
+        infrastructure_relations=relations,
+        evidence=evidence,
+    )
+
+
+def _microservices_hypothesis(ir):
+    return next(item for item in ArchitectureHypothesisEngine().infer(ir).hypotheses if item.pattern == "microservices")
+
+
+def test_microservices_requires_independent_entrypoints_and_cross_unit_communication():
+    hypothesis = _microservices_hypothesis(_microservices_ir())
+    assert hypothesis.status == EvidenceStatus.INFERRED
+    assert {"ms-app-a", "ms-app-b", "ms-call"} <= set(hypothesis.evidence_refs)
+
+
+def test_microservices_modular_monolith_remains_unknown():
+    hypothesis = _microservices_hypothesis(_microservices_ir(communication=False, applications=1))
+    assert hypothesis.status == EvidenceStatus.UNKNOWN
+    assert hypothesis.supporting_evidence == []
+    assert hypothesis.contradicting_evidence
+
+
+def test_microservices_containers_alone_remain_unknown():
+    hypothesis = _microservices_hypothesis(_microservices_ir(communication=False, applications=0, containers_only=True))
+    assert hypothesis.status == EvidenceStatus.UNKNOWN
+    assert hypothesis.supporting_evidence == []
+
+
+def test_microservices_preserves_shared_infrastructure_contradiction():
+    hypothesis = _microservices_hypothesis(_microservices_ir(shared_infrastructure=True))
+    assert hypothesis.status == EvidenceStatus.INFERRED
+    assert hypothesis.contradicting_evidence
+    assert set(hypothesis.contradicting_evidence) <= set(hypothesis.evidence_refs)
+
+
+def test_microservices_detection_is_deterministic():
+    ir = _microservices_ir(shared_infrastructure=True)
+    first = ArchitectureHypothesisEngine().infer(ir).model_dump_json()
+    second = ArchitectureHypothesisEngine().infer(ir).model_dump_json()
+    assert first == second

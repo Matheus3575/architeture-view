@@ -176,3 +176,7 @@ The visualization benchmark now reports web_static_available, web_animated_avail
 ## M6.5 status
 
 The controlled benchmark suite now contains 29 cases, including six Hexagonal fixtures. Ground truths cover positive support, infrastructure presence, names-only UNKNOWN, direct core-to-infrastructure contradiction, ambiguous support plus contradiction and a negative case. All six pass with Hexagonal hypothesis recall 1.0, traceability recall 1.0, zero false positives in UNKNOWN cases, preserved contradiction evidence and deterministic analysis. The full suite remains deterministic and prior Layered/MVC metrics remain unchanged.
+
+## M6.6 status
+
+The benchmark suite adds eight Microservices fixtures covering clear HTTP and messaging boundaries, containers, modular monoliths, names-only structures, container-only structures, ambiguity and a negative case. Ground truths evaluate status, traceability, support, UNKNOWN correctness, contradiction preservation and deterministic analysis.

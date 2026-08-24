@@ -107,3 +107,7 @@ Generate both modes with `architecture-recovery visualize <repository> --animate
 ## M6.5 result
 
 M6.5 is complete. Hexagonal is an independent conservative hypothesis based on directional ports-and-adapters evidence. Names-only structures remain UNKNOWN, contradictions remain traceable and Layered/MVC hypotheses remain independent. The next recommended milestone is another bounded detector only if a distinct evidence contract is available; otherwise prioritize improving evidence coverage without adding new scans.
+
+## M6.6 result
+
+M6.6 is complete as a conservative Microservices detector. Independent application facts plus explicit cross-unit communication are required for inference; modular monoliths and infrastructure-only layouts remain UNKNOWN. The next recommended step is improving existing boundary evidence coverage, not adding another inference heuristic.

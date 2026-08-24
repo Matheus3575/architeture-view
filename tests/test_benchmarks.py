@@ -34,7 +34,14 @@ def test_controlled_benchmarks_pass_and_report_metrics():
         "hex_names_only",
         "hex_direct_infrastructure",
         "hex_ambiguous",
-        "hex_negative",
+        "hex_negative",        "microservices_http",
+        "microservices_broker",
+        "microservices_containers",
+        "microservices_modular",
+        "microservices_names_only",
+        "microservices_containers_only",
+        "microservices_ambiguous",
+        "microservices_negative",
     }
     assert all(result["passed"] for result in results)
     assert all(result["execution_passed"] for result in results)

@@ -120,3 +120,19 @@ Visualization CLI is implemented as a thin orchestration layer. `visualize` and 
 ## M6.5 status
 
 The Hexagonal detector is implemented inside ArchitectureHypothesisEngine and reuses EvidenceScorer. It identifies port candidates only from existing `INTERFACE`/`ports` semantics or an evidence-bearing `IMPLEMENTS`/`EXTENDS` boundary, and never confirms from names alone. It requires at least two support categories for an INFERRED result, preserves contradicting evidence for direct core-to-concrete-infrastructure dependencies, and emits UNKNOWN when evidence is insufficient. No Raw Graph, parser, scanner or ArchitectureIR schema change was introduced.
+
+## M6.6 — Evidence-Based Microservices Detector
+
+M6.6 adds an independent `microservices` hypothesis to the existing
+`ArchitectureHypothesisEngine`. It consumes indexed ArchitectureIR nodes,
+component memberships, framework `APPLICATION` facts, graph relations and
+existing infrastructure facts. A positive result requires at least two
+independently observed application units and explicit cross-unit communication;
+containers, Compose resources and infrastructure are complementary signals
+only. Directory names, multiple modules, Compose alone and shared infrastructure
+alone remain insufficient.
+
+The detector preserves evidence and contradictions, including single-entrypoint
+and shared-infrastructure signals, and returns `UNKNOWN` when independent
+boundaries or communication cannot be established. It uses bounded indexes and
+no additional scan, parser, symbol resolution, renderer or schema change.

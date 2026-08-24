@@ -1,0 +1,12 @@
+{
+  "hypotheses": {
+    "required": [
+      {
+        "pattern": "microservices",
+        "status": "unknown",
+        "requires_no_support": true
+      }
+    ],
+    "forbidden": []
+  }
+}

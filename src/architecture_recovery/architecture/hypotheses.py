@@ -51,6 +51,12 @@ _HEX_INFRASTRUCTURE_TYPES = _INFRASTRUCTURE_TYPES | {
     NodeType.EXTERNAL_SERVICE,
     NodeType.EXTERNAL_DEPENDENCY,
 }
+_MICROSERVICE_COMMUNICATION_EDGES = {
+    EdgeType.ROUTES_TO, EdgeType.PUBLISHES, EdgeType.CONSUMES,
+    EdgeType.CONNECTS_TO, EdgeType.DEPENDS_ON, EdgeType.CALLS,
+}
+_MICROSERVICE_BROKER_TYPES = {NodeType.MESSAGE_BROKER, NodeType.QUEUE}
+
 _HEX_PORT_EDGE_TYPES = {
     EdgeType.IMPORTS,
     EdgeType.DEPENDS_ON,
@@ -101,6 +107,13 @@ class ArchitectureHypothesisEngine:
         mvc_supporting, mvc_contradicting = self._mvc_signals(ir)
         mvc = self._hypothesis("mvc", mvc_supporting, mvc_contradicting, "MVC", "semantic MVC relation", "controller/model/persistence evidence is insufficient")
         hexagonal_supporting, hexagonal_contradicting = self._hexagonal_signals(ir)
+        microservices_supporting, microservices_contradicting = self._microservices_signals(ir)
+        microservices = self._hypothesis(
+            "microservices", microservices_supporting, microservices_contradicting,
+            "Microservices", "independent service boundary",
+            "independent entrypoints and cross-unit communication are insufficient",
+            minimum_support_categories=2,
+        )
         hexagonal = self._hypothesis(
             "hexagonal",
             hexagonal_supporting,
@@ -111,9 +124,9 @@ class ArchitectureHypothesisEngine:
             minimum_support_categories=2,
         )
         return ArchitectureAnalysis(
-            hypotheses=[layered, mvc, hexagonal],
+            hypotheses=[layered, mvc, hexagonal, microservices],
             metrics={
-                "hypothesis_engine": "m6.5",
+                "hypothesis_engine": "m6.6",
                 "hypothesis_evidence_scoring": "(support - contradiction) / (support + contradiction + 1)",
                 "layered_support_count": len(layered_supporting),
                 "layered_contradiction_count": len(layered_contradicting),
@@ -123,7 +136,10 @@ class ArchitectureHypothesisEngine:
                 "mvc_signal_sources": sorted({item.reason.split(":", 1)[0] for item in mvc_supporting + mvc_contradicting}),
                 "hexagonal_support_count": len(hexagonal_supporting),
                 "hexagonal_contradiction_count": len(hexagonal_contradicting),
-                "hexagonal_signal_sources": sorted({item.reason.split(":", 1)[0] for item in hexagonal_supporting + hexagonal_contradicting}),
+
+                "microservices_support_count": len(microservices_supporting),
+                "microservices_contradiction_count": len(microservices_contradicting),
+                "microservices_signal_sources": sorted({item.reason.split(":", 1)[0] for item in microservices_supporting + microservices_contradicting}),
             },
         )
 
@@ -163,7 +179,7 @@ class ArchitectureHypothesisEngine:
         roles = _role_index(ir)
         supporting: list[EvidenceContribution] = []
         contradicting: list[EvidenceContribution] = []
-        seen: set[tuple[str, ...]] = set()
+        seen: set[tuple[bool, tuple[str, ...]]] = set()
 
         edges = [
             *sorted(ir.raw_graph.edges, key=_edge_key),
@@ -286,6 +302,121 @@ class ArchitectureHypothesisEngine:
             "database", "storage", "cache", "queue", "message_broker", "infrastructure"
         }
 
+    def _microservices_signals(self, ir: ArchitectureIR):
+        """Collect bounded independent-unit and cross-boundary signals."""
+        raw_nodes = {node.id: node for node in ir.raw_graph.nodes}
+        arch_nodes = _architectural_node_index(ir, raw_nodes)
+        evidence = {item.id: item for item in ir.evidence}
+        unit_by_id: dict[str, str] = {}
+        unit_entry_refs: dict[str, set[str]] = {}
+        unit_infra: dict[str, set[str]] = {}
+
+        def register(value: str | None, unit: str, refs: list[str] | tuple[str, ...] = ()) -> None:
+            if not value:
+                return
+            unit_by_id[value] = unit
+            valid_refs = {ref for ref in refs if ref in evidence}
+            if valid_refs:
+                unit_entry_refs.setdefault(unit, set()).update(valid_refs)
+
+        for component in sorted(ir.component_candidates, key=lambda item: item.id):
+            for node_id in component.node_ids:
+                register(node_id, component.id)
+        for node in sorted(arch_nodes.values(), key=lambda item: item.id):
+            raw_ids = node.metadata.get("raw_node_ids", [])
+            units = {unit_by_id[item] for item in raw_ids if item in unit_by_id}
+            if len(units) == 1:
+                register(node.id, next(iter(units)))
+            elif node.type in {NodeType.APPLICATION, NodeType.COMPONENT}:
+                register(node.id, node.id)
+        for fact in sorted(ir.framework_facts, key=lambda item: (item.kind, item.subject or "", item.target or "")):
+            if fact.kind != "APPLICATION":
+                continue
+            subject = fact.subject or fact.attributes.get("application")
+            module = fact.attributes.get("module")
+            module_id = next((node_id for node_id in raw_nodes if node_id.endswith(f":{module}")), module)
+            unit = module_id or subject
+            if unit:
+                register(subject, unit, fact.evidence_refs)
+                register(module_id, unit, fact.evidence_refs)
+                unit_entry_refs.setdefault(unit, set()).update(ref for ref in fact.evidence_refs if ref in evidence)
+
+        for node_id in raw_nodes:
+            module_name = node_id.split(":", 1)[-1].split(".", 1)[0]
+            module_id = next((candidate for candidate in unit_by_id if candidate.endswith(f":{module_name}")), None)
+            if module_id:
+                unit_by_id[node_id] = unit_by_id[module_id]
+        entry_units = set(unit_entry_refs)
+        supporting: list[EvidenceContribution] = []
+        contradicting: list[EvidenceContribution] = []
+        seen: set[tuple[bool, tuple[str, ...]]] = set()
+
+        def add(target: list[EvidenceContribution], refs, weight, reason, status=EvidenceStatus.OBSERVED) -> None:
+            valid = tuple(sorted(ref for ref in refs if ref in evidence))
+            key = (target is contradicting, valid)
+            if valid and key not in seen:
+                seen.add(key)
+                target.append(EvidenceContribution(valid, weight, reason, status))
+
+        communication_units: set[tuple[str, str]] = set()
+        for edge in [*sorted(ir.raw_graph.edges, key=_edge_key), *sorted(ir.architectural_graph.edges, key=_edge_key)]:
+            source_unit = unit_by_id.get(edge.source)
+            target_unit = unit_by_id.get(edge.target)
+            if not source_unit or not target_unit or source_unit == target_unit:
+                continue
+            if source_unit not in entry_units or target_unit not in entry_units:
+                continue
+            refs = tuple(edge.evidence_refs)
+            if edge.type in _MICROSERVICE_COMMUNICATION_EDGES:
+                communication_units.add(tuple(sorted((source_unit, target_unit))))
+                category = "messaging" if edge.type in {EdgeType.PUBLISHES, EdgeType.CONSUMES} else "external_communication"
+                add(supporting, refs, 4.0 if category == "messaging" else 3.5, f"support:{category}:cross-unit {edge.type.value}", edge.status)
+
+        resource_by_id = {resource.id: resource for resource in ir.infrastructure_resources}
+        for relation in sorted(ir.infrastructure_relations, key=lambda item: (item.source, item.target, item.type, item.id)):
+            source_unit = unit_by_id.get(relation.source)
+            target = resource_by_id.get(relation.target)
+            if source_unit and target and target.kind.upper() in {"CONTAINER", "SERVICE", "CONFIGURATION"}:
+                unit_infra.setdefault(source_unit, set()).add(target.id)
+        if len(entry_units) >= 2:
+            independent_infra = [unit for unit in sorted(entry_units) if unit_infra.get(unit)]
+            if len(independent_infra) >= 2 and len(set().union(*(unit_infra[unit] for unit in independent_infra))) >= 2:
+                refs = sorted(ref for unit in independent_infra for ref in unit_entry_refs.get(unit, set()))
+                add(supporting, refs, 2.0, "support:deployment_separation:independent units have explicit infrastructure")
+
+        shared_resources = {
+            resource_id
+            for resource_id in set().union(*(unit_infra.get(unit, set()) for unit in entry_units))
+            if sum(resource_id in unit_infra.get(unit, set()) for unit in entry_units) > 1
+        }
+        if shared_resources and len(entry_units) >= 2:
+            refs = sorted(ref for unit in entry_units for ref in unit_entry_refs.get(unit, set()))
+            add(contradicting, refs, 1.5, "contradiction:shared_infrastructure:entrypoints share an infrastructure resource")
+        if len(entry_units) >= 2 and communication_units:
+            refs = sorted(ref for unit in entry_units for ref in unit_entry_refs.get(unit, set()))
+            add(supporting, refs, 2.0, "support:independent_entrypoints:multiple application facts")
+        elif len(entry_units) == 1:
+            unit = next(iter(entry_units))
+            refs = unit_entry_refs.get(unit, set())
+            add(contradicting, refs, 3.0, "contradiction:single_entrypoint:only one application fact")
+        elif not entry_units:
+            return [], []
+
+        if len(entry_units) >= 2 and not communication_units:
+            refs = sorted(ref for unit in entry_units for ref in unit_entry_refs.get(unit, set()))
+            add(contradicting, refs, 2.5, "contradiction:no_external_communication:independent entrypoints are disconnected")
+        if len(entry_units) == 1:
+            unit = next(iter(entry_units))
+            internal_refs = []
+            for edge in ir.raw_graph.edges:
+                if unit_by_id.get(edge.source) == unit and unit_by_id.get(edge.target) == unit:
+                    internal_refs.extend(edge.evidence_refs)
+            add(contradicting, internal_refs, 2.0, "contradiction:intra_process_coupling:relations remain within one unit")
+
+        categories = {item.reason.split(":", 2)[1] for item in supporting if item.reason.startswith("support:")}
+        if len(entry_units) < 2 or "external_communication" not in categories and "messaging" not in categories:
+            supporting = []
+        return supporting, contradicting
     def _layered_signals(self, ir: ArchitectureIR) -> tuple[list[EvidenceContribution], list[EvidenceContribution]]:
         raw_nodes = {node.id: node for node in ir.raw_graph.nodes}
         arch_nodes = _architectural_node_index(ir, raw_nodes)
@@ -293,7 +424,7 @@ class ArchitectureHypothesisEngine:
         roles = _role_index(ir)
         supporting: list[EvidenceContribution] = []
         contradicting: list[EvidenceContribution] = []
-        seen: set[tuple[str, ...]] = set()
+        seen: set[tuple[bool, tuple[str, ...]]] = set()
 
         for edge in sorted(ir.raw_graph.edges, key=_edge_key):
             signal = self._edge_signal(edge, raw_nodes, evidence, roles)

@@ -1,0 +1,13 @@
+{
+  "hypotheses": {
+    "required": [
+      {
+        "pattern": "microservices",
+        "status": "inferred",
+        "requires_traceability": true,
+        "requires_support": true
+      }
+    ],
+    "forbidden": []
+  }
+}

@@ -776,3 +776,19 @@ M7.7 adds high-level `visualize` and `serve` commands. Each invocation analyzes 
 ## M6.5 — Evidence-Based Hexagonal Architecture Detection
 
 M6.5 adds an independent `hexagonal` hypothesis using only existing IR nodes, relations, framework facts, infrastructure semantics and evidence. Support requires multiple directional categories: input boundary to core, core dependency on a port contract, and/or an infrastructure adapter implementing/extending a port. Direct core-to-concrete-infrastructure relations are preserved as contradictions. Names-only fixtures remain UNKNOWN. Six controlled fixtures cover positive, infrastructure-backed, names-only, direct contradiction, ambiguous support/contradiction and negative cases.
+
+## M6.6 â€” Evidence-Based Microservices Detector
+
+M6.6 adds an independent `microservices` hypothesis to the existing
+`ArchitectureHypothesisEngine`. It consumes indexed ArchitectureIR nodes,
+component memberships, framework `APPLICATION` facts, graph relations and
+existing infrastructure facts. A positive result requires at least two
+independently observed application units and explicit cross-unit communication;
+containers, Compose resources and infrastructure are complementary signals
+only. Directory names, multiple modules, Compose alone and shared infrastructure
+alone remain insufficient.
+
+The detector preserves evidence and contradictions, including single-entrypoint
+and shared-infrastructure signals, and returns `UNKNOWN` when independent
+boundaries or communication cannot be established. It uses bounded indexes and
+no additional scan, parser, symbol resolution, renderer or schema change.

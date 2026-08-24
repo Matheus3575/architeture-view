@@ -1,0 +1,7 @@
+services:
+  users:
+    build: .
+  orders:
+    build: .
+  shared-db:
+    image: postgres:16

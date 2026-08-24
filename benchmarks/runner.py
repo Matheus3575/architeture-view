@@ -143,6 +143,8 @@ def _evaluate_hypotheses(ir, ground_truth, failures):
         and actual.get(item["pattern"])
         and actual[item["pattern"]].status.value != "unknown"
     )
+    microservices = actual.get("microservices")
+    microservices_expected = next((item for item in required if item["pattern"] == "microservices"), None)
     return {
         "hypothesis_evaluated": len(required),
         "hypothesis_recall": _ratio(len(required) - sum(1 for item in required if item["pattern"] not in actual), len(required)),
@@ -151,6 +153,17 @@ def _evaluate_hypotheses(ir, ground_truth, failures):
         "hypothesis_false_positive_count": false_positive_count,
         "hypothesis_supporting_count": sum(len(item.supporting_evidence) for item in actual.values()),
         "hypothesis_contradicting_count": sum(len(item.contradicting_evidence) for item in actual.values()),
+        "microservices_status": microservices.status.value if microservices else None,
+        "microservices_hypothesis_recall": _ratio(1 if microservices and microservices_expected else 0, 1 if microservices_expected else 0),
+        "microservices_traceability_recall": _ratio(
+            1 if microservices and microservices.evidence_refs and microservices_expected else 0,
+            1 if microservices_expected and microservices_expected.get("requires_traceability") else 0,
+        ),
+        "microservices_false_positive": bool(
+            microservices and microservices_expected and microservices_expected.get("status") == "unknown"
+            and microservices.status.value != "unknown"
+        ),
+        "microservices_contradiction_count": len(microservices.contradicting_evidence) if microservices else 0,
     }
 
 def _evaluate_read_model(first, second, ground_truth, failures):
