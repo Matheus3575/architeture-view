@@ -1,0 +1,24 @@
+{
+  "source_origins": [
+    {"path": "src/shared_namespace/utilities.py", "origin": "first_party"},
+    {"path": "src/app/main.py", "origin": "first_party"}
+  ],
+  "raw_nodes": {
+    "required": ["shared_namespace.utilities.value", "app.main.load"]
+  },
+  "raw_edges": {
+    "required": [
+      {"source": "app.main.load", "target": "shared_namespace.utilities.value", "type": "CALLS"}
+    ]
+  },
+  "symbol_resolutions": [
+    {
+      "path": "src/app/main.py",
+      "line": 5,
+      "caller": "app.main.load",
+      "callee": "value",
+      "status": "resolved",
+      "target": "shared_namespace.utilities.value"
+    }
+  ]
+}

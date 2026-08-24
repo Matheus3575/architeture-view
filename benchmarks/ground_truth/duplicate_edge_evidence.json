@@ -1,0 +1,33 @@
+{
+  "raw_edges": {
+    "required": [
+      {"source": "consumer.execute", "target": "services.save", "type": "CALLS"}
+    ]
+  },
+  "edge_support": [
+    {
+      "source": "consumer.execute",
+      "target": "services.save",
+      "type": "CALLS",
+      "min_support_count": 2
+    }
+  ],
+  "symbol_resolutions": [
+    {
+      "path": "consumer.py",
+      "line": 5,
+      "caller": "consumer.execute",
+      "callee": "save",
+      "status": "resolved",
+      "target": "services.save"
+    },
+    {
+      "path": "consumer.py",
+      "line": 6,
+      "caller": "consumer.execute",
+      "callee": "save",
+      "status": "resolved",
+      "target": "services.save"
+    }
+  ]
+}

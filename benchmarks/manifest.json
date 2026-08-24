@@ -1,0 +1,65 @@
+{
+  "version": "0.1",
+  "cases": [
+    {
+      "name": "component_detection",
+      "repository": "benchmarks/fixtures/component_detection",
+      "ground_truth": "ground_truth/component_detection.json"
+    },
+    {
+      "name": "fastapi_semantics",
+      "repository": "benchmarks/fixtures/fastapi_semantics",
+      "ground_truth": "ground_truth/fastapi_semantics.json"
+    },
+    {
+      "name": "fastapi_sample",
+      "repository": "examples/fastapi_sample",
+      "ground_truth": "ground_truth/fastapi_sample.json"
+    },
+    {
+      "name": "simple_python_layered",
+      "repository": "examples/simple_python_layered",
+      "ground_truth": "ground_truth/simple_python_layered.json"
+    },
+    {
+      "name": "src_layout",
+      "repository": "benchmarks/fixtures/src_layout",
+      "ground_truth": "ground_truth/src_layout.json"
+    },
+    {
+      "name": "monorepo",
+      "repository": "benchmarks/fixtures/monorepo",
+      "ground_truth": "ground_truth/monorepo.json"
+    },
+    {
+      "name": "namespace_package",
+      "repository": "benchmarks/fixtures/namespace_package",
+      "ground_truth": "ground_truth/namespace_package.json"
+    },
+    {
+      "name": "ambiguous_short_name",
+      "repository": "benchmarks/fixtures/ambiguous_short_name",
+      "ground_truth": "ground_truth/ambiguous_short_name.json"
+    },
+    {
+      "name": "scoped_type_hints",
+      "repository": "benchmarks/fixtures/scoped_type_hints",
+      "ground_truth": "ground_truth/scoped_type_hints.json"
+    },
+    {
+      "name": "duplicate_edge_evidence",
+      "repository": "benchmarks/fixtures/duplicate_edge_evidence",
+      "ground_truth": "ground_truth/duplicate_edge_evidence.json"
+    },
+    {
+      "name": "dynamic_dispatch",
+      "repository": "benchmarks/fixtures/dynamic_dispatch",
+      "ground_truth": "ground_truth/dynamic_dispatch.json"
+    },
+    {
+      "name": "basic_data_flow",
+      "repository": "benchmarks/fixtures/basic_data_flow",
+      "ground_truth": "ground_truth/basic_data_flow.json"
+    }
+  ]
+}

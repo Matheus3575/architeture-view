@@ -1,0 +1,64 @@
+{
+  "source_origins": [
+    {"path": "app/api.py", "origin": "first_party"},
+    {"path": "app/services.py", "origin": "first_party"},
+    {"path": "src/app/core.py", "origin": "first_party"},
+    {"path": "vendor/third_party.py", "origin": "third_party"},
+    {"path": "generated/schema_generated.py", "origin": "generated"}
+  ],
+  "raw_nodes": {
+    "required": [
+      "app.api.user_endpoint",
+      "app.services.get_user",
+      "app.core.core_value",
+      "external_symbol:fastapi.FastAPI"
+    ],
+    "forbidden": ["external_symbol:fastapi.routing.get_request_handler"]
+  },
+  "raw_edges": {
+    "required": [
+      {"source": "module:app.api", "target": "app.services.get_user", "type": "IMPORTS"},
+      {"source": "module:app.api", "target": "external_symbol:fastapi.Depends", "type": "IMPORTS"}
+    ]
+  },
+  "symbol_resolutions": [
+    {
+      "path": "app/api.py",
+      "line": 13,
+      "caller": "app.api",
+      "callee": "FastAPI",
+      "status": "resolved",
+      "target": "external_symbol:fastapi.FastAPI"
+    },
+    {
+      "path": "app/api.py",
+      "line": 18,
+      "caller": "app.api.user_endpoint",
+      "callee": "User",
+      "status": "resolved",
+      "target": "app.api.User"
+    },
+    {
+      "path": "app/api.py",
+      "line": 18,
+      "caller": "app.api.user_endpoint",
+      "callee": "str",
+      "status": "unresolved"
+    }
+  ],
+  "decorator_evidence": [
+    {
+      "node_id": "app.api.user_endpoint",
+      "decorators": [
+        {
+          "owner": "app.api.user_endpoint",
+          "expression": "application.get",
+          "arguments": ["/users"],
+          "path": "app/api.py",
+          "line": 16
+        }
+      ]
+    }
+  ],
+  "architectural_edges": {}
+}

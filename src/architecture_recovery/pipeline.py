@@ -4,15 +4,30 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from architecture_recovery.architecture import ArchitectureInferer
-from architecture_recovery.graph import GraphBuilder
+from architecture_recovery.classification import PythonRepositoryClassifier
+from architecture_recovery.components import ComponentDetectionContext, ComponentDetector
+from architecture_recovery.graph import (
+    ArchitecturalGraphBuilder,
+    GraphAggregationConfig,
+    GraphBuilder,
+    PropertyGraph,
+)
 from architecture_recovery.infrastructure import InfrastructureAnalyzer
+from architecture_recovery.frameworks import (
+    FrameworkAdapter,
+    FrameworkAnalysisContext,
+    FrameworkAdapterRegistry,
+    default_registry,
+)
 from architecture_recovery.ir import (
+    ArchitecturalGraph,
     ArchitectureIR,
     Component,
     Evidence,
     EvidenceSource,
     EvidenceStatus,
     RepositoryInfo,
+    RawCodeGraph,
     SourceRef,
 )
 from architecture_recovery.parsing import ParseFacts, PythonParser
@@ -23,18 +38,37 @@ from architecture_recovery.symbols import SymbolResolver
 from architecture_recovery.validation import ArchitectureValidator
 
 
-def analyze_repository(repository: str | Path, ref: str | None = None) -> ArchitectureIR:
+def analyze_repository(
+    repository: str | Path,
+    ref: str | None = None,
+    aggregation_config: GraphAggregationConfig | None = None,
+    framework_adapters: tuple[FrameworkAdapter, ...] | None = None,
+) -> ArchitectureIR:
     """Analyze a local repository or clone and analyze a repository URL."""
     repository_value = str(repository)
     if is_repository_url(repository_value):
         with cloned_repository(repository_value, ref=ref) as local_path:
-            return _analyze_local_repository(local_path, source_url=repository_value)
+            return _analyze_local_repository(
+                local_path,
+                source_url=repository_value,
+                aggregation_config=aggregation_config,
+                framework_adapters=framework_adapters,
+            )
     if ref:
         raise ValueError("--ref/--branch can only be used with a repository URL")
-    return _analyze_local_repository(repository_value)
+    return _analyze_local_repository(
+        repository_value,
+        aggregation_config=aggregation_config,
+        framework_adapters=framework_adapters,
+    )
 
 
-def _analyze_local_repository(repository_path: str | Path, source_url: str | None = None) -> ArchitectureIR:
+def _analyze_local_repository(
+    repository_path: str | Path,
+    source_url: str | None = None,
+    aggregation_config: GraphAggregationConfig | None = None,
+    framework_adapters: tuple[FrameworkAdapter, ...] | None = None,
+) -> ArchitectureIR:
     scanner = RepositoryScanner()
     snapshot = scanner.scan(repository_path)
     stack, stack_evidence = StackDetector().detect(snapshot)
@@ -46,34 +80,98 @@ def _analyze_local_repository(repository_path: str | Path, source_url: str | Non
         if file.language != "python":
             continue
         try:
-            facts = parser.parse(file.path, file.absolute_path.read_text(encoding="utf-8", errors="ignore"))
+            facts = parser.parse(
+                file.path,
+                file.absolute_path.read_text(encoding="utf-8", errors="ignore"),
+                module_name_override=_python_module_name(snapshot, file.path),
+            )
         except OSError as exc:
-            facts = ParseFacts(path=file.path, module_name=parser.module_name(file.path), errors=[str(exc)])
+            facts = ParseFacts(
+                path=file.path,
+                module_name=_python_module_name(snapshot, file.path),
+                errors=[str(exc)],
+            )
         parsed_files.append(facts)
         parse_warnings.extend(f"{file.path}: {error}" for error in facts.errors)
 
     symbols = SymbolResolver().resolve(parsed_files)
-    graph = GraphBuilder().build(snapshot, parsed_files, symbols)
+    classifier = PythonRepositoryClassifier(snapshot, parsed_files)
+    graph = GraphBuilder().build(snapshot, parsed_files, symbols, classifier=classifier)
+    framework_context = FrameworkAnalysisContext(
+        raw_graph=graph,
+        parsed_files=tuple(parsed_files),
+        symbols=symbols,
+    )
+    registry = FrameworkAdapterRegistry(framework_adapters) if framework_adapters is not None else default_registry()
+    framework_results = registry.analyze(framework_context)
+    framework_facts = [fact for result in framework_results for fact in result.facts]
+    framework_evidence = [evidence for result in framework_results for evidence in result.evidence]
     InfrastructureAnalyzer().augment(graph, snapshot)
-    architecture = ArchitectureInferer().infer(graph, stack)
-    components, component_evidence = _components(snapshot, graph)
+    classifications = classifier.classify_graph(graph)
+    aggregated = ArchitecturalGraphBuilder(aggregation_config).build(graph, snapshot)
+    architectural_graph = PropertyGraph(
+        nodes=aggregated.nodes,
+        edges=aggregated.edges,
+        evidence=aggregated.evidence,
+    )
+    component_detection = ComponentDetector().detect(
+        ComponentDetectionContext(
+            raw_graph=graph,
+            architectural_graph=ArchitecturalGraph(
+                nodes=list(aggregated.nodes.values()),
+                edges=aggregated.edges,
+            ),
+            framework_facts=tuple(framework_facts),
+        )
+    )
 
+    evidence_by_id = {
+        item.id: item
+        for item in [
+            *stack_evidence,
+            *graph.evidence.values(),
+            *framework_evidence,
+            *aggregated.evidence.values(),
+            *component_detection.evidence,
+        ]
+    }
     ir = ArchitectureIR(
         repository=RepositoryInfo(
             name=_repository_name(snapshot, source_url),
             path=snapshot.root.as_posix(),
             source_url=source_url,
         ),
+        raw_graph=RawCodeGraph(
+            nodes=list(graph.nodes.values()),
+            edges=graph.edges,
+            unresolved_calls=graph.unresolved_calls,
+        ),
+        architectural_graph=ArchitecturalGraph(
+            nodes=list(aggregated.nodes.values()),
+            edges=aggregated.edges,
+        ),
+        classifications=classifications,
         stack=stack,
         nodes=list(graph.nodes.values()),
         edges=graph.edges,
-        components=components,
-        architecture=architecture,
-        evidence=[*stack_evidence, *graph.evidence.values(), *component_evidence],
+        components=aggregated.components,
+        component_candidates=component_detection.candidates,
+        component_unassigned_node_ids=component_detection.unassigned_node_ids,
+        component_detection_metrics=component_detection.metrics,
+        evidence=list(evidence_by_id.values()),
+        framework_facts=framework_facts,
     ).canonicalize()
-    report = ArchitectureValidator().validate(ir)
-    report.warnings.extend(parse_warnings)
-    ir.validation = report
+    validator = ArchitectureValidator()
+    structural_report = validator.validate(ir)
+    structural_report.warnings.extend(parse_warnings)
+    ir.validation = structural_report
+
+    if structural_report.valid:
+        ir.architecture = ArchitectureInferer().infer(architectural_graph, stack)
+
+    final_report = validator.validate(ir)
+    final_report.warnings = sorted(set(structural_report.warnings + final_report.warnings))
+    ir.validation = final_report
     return ir.canonicalize()
 
 
@@ -83,6 +181,21 @@ def _repository_name(snapshot, source_url: str | None) -> str:
     path = unquote(urlparse(source_url).path.rstrip("/"))
     name = Path(path).name
     return name[:-4] if name.endswith(".git") else name or snapshot.root.name
+
+
+def _python_module_name(snapshot, relative_path: str) -> str:
+    """Derive import names from the most specific discovered import root."""
+    absolute = (snapshot.root / relative_path).resolve()
+    candidates: list[tuple[int, str]] = []
+    for import_root in snapshot.boundary.import_roots or (snapshot.root,):
+        try:
+            relative = absolute.relative_to(import_root)
+        except ValueError:
+            continue
+        candidates.append((len(import_root.parts), PythonParser.module_name(relative.as_posix())))
+    if not candidates:
+        return PythonParser.module_name(relative_path)
+    return max(candidates, key=lambda item: item[0])[1]
 
 
 def _components(snapshot, graph):

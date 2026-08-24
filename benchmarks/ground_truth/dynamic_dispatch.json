@@ -1,0 +1,20 @@
+{
+  "symbol_resolutions": [
+    {
+      "path": "consumer.py",
+      "line": 3,
+      "caller": "consumer.execute",
+      "callee": "handler",
+      "status": "unresolved"
+    }
+  ],
+  "expected_unresolved_calls": [
+    {
+      "caller": "consumer.execute",
+      "callee": "handler",
+      "path": "consumer.py",
+      "line": 3,
+      "reason": "dynamic_dispatch"
+    }
+  ]
+}

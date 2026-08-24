@@ -1,0 +1,47 @@
+# Local agent instructions and generated project reports
+AGENTS.md
+architecture-recovery-engine.md
+architecture-recovery-report.md
+
+# Python caches and test/analysis artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Build and packaging artifacts
+build/
+dist/
+*.egg-info/
+
+# Generated architecture outputs
+/architecture*.json
+/architecture*.graphml
+/architecture*.mmd
+
+# Editor and operating-system files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example

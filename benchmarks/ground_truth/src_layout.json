@@ -1,0 +1,46 @@
+{
+  "source_origins": [
+    {"path": "src/sample_app/__init__.py", "origin": "first_party"},
+    {"path": "src/sample_app/main.py", "origin": "first_party"},
+    {"path": "src/sample_app/services.py", "origin": "first_party"}
+  ],
+  "raw_nodes": {
+    "required": [
+      "sample_app.main.load",
+      "sample_app.services.UserService",
+      "sample_app.services.UserService.get_user"
+    ]
+  },
+  "raw_edges": {
+    "required": [
+      {"source": "sample_app.main.load", "target": "sample_app.services.UserService", "type": "INSTANTIATES"},
+      {"source": "sample_app.main.load", "target": "sample_app.services.UserService.get_user", "type": "CALLS"}
+    ]
+  },
+  "symbol_resolutions": [
+    {
+      "path": "src/sample_app/main.py",
+      "line": 5,
+      "caller": "sample_app.main.load",
+      "callee": "US",
+      "status": "resolved",
+      "target": "sample_app.services.UserService"
+    },
+    {
+      "path": "src/sample_app/main.py",
+      "line": 6,
+      "caller": "sample_app.main.load",
+      "callee": "service.get_user",
+      "status": "resolved",
+      "target": "sample_app.services.UserService.get_user"
+    }
+  ],
+  "alias_evidence": [
+    {
+      "source": "module:sample_app.main",
+      "target": "sample_app.services.UserService",
+      "local_name": "US",
+      "imported_name": "sample_app.services.UserService"
+    }
+  ]
+}

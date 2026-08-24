@@ -1,0 +1,31 @@
+{
+  "source_origins": [
+    {"path": "storage.py", "origin": "first_party"},
+    {"path": "logic.py", "origin": "first_party"},
+    {"path": "main.py", "origin": "first_party"}
+  ],
+  "symbol_resolutions": [
+    {
+      "path": "main.py",
+      "line": 7,
+      "caller": "main",
+      "callee": "y.execute",
+      "status": "resolved",
+      "target": "logic.Y.execute"
+    },
+    {
+      "path": "logic.py",
+      "line": 9,
+      "caller": "logic.Y.execute",
+      "callee": "self.dependency.find",
+      "status": "resolved",
+      "target": "storage.X.find"
+    }
+  ],
+  "raw_edges": {
+    "required": [
+      {"source": "module:main", "target": "logic.Y.execute", "type": "CALLS"},
+      {"source": "logic.Y.execute", "target": "storage.X.find", "type": "CALLS"}
+    ]
+  }
+}

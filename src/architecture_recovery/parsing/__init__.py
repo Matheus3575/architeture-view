@@ -1,4 +1,23 @@
-from .base import CallFact, DefinitionFact, ImportFact, ParseFacts
+from .base import (
+    AssignmentFact,
+    CallFact,
+    DecoratorFact,
+    DefinitionFact,
+    ImportFact,
+    ParseFacts,
+    ReturnFact,
+    TypeHintFact,
+)
 from .python import PythonParser
 
-__all__ = ["CallFact", "DefinitionFact", "ImportFact", "ParseFacts", "PythonParser"]
+__all__ = [
+    "AssignmentFact",
+    "CallFact",
+    "DecoratorFact",
+    "DefinitionFact",
+    "ImportFact",
+    "ParseFacts",
+    "ReturnFact",
+    "PythonParser",
+    "TypeHintFact",
+]

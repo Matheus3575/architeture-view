@@ -1,0 +1,9 @@
+{
+  "source_origins": [
+    {"path": "packages/catalog/src/catalog/models.py", "origin": "first_party"},
+    {"path": "packages/billing/src/billing/models.py", "origin": "first_party"}
+  ],
+  "raw_nodes": {
+    "required": ["catalog.models.Item", "billing.models.Invoice"]
+  }
+}

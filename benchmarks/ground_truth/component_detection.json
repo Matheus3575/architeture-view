@@ -1,0 +1,31 @@
+{
+  "component_detection": {
+    "required_components": [
+      {
+        "members": [
+          "module:api",
+          "module:logic",
+          "module:repository"
+        ],
+        "status": "uncertain",
+        "required_evidence_types": ["CALLS", "INSTANTIATES", "DATA_FLOW"],
+        "min_evidence_refs": 3
+      }
+    ],
+    "forbidden_groupings": [
+      ["module:api", "module:suggested_service"],
+      ["module:api", "module:isolated"],
+      ["module:repository", "external:requests"]
+    ],
+    "expected_unassigned": [
+      "module:suggested_service",
+      "module:isolated",
+      "module:schemas"
+    ],
+    "evidence_recall": {
+      "required_source_type": "COMPONENT_DETECTION",
+      "all_candidates_traceable": true
+    },
+    "determinism": true
+  }
+}

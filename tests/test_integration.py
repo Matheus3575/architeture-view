@@ -66,6 +66,7 @@ def test_local_analysis_rejects_ref():
 def test_main_cli_forwards_ref_and_writes_json(monkeypatch, tmp_path):
     captured: dict[str, str | None] = {}
     output = tmp_path / "architecture.json"
+    classification_output = tmp_path / "classification.json"
     analyzed = analyze_repository(FIXTURE)
 
     def fake_analyze(repository: str, ref: str | None = None):
@@ -82,6 +83,8 @@ def test_main_cli_forwards_ref_and_writes_json(monkeypatch, tmp_path):
             "main",
             "--output",
             str(output),
+            "--classification-report",
+            str(classification_output),
         ]
     )
 
@@ -91,3 +94,4 @@ def test_main_cli_forwards_ref_and_writes_json(monkeypatch, tmp_path):
         "ref": "main",
     }
     assert ArchitectureIR.model_validate(json.loads(output.read_text(encoding="utf-8"))).validation.valid
+    assert json.loads(classification_output.read_text(encoding="utf-8"))["records"]

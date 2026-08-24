@@ -1,0 +1,37 @@
+{
+  "source_origins": [
+    {"path": "module_a.py", "origin": "first_party"},
+    {"path": "module_b.py", "origin": "first_party"},
+    {"path": "consumer.py", "origin": "first_party"},
+    {"path": "consumer_explicit.py", "origin": "first_party"}
+  ],
+  "raw_nodes": {
+    "required": ["module_a.save", "module_b.save", "consumer.execute", "consumer_explicit.execute"]
+  },
+  "symbol_resolutions": [
+    {
+      "path": "consumer.py",
+      "line": 2,
+      "caller": "consumer.execute",
+      "callee": "save",
+      "status": "unresolved"
+    },
+    {
+      "path": "consumer_explicit.py",
+      "line": 5,
+      "caller": "consumer_explicit.execute",
+      "callee": "save",
+      "status": "resolved",
+      "target": "module_a.save"
+    }
+  ],
+  "expected_unresolved_calls": [
+    {
+      "caller": "consumer.execute",
+      "callee": "save",
+      "path": "consumer.py",
+      "line": 2,
+      "reason": "unresolved_symbol"
+    }
+  ]
+}

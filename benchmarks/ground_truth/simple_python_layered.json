@@ -1,0 +1,38 @@
+{
+  "source_origins": [
+    {"path": "app/controllers/user.py", "origin": "first_party"},
+    {"path": "app/services/user.py", "origin": "first_party"},
+    {"path": "app/repositories/user.py", "origin": "first_party"}
+  ],
+  "raw_nodes": {
+    "required": [
+      "app.controllers.user.user_endpoint",
+      "app.services.user.get_user",
+      "app.repositories.user.find_user"
+    ]
+  },
+  "raw_edges": {
+    "required": [
+      {"source": "app.controllers.user.user_endpoint", "target": "app.services.user.get_user", "type": "CALLS"},
+      {"source": "app.services.user.get_user", "target": "app.repositories.user.find_user", "type": "CALLS"}
+    ]
+  },
+  "symbol_resolutions": [
+    {
+      "path": "app/controllers/user.py",
+      "line": 5,
+      "caller": "app.controllers.user.user_endpoint",
+      "callee": "get_user",
+      "status": "resolved",
+      "target": "app.services.user.get_user"
+    },
+    {
+      "path": "app/services/user.py",
+      "line": 5,
+      "caller": "app.services.user.get_user",
+      "callee": "find_user",
+      "status": "resolved",
+      "target": "app.repositories.user.find_user"
+    }
+  ]
+}

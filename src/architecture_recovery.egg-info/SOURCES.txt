@@ -13,7 +13,14 @@ src/architecture_recovery.egg-info/requires.txt
 src/architecture_recovery.egg-info/top_level.txt
 src/architecture_recovery/architecture/__init__.py
 src/architecture_recovery/architecture/inference.py
+src/architecture_recovery/classification/__init__.py
+src/architecture_recovery/classification/base.py
+src/architecture_recovery/classification/python.py
+src/architecture_recovery/frameworks/__init__.py
+src/architecture_recovery/frameworks/base.py
+src/architecture_recovery/frameworks/fastapi.py
 src/architecture_recovery/graph/__init__.py
+src/architecture_recovery/graph/aggregation.py
 src/architecture_recovery/graph/analysis.py
 src/architecture_recovery/graph/builder.py
 src/architecture_recovery/infrastructure/__init__.py
@@ -39,7 +46,11 @@ src/architecture_recovery/symbols/__init__.py
 src/architecture_recovery/symbols/resolver.py
 src/architecture_recovery/validation/__init__.py
 src/architecture_recovery/validation/validator.py
+tests/test_basic_data_flow.py
+tests/test_benchmarks.py
+tests/test_graph_classification.py
 tests/test_integration.py
 tests/test_parser.py
 tests/test_pipeline.py
 tests/test_repository_acquisition.py
+tests/test_symbol_resolution.py

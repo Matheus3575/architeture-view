@@ -1,0 +1,20 @@
+{
+  "symbol_resolutions": [
+    {
+      "path": "consumer_a.py",
+      "line": 5,
+      "caller": "consumer_a.process",
+      "callee": "service.execute",
+      "status": "resolved",
+      "target": "app.a.UserService.execute"
+    },
+    {
+      "path": "consumer_b.py",
+      "line": 5,
+      "caller": "consumer_b.process",
+      "callee": "service.execute",
+      "status": "resolved",
+      "target": "app.b.UserService.execute"
+    }
+  ]
+}
