@@ -112,3 +112,7 @@ Optional SVG motion is complete as a renderer-only feature. render_svg(model, mo
 ## M7.6 status
 
 Web consumption and basic accessibility are complete without changing the analysis pipeline. The standard-library consumer serves pre-generated SVG bytes through fixed routes only. The SVG exposes title/description, semantic roles, keyboard-selectable nodes/edges/hypotheses, an aria-live inspection panel and keyboard-accessible mode controls. The web layer performs no discovery, inference, parsing or repository access.
+
+## M7.7 status
+
+Visualization CLI is implemented as a thin orchestration layer. `visualize` and `serve` call `analyze_repository()` once, build one VisualizationReadModel, and render the requested artifacts without changing inference. Static output remains the default; `--animated` renders a second mode from the same read model. The optional server receives pre-generated paths and performs no repository analysis.

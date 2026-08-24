@@ -95,3 +95,11 @@ python -m architecture_recovery.web --static-svg architecture.svg --animated-svg
 ~~~
 
 The web consumer serves only pre-generated files at fixed routes and performs no repository analysis.
+
+## M7.7 result
+
+M7.7 is complete. Generate a static visualization with:
+
+    architecture-recovery visualize <repository>
+
+Generate both modes with `architecture-recovery visualize <repository> --animated`. Start the local consumer with `architecture-recovery serve <repository> --animated --host 127.0.0.1 --port 8000`. The CLI only orchestrates existing analysis, read-model construction, rendering and artifact serving; it does not participate in inference.

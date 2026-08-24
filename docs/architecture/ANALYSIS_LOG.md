@@ -768,3 +768,7 @@ M7.5 adds optional presentation-only motion to the SVG renderer. STATIC remains 
 ## M7.6 â€” Web Consumption & Accessibility
 
 M7.6 adds a minimal optional browser consumer using only Python's standard library. It serves a previously rendered static SVG at /architecture.svg, an optional animated SVG at /architecture-animated.svg and a small accessible HTML page at /. The HTTP layer has fixed routes and never accepts repository paths, commands or analysis requests. SVG remains the primary renderer, STATIC remains the default, and the Read Model is not reconstructed by the web layer.
+
+## M7.7 — Visualization CLI
+
+M7.7 adds high-level `visualize` and `serve` commands. Each invocation analyzes the repository once, builds one VisualizationReadModel, and delegates static/animated output to the existing SVG renderer. `serve` passes only already-generated SVG artifacts to the fixed-route web consumer. The CLI adds orchestration only; it does not participate in architectural inference or introduce a new analysis pass.
