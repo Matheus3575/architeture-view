@@ -164,3 +164,7 @@ The visualization benchmark now checks semantic layout groups, architectural/str
 ## M7.4 status
 
 The visualization tests now cover interaction payload presence, stable IDs, inspection panel metadata and UNKNOWN evidence behavior. Existing architectural benchmark metrics were not changed. The full controlled benchmark suite remains the source of regression validation.
+
+## M7.5 status
+
+The visualization benchmark now measures static and animated SVG validity, deterministic repeated rendering for both modes, animation semantic preservation, Read Model immutability and output sizes. The 23-case suite passes; the visualization fixture reports valid deterministic outputs in both modes and unchanged Read Model data.

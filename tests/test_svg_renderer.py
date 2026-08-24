@@ -216,3 +216,78 @@ def test_svg_renderer_interaction_keeps_structural_ids_stable():
     assert first == second
     for item in [*model.nodes, *model.edges]:
         assert f'data-read-model-id="{item.id}"' in first
+
+
+def test_svg_renderer_static_is_default_and_has_no_active_motion_mode():
+    model = _read_model()
+    default_svg = render_svg(model)
+    explicit_svg = render_svg(model, mode="static")
+    root = ElementTree.fromstring(default_svg)
+
+    assert default_svg == explicit_svg
+    assert root.attrib["data-animation-mode"] == "static"
+    assert "mode-static" in root.attrib["class"]
+    assert 'data-animation-mode="animated"' in default_svg
+
+
+def test_svg_renderer_animated_mode_is_valid_and_deterministic():
+    model = _read_model()
+    first = render_svg(model, mode="animated")
+    second = render_svg(model, mode="animated")
+    root = ElementTree.fromstring(first)
+
+    assert first == second
+    assert root.attrib["data-animation-mode"] == "animated"
+    assert "mode-animated" in root.attrib["class"]
+    assert "@keyframes flowPulse" in first
+    assert "data-animation-semantic=\"resource-identified\"" in first
+    assert "data-read-model-id=" in first
+    assert "data-evidence-refs=" in first
+
+
+def test_svg_renderer_does_not_animate_unknown_infrastructure():
+    from architecture_recovery.ir import EvidenceStatus
+
+    model = _read_model()
+    database = next(node for node in model.nodes if node.kind == "database")
+    unknown_database = database.model_copy(
+        update={"status": EvidenceStatus.UNKNOWN, "confidence": 0.0}
+    )
+    model = model.model_copy(update={
+        "nodes": [
+            unknown_database if node.id == database.id else node
+            for node in model.nodes
+        ]
+    })
+    root = ElementTree.fromstring(render_svg(model, mode="animated"))
+    rendered = next(
+        element for element in root.iter()
+        if element.attrib.get("data-read-model-id") == database.id
+    )
+
+    assert rendered.find(".//*[@data-animation-semantic]") is None
+
+
+def test_svg_renderer_animated_mode_preserves_read_model_and_inspection():
+    model = _read_model()
+    before = model.model_dump_json()
+    svg = render_svg(model, mode="animated")
+    after = model.model_dump_json()
+
+    assert before == after
+    assert 'id="inspection-panel"' in svg
+    assert "select(kind, id)" in svg
+    for item in [*model.nodes, *model.edges]:
+        assert f'data-read-model-id="{item.id}"' in svg
+
+
+def test_svg_renderer_rejects_unknown_animation_mode():
+    model = _read_model()
+
+    try:
+        render_svg(model, mode="pulse")
+    except ValueError as exc:
+        assert "static" in str(exc).lower()
+        assert "animated" in str(exc).lower()
+    else:
+        raise AssertionError("renderer accepted an unknown animation mode")

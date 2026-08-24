@@ -760,3 +760,7 @@ Relations remain present but are classified visually as architectural, structura
 ## M7.4 — Interactive Evidence Inspection
 
 M7.4 adds interaction only to the SVG consumer. The renderer embeds deterministic, precomputed indices for Read Model nodes, edges, evidence and hypotheses. Clicking a node highlights related edges and displays node metadata; clicking an edge displays source, target and relation metadata; clicking a hypothesis displays its status, confidence and evidence references. A bounded in-SVG panel presents evidence source type, detail, file, lines and symbol when available, and explicitly shows UNKNOWN for absent fields. No Raw Graph, parser, resolver or new architectural inference is accessed.
+
+## M7.5 — Optional Motion & Visual Semantics
+
+M7.5 adds optional presentation-only motion to the SVG renderer. STATIC remains the default and safe mode; ANIMATED enables reusable CSS effects for supported architectural flow relations and known infrastructure resources. Animation is never runtime simulation or architectural inference. The same VisualizationReadModel is used in both modes, with no ArchitectureIR, Raw Graph or analysis changes. Unknown and uncertain facts do not receive confirmed-flow animation, and selected elements can suppress animation for readability.

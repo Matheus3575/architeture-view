@@ -104,3 +104,7 @@ Semantic SVG layout and inspection are complete with bounded deterministic behav
 ## M7.4 status
 
 Interactive evidence inspection is complete as a renderer-only capability. The SVG includes stable selection metadata, deterministic precomputed lookup payloads, node/edge/hypothesis selection, related-element highlighting, clear selection and an evidence panel. Structural Read Model IDs and data are unchanged; absent evidence fields remain UNKNOWN. No analysis stage or architectural detector was modified.
+
+## M7.5 status
+
+Optional SVG motion is complete as a renderer-only feature. render_svg(model, mode="static") is the default; mode="animated" enables deterministic CSS classes and shared keyframes. Architectural flow animation is limited to observed/inferred relevant relations, and infrastructure indicators are emitted only for known observed/inferred resources. STATIC and ANIMATED preserve IDs, evidence, inspection and Read Model contents. No runtime behavior is simulated.

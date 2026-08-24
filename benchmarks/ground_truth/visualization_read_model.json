@@ -29,6 +29,14 @@
         "infrastructure",
         "external"
       ]
+    },
+    "animation": {
+      "require_static_valid": true,
+      "require_animated_valid": true,
+      "require_static_deterministic": true,
+      "require_animated_deterministic": true,
+      "require_semantics_preserved": true,
+      "require_read_model_unchanged": true
     }
   }
 }

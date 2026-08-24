@@ -166,6 +166,14 @@ def _evaluate_read_model(first, second, ground_truth, failures):
         "svg_inspection_metadata": None,
         "svg_relation_classes": None,
         "svg_layout_groups": None,
+        "static_svg_valid": None,
+        "animated_svg_valid": None,
+        "static_deterministic": None,
+        "animated_deterministic": None,
+        "animation_semantics_preserved": None,
+        "read_model_unchanged": None,
+        "static_svg_bytes": None,
+        "animated_svg_bytes": None,
     }
     if not spec:
         return empty
@@ -207,15 +215,47 @@ def _evaluate_read_model(first, second, ground_truth, failures):
 
     svg_valid = svg_complete = svg_deterministic = None
     svg_inspection_metadata = svg_relation_classes = svg_layout_groups = None
+    static_svg_valid = animated_svg_valid = None
+    static_deterministic = animated_deterministic = None
+    animation_semantics_preserved = read_model_unchanged = None
+    static_svg_bytes = animated_svg_bytes = None
     if spec.get("svg"):
-        first_svg = render_svg(first_model)
-        second_svg = render_svg(second_model)
+        before_render = first_model.model_dump_json()
+        first_svg = render_svg(first_model, mode="static")
+        second_svg = render_svg(second_model, mode="static")
+        first_animated_svg = render_svg(first_model, mode="animated")
+        second_animated_svg = render_svg(second_model, mode="animated")
+        after_render = first_model.model_dump_json()
+        read_model_unchanged = before_render == after_render
+        static_deterministic = first_svg == second_svg
+        animated_deterministic = first_animated_svg == second_animated_svg
+        static_svg_bytes = len(first_svg.encode("utf-8"))
+        animated_svg_bytes = len(first_animated_svg.encode("utf-8"))
         try:
             root = ElementTree.fromstring(first_svg)
             svg_valid = root.tag.endswith("svg")
         except ElementTree.ParseError:
             root = None
             svg_valid = False
+        try:
+            animated_root = ElementTree.fromstring(first_animated_svg)
+            static_svg_valid = svg_valid
+            animated_svg_valid = animated_root.tag.endswith("svg")
+        except ElementTree.ParseError:
+            animated_root = None
+            static_svg_valid = svg_valid
+            animated_svg_valid = False
+        animation_semantics_preserved = (
+            svg_valid
+            and animated_svg_valid
+            and root is not None
+            and animated_root is not None
+            and root.attrib.get("data-animation-mode") == "static"
+            and animated_root.attrib.get("data-animation-mode") == "animated"
+            and "@keyframes flowPulse" in first_animated_svg
+            and 'data-animation-mode="animated"' in first_animated_svg
+            and read_model_unchanged
+        )
         rendered = {
             item.attrib.get("data-read-model-id")
             for item in root.iter()
@@ -225,7 +265,7 @@ def _evaluate_read_model(first, second, ground_truth, failures):
             edge.id for edge in first_model.edges
         }
         svg_complete = expected <= rendered
-        svg_deterministic = first_svg == second_svg
+        svg_deterministic = static_deterministic
         rendered_nodes = [
             item for item in root.iter()
             if item.attrib.get("id", "").startswith("node-")
@@ -266,6 +306,19 @@ def _evaluate_read_model(first, second, ground_truth, failures):
             failures.append("renderer omitted read-model elements")
         if svg_spec.get("require_determinism") and not svg_deterministic:
             failures.append("SVG renderer is not deterministic")
+        animation_spec = spec.get("animation", {})
+        if animation_spec.get("require_static_valid") and not static_svg_valid:
+            failures.append("static SVG renderer output is invalid")
+        if animation_spec.get("require_animated_valid") and not animated_svg_valid:
+            failures.append("animated SVG renderer output is invalid")
+        if animation_spec.get("require_static_deterministic") and not static_deterministic:
+            failures.append("static SVG renderer is not deterministic")
+        if animation_spec.get("require_animated_deterministic") and not animated_deterministic:
+            failures.append("animated SVG renderer is not deterministic")
+        if animation_spec.get("require_semantics_preserved") and not animation_semantics_preserved:
+            failures.append("SVG animation semantics were not preserved")
+        if animation_spec.get("require_read_model_unchanged") and not read_model_unchanged:
+            failures.append("rendering changed the VisualizationReadModel")
         if svg_spec.get("require_inspection_metadata") and not svg_inspection_metadata:
             failures.append("SVG inspection metadata is incomplete")
         missing_classes = set(svg_spec.get("required_relation_classes", [])) - svg_relation_classes
@@ -287,6 +340,14 @@ def _evaluate_read_model(first, second, ground_truth, failures):
         "svg_inspection_metadata": svg_inspection_metadata,
         "svg_relation_classes": sorted(svg_relation_classes) if svg_relation_classes is not None else None,
         "svg_layout_groups": svg_layout_groups,
+        "static_svg_valid": static_svg_valid,
+        "animated_svg_valid": animated_svg_valid,
+        "static_deterministic": static_deterministic,
+        "animated_deterministic": animated_deterministic,
+        "animation_semantics_preserved": animation_semantics_preserved,
+        "read_model_unchanged": read_model_unchanged,
+        "static_svg_bytes": static_svg_bytes,
+        "animated_svg_bytes": animated_svg_bytes,
     }
 
 

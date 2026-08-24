@@ -33,7 +33,10 @@ class SemanticSvgRenderer:
     }
     STRUCTURAL_RELATIONS = {"IMPORTS", "CONTAINS"}
 
-    def render(self, model: VisualizationReadModel) -> str:
+    def render(self, model: VisualizationReadModel, mode: str = "static") -> str:
+        mode_key = mode.lower()
+        if mode_key not in {"static", "animated"}:
+            raise ValueError("SVG render mode must be 'static' or 'animated'")
         report = validate_visualization_read_model(
             model,
             {item.id for item in model.evidence},
@@ -50,6 +53,7 @@ class SemanticSvgRenderer:
                 f'<svg xmlns="http://www.w3.org/2000/svg" '
                 f'xmlns:xlink="http://www.w3.org/1999/xlink" '
                 f'viewBox="0 0 {width} {height}" width="{width}" height="{height}" '
+                f'class="mode-{mode_key}" data-animation-mode="{mode_key}" '
                 f'role="img" aria-labelledby="title description">'
             ),
             f'<title id="title">{_escape(model.repository.name)} architecture</title>',
@@ -69,9 +73,34 @@ class SemanticSvgRenderer:
                 '<path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker>'
             ),
             "</defs>",
-            "<style>.inspectable:hover{filter:brightness(0.94)}"
+            "<style>"
+            ".inspectable:hover{filter:brightness(0.94)}"
             ".edge-structural{stroke-linecap:round}"
-            ".edge-architectural{stroke-linecap:round}</style>",
+            ".edge-architectural{stroke-linecap:round}"
+            "@keyframes flowPulse{0%,100%{stroke-opacity:.72}"
+            "50%{stroke-opacity:1;stroke-width:3.5}}"
+            "@keyframes resourcePulse{0%,100%{opacity:.55}"
+            "50%{opacity:1}}"
+            ".mode-animated .edge-architectural[data-status=observed] path,"
+            ".mode-animated .edge-architectural[data-status=inferred] path"
+            "{animation:flowPulse 2.4s ease-in-out infinite}"
+            ".mode-animated .node-database[data-status=observed] .activity-indicator,"
+            ".mode-animated .node-database[data-status=inferred] .activity-indicator,"
+            ".mode-animated .node-cache[data-status=observed] .activity-indicator,"
+            ".mode-animated .node-cache[data-status=inferred] .activity-indicator,"
+            ".mode-animated .node-queue[data-status=observed] .activity-indicator,"
+            ".mode-animated .node-queue[data-status=inferred] .activity-indicator,"
+            ".mode-animated .node-message_broker[data-status=observed] .activity-indicator,"
+            ".mode-animated .node-message_broker[data-status=inferred] .activity-indicator,"
+            ".mode-animated .node-infrastructure[data-status=observed] .activity-indicator,"
+            ".mode-animated .node-infrastructure[data-status=inferred] .activity-indicator,"
+            ".mode-animated .node-container[data-status=observed] .activity-indicator,"
+            ".mode-animated .node-container[data-status=inferred] .activity-indicator"
+            "{animation:resourcePulse 1.8s ease-in-out infinite}"
+            ".mode-animated .selected path,.mode-animated .selected .activity-indicator"
+            "{animation:none!important}"
+            "@media (prefers-reduced-motion:reduce){.mode-animated *"
+            "{animation:none!important}}</style>",
             '<g id="layout-bands" aria-label="semantic groups">',
         ]
 
@@ -212,8 +241,9 @@ class SemanticSvgRenderer:
             shape = f'<rect x="{x}" y="{y}" width="150" height="58" rx="4" fill="#dcfce7" stroke="#15803d"/>'
         else:
             shape = f'<rect x="{x}" y="{y}" width="150" height="58" rx="8" fill="#e0e7ff" stroke="#4338ca"/>'
+        activity = _activity_marker(node, x, y)
         return (
-            f'<g {attrs}>{shape}'
+            f'<g {attrs}>{shape}{activity}'
             f'<text x="{x + 75}" y="{y + 25}" font-family="sans-serif" font-size="12" '
             f'font-weight="bold" text-anchor="middle" fill="#111827">{label}</text>'
             f'<text x="{x + 75}" y="{y + 43}" font-family="sans-serif" font-size="9" '
@@ -304,8 +334,8 @@ class SemanticSvgRenderer:
         return order.get(group_key, 50), group_key
 
 
-def render_svg(model: VisualizationReadModel) -> str:
-    return SemanticSvgRenderer().render(model)
+def render_svg(model: VisualizationReadModel, mode: str = "static") -> str:
+    return SemanticSvgRenderer().render(model, mode=mode)
 
 
 def _refs(refs: Iterable[str]) -> str:
@@ -346,6 +376,19 @@ def _orthogonal_path(source, target, width: int, height: int) -> str:
     return f"M{start[0]} {start[1]} L{start[0]} {mid_y} L{end[0]} {mid_y} L{end[0]} {end[1]}"
 
 
+def _activity_marker(node: VisualizationNode, x: int, y: int) -> str:
+    known_infrastructure = (
+        node.kind in {"database", "cache", "queue", "message_broker", "container", "infrastructure"}
+        or node.layout_hints.get("semantic_kind") == "infrastructure"
+    )
+    if not known_infrastructure or node.status.value not in {"observed", "inferred"}:
+        return ""
+    return (
+        f'<circle class="activity-indicator" data-animation-semantic="resource-identified" '
+        f'cx="{x + 136}" cy="{y + 12}" r="4" fill="#15803d" opacity=".55"/>'
+    )
+
+
 def _inspection_panel(width: int, height: int) -> list[str]:
     x = width - SemanticSvgRenderer.RIGHT + 20
     lines = [
@@ -354,6 +397,20 @@ def _inspection_panel(width: int, height: int) -> list[str]:
         f'height="{height - 40}" rx="10" fill="#ffffff" stroke="#94a3b8"/>',
         f'<text x="{x + 16}" y="48" font-family="sans-serif" font-size="14" '
         'font-weight="bold" fill="#1e293b">Inspection</text>',
+        f'<text x="{x + 16}" y="70" font-family="sans-serif" font-size="10" '
+        'fill="#475569">Animation:</text>',
+        f'<rect class="animation-control" data-animation-mode="static" '
+        f'x="{x + 82}" y="54" width="58" height="22" rx="4" '
+        'fill="#e2e8f0" stroke="#64748b"/>',
+        f'<text class="animation-control" data-animation-mode="static" '
+        f'x="{x + 111}" y="69" text-anchor="middle" font-family="sans-serif" '
+        'font-size="9" fill="#334155">STATIC</text>',
+        f'<rect class="animation-control" data-animation-mode="animated" '
+        f'x="{x + 146}" y="54" width="72" height="22" rx="4" '
+        'fill="#f1f5f9" stroke="#94a3b8"/>',
+        f'<text class="animation-control" data-animation-mode="animated" '
+        f'x="{x + 182}" y="69" text-anchor="middle" font-family="sans-serif" '
+        'font-size="9" fill="#334155">ANIMATED</text>',
         f'<rect class="inspect-clear" x="{x + SemanticSvgRenderer.RIGHT - 105}" '
         'y="30" width="65" height="24" rx="5" fill="#e2e8f0" '
         'stroke="#64748b"/>',
@@ -363,7 +420,7 @@ def _inspection_panel(width: int, height: int) -> list[str]:
     ]
     for index in range(32):
         lines.append(
-            f'<text id="inspection-line-{index}" x="{x + 16}" y="{72 + index * 20}" '
+            f'<text id="inspection-line-{index}" x="{x + 16}" y="{100 + index * 20}" '
             'font-family="sans-serif" font-size="10" fill="#334155"></text>'
         )
     lines.append("</g>")
@@ -446,7 +503,7 @@ def _interaction_payload(model: VisualizationReadModel) -> dict:
     }
 
 
-def _interaction_script(model: VisualizationReadModel) -> str:
+def _interaction_script(model: VisualizationReadModel, mode: str = "static") -> str:
     payload = json.dumps(
         _interaction_payload(model),
         ensure_ascii=True,
@@ -469,6 +526,7 @@ def _interaction_script(model: VisualizationReadModel) -> str:
     "Select a node, edge or hypothesis.",
     "Click Clear to remove the selection."
   ];
+  const animationControls = Array.from(root.querySelectorAll(".animation-control"));
 
   function value(item) {{
     return item === null || item === undefined || item === "" ? "UNKNOWN" : String(item);
@@ -595,6 +653,18 @@ def _interaction_script(model: VisualizationReadModel) -> str:
     setPanel(output);
   }}
 
+  function setMode(mode) {{
+    const normalized = mode === "animated" ? "animated" : "static";
+    root.setAttribute("data-animation-mode", normalized);
+    root.classList.remove("mode-static", "mode-animated");
+    root.classList.add("mode-" + normalized);
+    animationControls.forEach(function (control) {{
+      const active = control.getAttribute("data-animation-mode") === normalized;
+      control.setAttribute("aria-pressed", active ? "true" : "false");
+      control.setAttribute("data-active", active ? "true" : "false");
+    }});
+  }}
+
   function clear() {{
     elements.forEach(function (element) {{
       element.classList.remove("dimmed");
@@ -610,6 +680,12 @@ def _interaction_script(model: VisualizationReadModel) -> str:
         element.getAttribute("data-read-model-id"));
     }});
   }});
+  animationControls.forEach(function (control) {{
+    control.addEventListener("click", function (event) {{
+      event.stopPropagation();
+      setMode(control.getAttribute("data-animation-mode"));
+    }});
+  }});
   Array.from(root.querySelectorAll(".inspect-clear")).forEach(function (element) {{
     element.addEventListener("click", function (event) {{
       event.stopPropagation();
@@ -619,6 +695,7 @@ def _interaction_script(model: VisualizationReadModel) -> str:
   root.addEventListener("click", function (event) {{
     if (event.target === root) clear();
   }});
+  setMode(root.getAttribute("data-animation-mode") || "static");
   clear();
 }})();
 ]]></script>"""

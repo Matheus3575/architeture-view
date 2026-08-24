@@ -77,3 +77,7 @@ M7.3 is complete. The SVG renderer now provides semantic grouping, bounded ortho
 ## M7.4 result
 
 M7.4 is complete as interactive inspection only. The SVG can select nodes, edges and hypotheses, highlight related elements, clear selection and expose traceable evidence without rerunning analysis. The next recommended milestone is a dedicated evidence/read-model API or a browser consumer if richer navigation is required; discovery remains outside the renderer.
+
+## M7.5 result
+
+M7.5 is complete as optional motion and visual semantics only. STATIC remains the default; ANIMATED provides restrained CSS-based flow/resource indicators without runtime simulation or architectural inference. The next recommended milestone is an optional browser-facing delivery layer or accessibility hardening, while the renderer boundary remains unchanged.
