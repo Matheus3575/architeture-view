@@ -1,0 +1,14 @@
+{
+  "hypotheses": {
+    "required": [
+      {
+        "pattern": "hexagonal",
+        "status": "unknown",
+        "requires_contradiction": true
+      }
+    ],
+    "forbidden": [
+      "Microservices"
+    ]
+  }
+}

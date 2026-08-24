@@ -1,0 +1,2 @@
+class UserPort:
+    pass

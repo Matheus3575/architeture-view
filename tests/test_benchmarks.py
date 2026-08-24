@@ -29,6 +29,12 @@ def test_controlled_benchmarks_pass_and_report_metrics():
         "mvc_layered_coexist",
         "mvc_negative",
         "visualization_read_model",
+        "hex_positive",
+        "hex_infrastructure",
+        "hex_names_only",
+        "hex_direct_infrastructure",
+        "hex_ambiguous",
+        "hex_negative",
     }
     assert all(result["passed"] for result in results)
     assert all(result["execution_passed"] for result in results)

@@ -103,3 +103,7 @@ M7.7 is complete. Generate a static visualization with:
     architecture-recovery visualize <repository>
 
 Generate both modes with `architecture-recovery visualize <repository> --animated`. Start the local consumer with `architecture-recovery serve <repository> --animated --host 127.0.0.1 --port 8000`. The CLI only orchestrates existing analysis, read-model construction, rendering and artifact serving; it does not participate in inference.
+
+## M6.5 result
+
+M6.5 is complete. Hexagonal is an independent conservative hypothesis based on directional ports-and-adapters evidence. Names-only structures remain UNKNOWN, contradictions remain traceable and Layered/MVC hypotheses remain independent. The next recommended milestone is another bounded detector only if a distinct evidence contract is available; otherwise prioritize improving evidence coverage without adding new scans.

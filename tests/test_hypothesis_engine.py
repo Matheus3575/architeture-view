@@ -107,3 +107,68 @@ def test_mvc_preserves_direct_controller_persistence_contradiction():
     assert hypothesis.status == EvidenceStatus.INFERRED
     assert "mvc-contradiction" in hypothesis.contradicting_evidence
     assert "mvc-contradiction" in hypothesis.evidence_refs
+
+
+def _hexagonal_ir(with_contradiction=False, names_only=False):
+    nodes = [
+        Node(id="http", type=NodeType.MODULE, name="http", layer="controllers", origin=SourceOrigin.FIRST_PARTY),
+        Node(id="service", type=NodeType.MODULE, name="service", layer="domain", origin=SourceOrigin.FIRST_PARTY),
+        Node(id="port", type=NodeType.INTERFACE, name="UserPort", layer="ports", origin=SourceOrigin.FIRST_PARTY),
+        Node(id="adapter", type=NodeType.MODULE, name="SqlAdapter", layer="infrastructure", origin=SourceOrigin.FIRST_PARTY),
+        Node(id="database", type=NodeType.DATABASE, name="postgres", origin=SourceOrigin.THIRD_PARTY),
+    ]
+    edges = []
+    facts = []
+    refs = ["hex-input", "hex-port", "hex-adapter", "hex-http", "hex-contradiction"]
+    if not names_only:
+        edges = [
+            Edge(id="hex-edge-input", source="http", target="service", type=EdgeType.CALLS, evidence_refs=["hex-input"]),
+            Edge(id="hex-edge-port", source="service", target="port", type=EdgeType.DEPENDS_ON, evidence_refs=["hex-port"]),
+            Edge(id="hex-edge-adapter", source="adapter", target="port", type=EdgeType.IMPLEMENTS, evidence_refs=["hex-adapter"]),
+        ]
+        facts = [FrameworkFact(kind="HTTP_ENDPOINT", subject="http", evidence_refs=["hex-http"])]
+        if with_contradiction:
+            edges.append(Edge(id="hex-edge-contradiction", source="service", target="database", type=EdgeType.DEPENDS_ON, evidence_refs=["hex-contradiction"]))
+    evidence = [
+        Evidence(id=ref, source_type=EvidenceSource.CALL_GRAPH, detail=ref, source=SourceRef(path="fixture.py", start_line=1))
+        for ref in refs
+    ]
+    return ArchitectureIR(
+        repository=RepositoryInfo(name="hexagonal", path="."),
+        raw_graph=RawCodeGraph(nodes=nodes, edges=edges),
+        architectural_graph=ArchitecturalGraph(nodes=nodes, edges=edges),
+        framework_facts=facts,
+        evidence=evidence,
+    )
+
+
+def test_hexagonal_hypothesis_requires_multiple_directional_signal_categories():
+    hypotheses = {item.pattern: item for item in ArchitectureHypothesisEngine().infer(_hexagonal_ir()).hypotheses}
+    hypothesis = hypotheses["hexagonal"]
+    assert hypothesis.status == EvidenceStatus.INFERRED
+    assert {"hex-input", "hex-port", "hex-adapter", "hex-http"} <= set(hypothesis.supporting_evidence)
+    assert hypothesis.evidence_refs == sorted(set(hypothesis.supporting_evidence + hypothesis.contradicting_evidence))
+
+
+def test_hexagonal_names_only_remains_unknown():
+    hypothesis = {item.pattern: item for item in ArchitectureHypothesisEngine().infer(_hexagonal_ir(names_only=True)).hypotheses}["hexagonal"]
+    assert hypothesis.status == EvidenceStatus.UNKNOWN
+    assert hypothesis.confidence == 0
+    assert hypothesis.supporting_evidence == []
+
+
+def test_hexagonal_preserves_direct_core_infrastructure_contradiction():
+    hypothesis = {item.pattern: item for item in ArchitectureHypothesisEngine().infer(_hexagonal_ir(with_contradiction=True)).hypotheses}["hexagonal"]
+    assert hypothesis.status == EvidenceStatus.INFERRED
+    assert "hex-contradiction" in hypothesis.contradicting_evidence
+    assert "hex-contradiction" in hypothesis.evidence_refs
+
+
+def test_hexagonal_core_infrastructure_only_is_not_confirmed():
+    ir = _hexagonal_ir(names_only=True)
+    ir.raw_graph.edges = [Edge(id="hex-edge-contradiction", source="service", target="database", type=EdgeType.DEPENDS_ON, evidence_refs=["hex-contradiction"])]
+    ir.architectural_graph.edges = list(ir.raw_graph.edges)
+    hypothesis = {item.pattern: item for item in ArchitectureHypothesisEngine().infer(ir).hypotheses}["hexagonal"]
+    assert hypothesis.status == EvidenceStatus.UNKNOWN
+    assert hypothesis.supporting_evidence == []
+    assert hypothesis.contradicting_evidence == ["hex-contradiction"]

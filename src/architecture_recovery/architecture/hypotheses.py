@@ -21,10 +21,11 @@ _STATUS_FACTOR = {
     EvidenceStatus.UNKNOWN: 0.0,
 }
 _LAYER_ORDER = {
-    "controllers": 0, "views": 0, "api": 0, "application": 1,
-    "services": 1, "domain": 1, "repositories": 2,
-    "infrastructure": 2, "models": 2, "database": 3, "storage": 3,
-    "cache": 3, "queue": 3, "message_broker": 3,
+    "controllers": 0, "views": 0, "api": 0, "adapters": 0,
+    "presentation": 0, "application": 1, "services": 1, "domain": 1,
+    "ports": 1, "repositories": 2, "infrastructure": 2, "models": 2,
+    "database": 3, "storage": 3, "cache": 3, "queue": 3,
+    "message_broker": 3,
 }
 _RELATION_WEIGHT = {
     EdgeType.CALLS: 4.0,
@@ -42,6 +43,22 @@ _MVC_CONTROLLER_LAYERS = {"controllers", "api"}
 _MVC_MODEL_LAYERS = {"models", "domain"}
 _MVC_PERSISTENCE_LAYERS = {"repositories", "infrastructure", "database", "storage"}
 _MVC_VIEW_LAYERS = {"views"}
+_HEX_INPUT_LAYERS = {"controllers", "api", "adapters", "presentation", "views"}
+_HEX_CORE_LAYERS = {"application", "services", "domain"}
+_HEX_PORT_LAYERS = {"ports"}
+_HEX_OUTPUT_LAYERS = {"adapters", "repositories", "infrastructure"}
+_HEX_INFRASTRUCTURE_TYPES = _INFRASTRUCTURE_TYPES | {
+    NodeType.EXTERNAL_SERVICE,
+    NodeType.EXTERNAL_DEPENDENCY,
+}
+_HEX_PORT_EDGE_TYPES = {
+    EdgeType.IMPORTS,
+    EdgeType.DEPENDS_ON,
+    EdgeType.CALLS,
+    EdgeType.INSTANTIATES,
+    EdgeType.IMPLEMENTS,
+    EdgeType.EXTENDS,
+}
 
 
 @dataclass(frozen=True)
@@ -83,10 +100,20 @@ class ArchitectureHypothesisEngine:
         layered = self._hypothesis("layered", layered_supporting, layered_contradicting, "Layered", "cross-layer relation", "layer names alone are insufficient")
         mvc_supporting, mvc_contradicting = self._mvc_signals(ir)
         mvc = self._hypothesis("mvc", mvc_supporting, mvc_contradicting, "MVC", "semantic MVC relation", "controller/model/persistence evidence is insufficient")
+        hexagonal_supporting, hexagonal_contradicting = self._hexagonal_signals(ir)
+        hexagonal = self._hypothesis(
+            "hexagonal",
+            hexagonal_supporting,
+            hexagonal_contradicting,
+            "Hexagonal",
+            "semantic ports-and-adapters relation",
+            "ports, adapters and directional boundaries are insufficient",
+            minimum_support_categories=2,
+        )
         return ArchitectureAnalysis(
-            hypotheses=[layered, mvc],
+            hypotheses=[layered, mvc, hexagonal],
             metrics={
-                "hypothesis_engine": "m6.3",
+                "hypothesis_engine": "m6.5",
                 "hypothesis_evidence_scoring": "(support - contradiction) / (support + contradiction + 1)",
                 "layered_support_count": len(layered_supporting),
                 "layered_contradiction_count": len(layered_contradicting),
@@ -94,12 +121,30 @@ class ArchitectureHypothesisEngine:
                 "mvc_support_count": len(mvc_supporting),
                 "mvc_contradiction_count": len(mvc_contradicting),
                 "mvc_signal_sources": sorted({item.reason.split(":", 1)[0] for item in mvc_supporting + mvc_contradicting}),
+                "hexagonal_support_count": len(hexagonal_supporting),
+                "hexagonal_contradiction_count": len(hexagonal_contradicting),
+                "hexagonal_signal_sources": sorted({item.reason.split(":", 1)[0] for item in hexagonal_supporting + hexagonal_contradicting}),
             },
         )
 
     @staticmethod
-    def _hypothesis(pattern, supporting, contradicting, label, relation_label, unknown_detail):
+    def _hypothesis(
+        pattern,
+        supporting,
+        contradicting,
+        label,
+        relation_label,
+        unknown_detail,
+        minimum_support_categories=0,
+    ):
         confidence, status = EvidenceScorer.score(supporting, contradicting)
+        categories = {
+            item.reason.split(":", 2)[1]
+            for item in supporting
+            if item.reason.startswith("support:") and ":" in item.reason
+        }
+        if minimum_support_categories and len(categories) < minimum_support_categories:
+            confidence, status = 0.0, EvidenceStatus.UNKNOWN
         support_refs = _refs(supporting)
         contradiction_refs = _refs(contradicting)
         if status is EvidenceStatus.UNKNOWN:
@@ -109,6 +154,137 @@ class ArchitectureHypothesisEngine:
             if contradiction_refs:
                 explanation += " Contradicting evidence was preserved."
         return ArchitectureHypothesis(pattern=pattern, status=status, confidence=confidence, supporting_evidence=support_refs, contradicting_evidence=contradiction_refs, evidence_refs=sorted(set(support_refs + contradiction_refs)), explanation=explanation)
+
+    def _hexagonal_signals(self, ir: ArchitectureIR):
+        """Collect bounded ports-and-adapters signals from the existing IR."""
+        raw_nodes = {node.id: node for node in ir.raw_graph.nodes}
+        arch_nodes = _architectural_node_index(ir, raw_nodes)
+        evidence = {item.id: item for item in ir.evidence}
+        roles = _role_index(ir)
+        supporting: list[EvidenceContribution] = []
+        contradicting: list[EvidenceContribution] = []
+        seen: set[tuple[str, ...]] = set()
+
+        edges = [
+            *sorted(ir.raw_graph.edges, key=_edge_key),
+            *sorted(ir.architectural_graph.edges, key=_edge_key),
+        ]
+        port_ids = {
+            edge.target
+            for edge in edges
+            if (
+                edge.type in {EdgeType.IMPLEMENTS, EdgeType.EXTENDS}
+                and self._hex_is_output(
+                    _node_for_relation(edge.source, raw_nodes, arch_nodes, None)
+                )
+            )
+        }
+        port_ids.update(
+            node.id
+            for node in [*raw_nodes.values(), *arch_nodes.values()]
+            if node.type == NodeType.INTERFACE or node.layer in _HEX_PORT_LAYERS
+        )
+        for edge in edges:
+            signal = self._hexagonal_edge_signal(
+                edge, raw_nodes, arch_nodes, evidence, roles, port_ids
+            )
+            if signal is None or signal.evidence_refs in seen:
+                continue
+            seen.add(signal.evidence_refs)
+            (supporting if signal.reason.startswith("support:") else contradicting).append(signal)
+
+        for fact in sorted(
+            ir.framework_facts,
+            key=lambda item: (item.kind, item.subject or "", item.target or ""),
+        ):
+            if fact.kind not in {"HTTP_ENDPOINT", "CONTROLLER_LIKE", "ROUTER", "ROUTER_INCLUSION"}:
+                continue
+            subject = _node_for_relation(fact.subject or "", raw_nodes, arch_nodes, ir)
+            refs = tuple(sorted(ref for ref in fact.evidence_refs if ref in evidence))
+            if not subject or not refs or refs in seen:
+                continue
+            if self._hex_is_input(subject, roles, fact.kind):
+                seen.add(refs)
+                supporting.append(EvidenceContribution(
+                    refs,
+                    2.0 * fact.confidence,
+                    f"support:input_boundary:framework {fact.kind.lower()}",
+                    fact.status,
+                ))
+        support_categories = {
+            item.reason.split(":", 2)[1]
+            for item in supporting
+            if item.reason.startswith("support:") and ":" in item.reason
+        }
+        if len(support_categories) < 2:
+            supporting = []
+        return supporting, contradicting
+
+    @classmethod
+    def _hexagonal_edge_signal(cls, edge, raw_nodes, arch_nodes, evidence, roles, port_ids):
+        source = _node_for_relation(edge.source, raw_nodes, arch_nodes, None)
+        target = _node_for_relation(edge.target, raw_nodes, arch_nodes, None)
+        if not source or not target:
+            return None
+        refs = tuple(sorted(ref for ref in edge.evidence_refs if ref in evidence))
+        if not refs:
+            return None
+        source_layer = source.layer
+        target_layer = target.layer
+        relation = edge.type
+        if cls._hex_is_input(source, roles) and cls._hex_is_core(target):
+            return EvidenceContribution(
+                refs, 3.5 * edge.confidence,
+                f"support:input_boundary:{source_layer} -> {target_layer} via {relation.value}",
+                edge.status,
+            )
+        if cls._hex_is_core(source) and cls._hex_is_port(target, port_ids) and relation in _HEX_PORT_EDGE_TYPES:
+            return EvidenceContribution(
+                refs, 3.5 * edge.confidence,
+                f"support:port_dependency:{source_layer} -> port via {relation.value}",
+                edge.status,
+            )
+        if cls._hex_is_output(source) and cls._hex_is_port(target, port_ids) and relation in {
+            EdgeType.IMPLEMENTS, EdgeType.EXTENDS, EdgeType.DEPENDS_ON, EdgeType.IMPORTS,
+        }:
+            return EvidenceContribution(
+                refs, 4.0 * edge.confidence,
+                f"support:adapter_implementation:{source_layer} -> port via {relation.value}",
+                edge.status,
+            )
+        if cls._hex_is_core(source) and cls._hex_is_concrete_infrastructure(target):
+            return EvidenceContribution(
+                refs, 4.5 * edge.confidence,
+                f"contradiction:core_to_concrete_infrastructure:{source_layer} -> {target.type.value} via {relation.value}",
+                edge.status,
+            )
+        return None
+
+    @staticmethod
+    def _hex_is_input(node: Node, roles: dict[str, set[str]], fact_kind: str | None = None) -> bool:
+        return (
+            node.layer in _HEX_INPUT_LAYERS
+            or bool(roles.get(node.id, set()) & {"http_entrypoint", "controller_like"})
+            or fact_kind in {"HTTP_ENDPOINT", "CONTROLLER_LIKE", "ROUTER"}
+        )
+
+    @staticmethod
+    def _hex_is_core(node: Node) -> bool:
+        return node.layer in _HEX_CORE_LAYERS
+
+    @staticmethod
+    def _hex_is_port(node: Node | None, port_ids: set[str]) -> bool:
+        return bool(node) and (node.id in port_ids or node.layer in _HEX_PORT_LAYERS or node.type == NodeType.INTERFACE)
+
+    @staticmethod
+    def _hex_is_output(node: Node | None) -> bool:
+        return bool(node) and node.layer in _HEX_OUTPUT_LAYERS
+
+    @staticmethod
+    def _hex_is_concrete_infrastructure(node: Node) -> bool:
+        return node.type in _HEX_INFRASTRUCTURE_TYPES or node.layer in {
+            "database", "storage", "cache", "queue", "message_broker", "infrastructure"
+        }
 
     def _layered_signals(self, ir: ArchitectureIR) -> tuple[list[EvidenceContribution], list[EvidenceContribution]]:
         raw_nodes = {node.id: node for node in ir.raw_graph.nodes}

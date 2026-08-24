@@ -116,3 +116,7 @@ Web consumption and basic accessibility are complete without changing the analys
 ## M7.7 status
 
 Visualization CLI is implemented as a thin orchestration layer. `visualize` and `serve` call `analyze_repository()` once, build one VisualizationReadModel, and render the requested artifacts without changing inference. Static output remains the default; `--animated` renders a second mode from the same read model. The optional server receives pre-generated paths and performs no repository analysis.
+
+## M6.5 status
+
+The Hexagonal detector is implemented inside ArchitectureHypothesisEngine and reuses EvidenceScorer. It identifies port candidates only from existing `INTERFACE`/`ports` semantics or an evidence-bearing `IMPLEMENTS`/`EXTENDS` boundary, and never confirms from names alone. It requires at least two support categories for an INFERRED result, preserves contradicting evidence for direct core-to-concrete-infrastructure dependencies, and emits UNKNOWN when evidence is insufficient. No Raw Graph, parser, scanner or ArchitectureIR schema change was introduced.

@@ -1,0 +1,15 @@
+{
+  "hypotheses": {
+    "required": [
+      {
+        "pattern": "hexagonal",
+        "status": "inferred",
+        "requires_traceability": true,
+        "requires_support": true
+      }
+    ],
+    "forbidden": [
+      "Microservices"
+    ]
+  }
+}

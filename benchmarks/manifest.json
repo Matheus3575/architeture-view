@@ -115,6 +115,36 @@
       "name": "visualization_read_model",
       "repository": "benchmarks/fixtures/visualization_read_model",
       "ground_truth": "ground_truth/visualization_read_model.json"
+    },
+    {
+      "name": "hex_positive",
+      "repository": "benchmarks/fixtures/hex_positive",
+      "ground_truth": "ground_truth/hex_positive.json"
+    },
+    {
+      "name": "hex_infrastructure",
+      "repository": "benchmarks/fixtures/hex_infrastructure",
+      "ground_truth": "ground_truth/hex_infrastructure.json"
+    },
+    {
+      "name": "hex_names_only",
+      "repository": "benchmarks/fixtures/hex_names_only",
+      "ground_truth": "ground_truth/hex_names_only.json"
+    },
+    {
+      "name": "hex_direct_infrastructure",
+      "repository": "benchmarks/fixtures/hex_direct_infrastructure",
+      "ground_truth": "ground_truth/hex_direct_infrastructure.json"
+    },
+    {
+      "name": "hex_ambiguous",
+      "repository": "benchmarks/fixtures/hex_ambiguous",
+      "ground_truth": "ground_truth/hex_ambiguous.json"
+    },
+    {
+      "name": "hex_negative",
+      "repository": "benchmarks/fixtures/hex_negative",
+      "ground_truth": "ground_truth/hex_negative.json"
     }
   ]
 }

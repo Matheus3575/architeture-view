@@ -172,3 +172,7 @@ The visualization benchmark now measures static and animated SVG validity, deter
 ## M7.6 status
 
 The visualization benchmark now reports web_static_available, web_animated_available, accessibility_metadata and web_output_deterministic separately from architectural quality metrics. The 23-case suite passes; static and animated routes are available, accessibility metadata is present and served output remains deterministic.
+
+## M6.5 status
+
+The controlled benchmark suite now contains 29 cases, including six Hexagonal fixtures. Ground truths cover positive support, infrastructure presence, names-only UNKNOWN, direct core-to-infrastructure contradiction, ambiguous support plus contradiction and a negative case. All six pass with Hexagonal hypothesis recall 1.0, traceability recall 1.0, zero false positives in UNKNOWN cases, preserved contradiction evidence and deterministic analysis. The full suite remains deterministic and prior Layered/MVC metrics remain unchanged.

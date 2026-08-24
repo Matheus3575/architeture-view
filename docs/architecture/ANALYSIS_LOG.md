@@ -772,3 +772,7 @@ M7.6 adds a minimal optional browser consumer using only Python's standard libra
 ## M7.7 — Visualization CLI
 
 M7.7 adds high-level `visualize` and `serve` commands. Each invocation analyzes the repository once, builds one VisualizationReadModel, and delegates static/animated output to the existing SVG renderer. `serve` passes only already-generated SVG artifacts to the fixed-route web consumer. The CLI adds orchestration only; it does not participate in architectural inference or introduce a new analysis pass.
+
+## M6.5 — Evidence-Based Hexagonal Architecture Detection
+
+M6.5 adds an independent `hexagonal` hypothesis using only existing IR nodes, relations, framework facts, infrastructure semantics and evidence. Support requires multiple directional categories: input boundary to core, core dependency on a port contract, and/or an infrastructure adapter implementing/extending a port. Direct core-to-concrete-infrastructure relations are preserved as contradictions. Names-only fixtures remain UNKNOWN. Six controlled fixtures cover positive, infrastructure-backed, names-only, direct contradiction, ambiguous support/contradiction and negative cases.
