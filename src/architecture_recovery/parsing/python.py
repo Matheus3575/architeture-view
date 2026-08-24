@@ -281,6 +281,14 @@ class _PythonFactVisitor(ast.NodeVisitor):
             else:
                 expression = self._expr_name(decorator)
                 arguments = ()
+            keywords = (
+                tuple(
+                    (keyword.arg or "**", self._expr_name(keyword.value))
+                    for keyword in decorator.keywords
+                )
+                if isinstance(decorator, ast.Call)
+                else ()
+            )
             self.facts.decorators.append(
                 DecoratorFact(
                     owner=owner,
@@ -288,10 +296,7 @@ class _PythonFactVisitor(ast.NodeVisitor):
                     arguments=arguments,
                     path=self.path,
                     line=getattr(decorator, "lineno", 0),
-                    keywords=tuple(
-                        (keyword.arg or "**", self._expr_name(keyword.value))
-                        for keyword in decorator.keywords
-                    ),
+                    keywords=keywords,
                 )
             )
 

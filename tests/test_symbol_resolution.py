@@ -311,3 +311,22 @@ def test_src_layout_uses_import_package_names_and_relative_package_imports(tmp_p
         and edge.target == "app.services.UserService.get_user"
         for edge in ir.raw_graph.edges
     )
+
+
+def test_plain_name_decorator_has_no_call_keywords():
+    facts = _parse(
+        {
+            "app/module.py": (
+                "def marker(function):\n"
+                "    return function\n"
+                "@marker\n"
+                "def endpoint():\n"
+                "    pass\n"
+            )
+        }
+    )
+
+    decorators = facts[0].decorators
+    assert decorators[0].expression == "marker"
+    assert decorators[0].arguments == ()
+    assert decorators[0].keywords == ()

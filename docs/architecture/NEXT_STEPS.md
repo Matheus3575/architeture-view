@@ -73,3 +73,7 @@ M7.2 is complete. The engine now has a first semantic SVG presentation layer con
 ## M7.3 result
 
 M7.3 is complete. The SVG renderer now provides semantic grouping, bounded orthogonal routing, relation prioritization and inspection metadata while preserving all Read Model elements and hypotheses. The next recommended milestone is a small evidence inspection consumer or a renderer contract hardening pass; interactive UI remains deferred.
+
+## M7.4 result
+
+M7.4 is complete as interactive inspection only. The SVG can select nodes, edges and hypotheses, highlight related elements, clear selection and expose traceable evidence without rerunning analysis. The next recommended milestone is a dedicated evidence/read-model API or a browser consumer if richer navigation is required; discovery remains outside the renderer.

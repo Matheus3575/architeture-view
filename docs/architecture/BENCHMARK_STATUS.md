@@ -160,3 +160,7 @@ The `visualization_read_model` benchmark now validates the SVG output in additio
 ## M7.3 status
 
 The visualization benchmark now checks semantic layout groups, architectural/structural relation classes, complete inspection metadata, valid SVG, element completeness and deterministic repeated rendering. The 23-case suite passes; the visualization fixture produces 9 nodes and 7 edges with all required groups and relation classes.
+
+## M7.4 status
+
+The visualization tests now cover interaction payload presence, stable IDs, inspection panel metadata and UNKNOWN evidence behavior. Existing architectural benchmark metrics were not changed. The full controlled benchmark suite remains the source of regression validation.

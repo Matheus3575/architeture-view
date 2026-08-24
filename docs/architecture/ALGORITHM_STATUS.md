@@ -100,3 +100,7 @@ The semantic SVG renderer MVP is complete. It provides a bounded layout over rea
 ## M7.3 status
 
 Semantic SVG layout and inspection are complete with bounded deterministic behavior. Existing layer/group/preferred-layer hints take precedence; fallback grouping uses only existing semantic kind, role and entrypoint hints. Relation kinds are preserved and visually classified without removing Read Model edges. Cross-band routes are simple orthogonal paths. SVG metadata preserves element identity, relationships, evidence and hypothesis associations. No Raw Graph, parser, scanner or architectural inference is accessed.
+
+## M7.4 status
+
+Interactive evidence inspection is complete as a renderer-only capability. The SVG includes stable selection metadata, deterministic precomputed lookup payloads, node/edge/hypothesis selection, related-element highlighting, clear selection and an evidence panel. Structural Read Model IDs and data are unchanged; absent evidence fields remain UNKNOWN. No analysis stage or architectural detector was modified.

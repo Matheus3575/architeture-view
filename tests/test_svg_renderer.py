@@ -174,3 +174,45 @@ def test_svg_renderer_keeps_unknown_nodes_identifiable():
     assert 'data-kind="unknown"' in svg
     assert 'data-status="unknown"' in svg
     assert "polygon" in svg
+
+
+def test_svg_renderer_embeds_interaction_indices_and_inspection_panel():
+    model = _read_model()
+    svg = render_svg(model)
+
+    assert '<script type="application/ecmascript">' in svg
+    assert "const DATA =" in svg
+    assert 'id="inspection-panel"' in svg
+    assert "select(kind, id)" in svg
+    assert "classList.toggle" in svg
+    assert "data-selection-kind=\"node\"" in svg
+    assert "data-selection-kind=\"edge\"" in svg
+    assert "data-selection-kind=\"hypothesis\"" in svg
+    for item in [*model.nodes, *model.edges, *model.evidence]:
+        assert item.id in svg
+    for hypothesis in model.hypotheses:
+        assert hypothesis.pattern in svg
+
+
+def test_svg_renderer_inspection_payload_preserves_unknown_evidence():
+    model = _read_model()
+    hypothesis = model.hypotheses[0].model_copy(
+        update={"supporting_evidence": ["missing-evidence-ref"]}
+    )
+    model = model.model_copy(update={"hypotheses": [hypothesis, *model.hypotheses[1:]]})
+    svg = render_svg(model)
+
+    assert "missing-evidence-ref" in svg
+    assert 'if (!evidence)' in svg
+    assert "UNKNOWN" in svg
+    assert "expression: UNKNOWN" in svg
+
+
+def test_svg_renderer_interaction_keeps_structural_ids_stable():
+    model = _read_model()
+    first = render_svg(model)
+    second = render_svg(model)
+
+    assert first == second
+    for item in [*model.nodes, *model.edges]:
+        assert f'data-read-model-id="{item.id}"' in first
