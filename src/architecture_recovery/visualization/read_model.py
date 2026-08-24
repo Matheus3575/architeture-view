@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .evidence import EvidenceGroup, EvidencePayloadIndex
 from .projection import ArchitecturalProjectionBuilder, ArchitecturalSignificance, HighLevelArchitectureProjection
 
 from architecture_recovery.ir import (
@@ -31,6 +32,8 @@ class VisualizationNode(BaseModel):
     status: EvidenceStatus = EvidenceStatus.OBSERVED
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     evidence_refs: list[str] = Field(default_factory=list)
+    evidence_group_ref: str | None = None
+    evidence_count: int = Field(default=0, ge=0)
     origin_ref: str | None = None
     layout_hints: dict[str, Any] = Field(default_factory=dict)
 
@@ -45,6 +48,8 @@ class VisualizationEdge(BaseModel):
     status: EvidenceStatus = EvidenceStatus.OBSERVED
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     evidence_refs: list[str] = Field(default_factory=list)
+    evidence_group_ref: str | None = None
+    evidence_count: int = Field(default=0, ge=0)
     origin_ref: str | None = None
     raw_edge_ids: list[str] = Field(default_factory=list)
     support_count: int = Field(default=1, ge=1)
@@ -60,8 +65,13 @@ class VisualizationHypothesis(BaseModel):
     supporting_evidence: list[str] = Field(default_factory=list)
     contradicting_evidence: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
+    evidence_group_ref: str | None = None
+    evidence_count: int = Field(default=0, ge=0)
+    supporting_evidence_group_ref: str | None = None
+    supporting_evidence_count: int = Field(default=0, ge=0)
+    contradicting_evidence_group_ref: str | None = None
+    contradicting_evidence_count: int = Field(default=0, ge=0)
     explanation: str = ""
-
 
 class VisualizationEvidence(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -82,6 +92,7 @@ class VisualizationReadModel(BaseModel):
     edges: list[VisualizationEdge] = Field(default_factory=list)
     hypotheses: list[VisualizationHypothesis] = Field(default_factory=list)
     evidence: list[VisualizationEvidence] = Field(default_factory=list)
+    evidence_groups: list[EvidenceGroup] = Field(default_factory=list)
     architectural_significance: list[ArchitecturalSignificance] = Field(default_factory=list)
     unknowns: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -96,6 +107,7 @@ class VisualizationReadModel(BaseModel):
         data["hypotheses"] = sorted(data["hypotheses"], key=lambda item: item["pattern"])
         data["architectural_significance"] = sorted(data["architectural_significance"], key=lambda item: item["subject"])
         data["evidence"] = sorted(data["evidence"], key=lambda item: item["id"])
+        data["evidence_groups"] = sorted(data["evidence_groups"], key=lambda item: item["id"])
         data["unknowns"] = sorted(set(data["unknowns"]))
         return VisualizationReadModel.model_validate(data)
 
@@ -386,11 +398,47 @@ class VisualizationReadModelBuilder:
                 "transformation": "architecture-ir-to-visualization-read-model-v2",
             },
         ).canonicalize()
+        result = self._compact_evidence(result)
         validation = validate_visualization_read_model(result, {item.id for item in ir.evidence})
         if not validation.valid:
             raise ValueError("Invalid visualization read model: " + "; ".join(validation.errors))
         return result
 
+    @staticmethod
+    def _compact_evidence(model: VisualizationReadModel) -> VisualizationReadModel:
+        index = EvidencePayloadIndex(model.evidence)
+
+        def bind(item, field: str, group_field: str, count_field: str):
+            binding = index.bind(getattr(item, field))
+            return item.model_copy(update={
+                field: binding.inline_refs,
+                group_field: binding.group_ref,
+                count_field: binding.evidence_count,
+            })
+
+        nodes = [bind(item, "evidence_refs", "evidence_group_ref", "evidence_count") for item in model.nodes]
+        edges = [bind(item, "evidence_refs", "evidence_group_ref", "evidence_count") for item in model.edges]
+        hypotheses = []
+        for item in model.hypotheses:
+            compacted = bind(item, "evidence_refs", "evidence_group_ref", "evidence_count")
+            compacted = bind(compacted, "supporting_evidence", "supporting_evidence_group_ref", "supporting_evidence_count")
+            compacted = bind(compacted, "contradicting_evidence", "contradicting_evidence_group_ref", "contradicting_evidence_count")
+            hypotheses.append(compacted)
+
+        metadata = dict(model.metadata)
+        metadata.update({
+            "evidence_reference_count": index.original_reference_count,
+            "inline_evidence_reference_count": index.inline_reference_count,
+            "evidence_group_count": len(index.groups),
+            "evidence_inline_limit": index.inline_limit,
+        })
+        return model.model_copy(update={
+            "nodes": nodes,
+            "edges": edges,
+            "hypotheses": hypotheses,
+            "evidence_groups": sorted(index.groups.values(), key=lambda item: item.id),
+            "metadata": metadata,
+        }).canonicalize()
     @staticmethod
     def _raw_to_arch(ir: ArchitectureIR) -> dict[str, str]:
         mapping: dict[str, str] = {}
@@ -461,8 +509,43 @@ def validate_visualization_read_model(
             errors.append(f"Visualization edge source does not exist: {edge.source}")
         if edge.target not in node_id_set:
             errors.append(f"Visualization edge target does not exist: {edge.target}")
+    group_ids = [group.id for group in model.evidence_groups]
+    group_by_id = {group.id: group for group in model.evidence_groups}
+    if len(group_ids) != len(group_by_id):
+        errors.append("Visualization read model contains duplicate evidence group IDs")
+    for group in model.evidence_groups:
+        if group.evidence_count != len(set(group.evidence_refs)):
+            errors.append(f"Evidence group count does not match refs: {group.id}")
+
+    grouped_items = [*model.nodes, *model.edges, *model.hypotheses]
+    for item in grouped_items:
+        refs = list(item.evidence_refs)
+        group_ref = item.evidence_group_ref
+        if group_ref:
+            group = group_by_id.get(group_ref)
+            if group is None:
+                errors.append(f"Visualization element references unknown evidence group: {group_ref}")
+            elif item.evidence_count != group.evidence_count:
+                errors.append(f"Visualization evidence count does not match group: {group_ref}")
+        for field, count_field in (("supporting_evidence_group_ref", "supporting_evidence_count"), ("contradicting_evidence_group_ref", "contradicting_evidence_count")):
+            support_group_ref = getattr(item, field, None)
+            if support_group_ref:
+                group = group_by_id.get(support_group_ref)
+                if group is None:
+                    errors.append(f"Visualization element references unknown evidence group: {support_group_ref}")
+                elif getattr(item, count_field) != group.evidence_count:
+                    errors.append(f"Visualization evidence count does not match group: {support_group_ref}")
+        if evidence_ids is not None:
+            for ref in refs:
+                if ref not in evidence_ids:
+                    errors.append(f"Visualization element references unknown evidence: {ref}")
+
     if evidence_ids is not None:
-        for item in [*model.nodes, *model.edges, *model.hypotheses, *model.architectural_significance]:
+        for group in model.evidence_groups:
+            for ref in group.evidence_refs:
+                if ref not in evidence_ids:
+                    errors.append(f"Evidence group references unknown evidence: {ref}")
+        for item in model.architectural_significance:
             for ref in item.evidence_refs:
                 if ref not in evidence_ids:
                     errors.append(f"Visualization element references unknown evidence: {ref}")
@@ -488,6 +571,7 @@ def _fact_key(fact: Any) -> tuple[str, str, str]:
 
 __all__ = [
     "VisualizationEdge",
+    "EvidenceGroup",
     "VisualizationEvidence",
     "VisualizationHypothesis",
     "VisualizationNode",

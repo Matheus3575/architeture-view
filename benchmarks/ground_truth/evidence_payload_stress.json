@@ -1,0 +1,17 @@
+{
+  "hypotheses": {"required": [], "forbidden": []},
+  "read_model": {
+    "require_all_edges_valid": true,
+    "require_traceability": true,
+    "require_determinism": true,
+    "svg": {"require_valid": true, "require_all_elements": true, "require_determinism": true, "require_inspection_metadata": true},
+    "stress_evidence": {
+      "target": "component:app.py",
+      "count": 4000,
+      "prefix": "synthetic-stress",
+      "require_group": true,
+      "require_traceability": true,
+      "require_material_reduction": true
+    }
+  }
+}

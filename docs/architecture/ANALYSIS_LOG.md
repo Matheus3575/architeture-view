@@ -738,16 +738,16 @@ without relations return UNKNOWN; reverse-only evidence remains traceable as a
 contradiction and returns UNKNOWN; mixed forward/reverse evidence returns
 UNCERTAIN. The global deterministic scorer was preserved. No parser, scanner,
 framework adapter or infrastructure adapter was changed.
-## M6.3 — MVC evidence detector
+## M6.3 ï¿½ MVC evidence detector
 
 M6.3 adds an independent deterministic `mvc` hypothesis to the existing engine. It consumes indexed ArchitectureIR relations and existing HTTP/framework facts only. Support requires semantic controller-to-model and model-to-persistence direction, with optional HTTP/controller and controller/view signals. Direct controller-to-persistence and reverse persistence-to-controller relations remain contradictory evidence. Directory names without semantic relations remain UNKNOWN. The five controlled MVC fixtures pass with deterministic output; no parser, scan, Raw Graph or renderer changes were introduced.
-## M6.4 — Strengthened framework facts
+## M6.4 ï¿½ Strengthened framework facts
 
 M6.4 strengthened the existing FastAPI adapter without adding a parser, repository scan or architectural detector. Framework-neutral facts now preserve resolved application/router expressions, endpoint router and handler relationships, `CONTROLLER_LIKE` facts for resolved HTTP route handlers, endpoint-associated dependencies, and observation metadata containing source location and raw evidence refs. Alias imports continue to resolve through the existing import index. Dynamic providers, generic routers and unresolved schemas remain UNKNOWN or absent. The complete FastAPI ground truth passes with deterministic output.
-## M7.1 — Architecture Visualization Read Model
+## M7.1 ï¿½ Architecture Visualization Read Model
 
 M7.1 adds a deterministic renderer-neutral projection from ArchitectureIR to a serializable VisualizationReadModel. The projection consumes only Architectural Graph nodes/edges, components, infrastructure resources/relations, framework facts, evidence and hypotheses already present in the IR. It creates explicit endpoint and UNKNOWN target nodes only from evidenced framework facts, preserves original relation kinds/status/confidence/evidence refs, and keeps hypotheses separate from visual facts. No renderer, layout algorithm, parser or repository scan was added.
-## M7.2 — Semantic SVG Renderer MVP
+## M7.2 ï¿½ Semantic SVG Renderer MVP
 
 M7.2 adds a deterministic SVG renderer that consumes only VisualizationReadModel. It uses fixed semantic bands, stable node ordering, fixed spacing and status-aware edge styles. SVG elements preserve read-model IDs, origin refs, evidence refs, status and confidence through data attributes. Architecture hypotheses are rendered in a separate panel and are not converted into structural facts. No source, Raw Graph, parser, resolver, framework adapter or layout dependency is accessed by the renderer.
 
@@ -769,11 +769,11 @@ M7.5 adds optional presentation-only motion to the SVG renderer. STATIC remains 
 
 M7.6 adds a minimal optional browser consumer using only Python's standard library. It serves a previously rendered static SVG at /architecture.svg, an optional animated SVG at /architecture-animated.svg and a small accessible HTML page at /. The HTTP layer has fixed routes and never accepts repository paths, commands or analysis requests. SVG remains the primary renderer, STATIC remains the default, and the Read Model is not reconstructed by the web layer.
 
-## M7.7 — Visualization CLI
+## M7.7 ï¿½ Visualization CLI
 
 M7.7 adds high-level `visualize` and `serve` commands. Each invocation analyzes the repository once, builds one VisualizationReadModel, and delegates static/animated output to the existing SVG renderer. `serve` passes only already-generated SVG artifacts to the fixed-route web consumer. The CLI adds orchestration only; it does not participate in architectural inference or introduce a new analysis pass.
 
-## M6.5 — Evidence-Based Hexagonal Architecture Detection
+## M6.5 ï¿½ Evidence-Based Hexagonal Architecture Detection
 
 M6.5 adds an independent `hexagonal` hypothesis using only existing IR nodes, relations, framework facts, infrastructure semantics and evidence. Support requires multiple directional categories: input boundary to core, core dependency on a port contract, and/or an infrastructure adapter implementing/extending a port. Direct core-to-concrete-infrastructure relations are preserved as contradictions. Names-only fixtures remain UNKNOWN. Six controlled fixtures cover positive, infrastructure-backed, names-only, direct contradiction, ambiguous support/contradiction and negative cases.
 
@@ -815,3 +815,10 @@ ArchitectureIR or renderer responsibilities. The project treats architecture
 in two dimensions: relevant high-level structures and materialized technical
 decisions. Decision recovery remains a future milestone and no human intent is
 inferred here.
+## M8.1.1 â€” Evidence payload hardening
+
+M8.1.1 hardens only the representation boundary between `VisualizationReadModel` and SVG. A structural association remains fully traceable, but a visual node, edge or hypothesis no longer repeats a large evidence ID list in its attributes. The Read Model now owns deterministic `EvidenceGroup` entries with a stable ID, unique complete references, count, source-type summary and source/origin paths. Elements carry `evidence_group_ref` and `evidence_count`; associations at or below the explicit 20-reference serialization threshold remain inline.
+
+The SVG interaction payload carries each large reference collection once through the shared group index and includes evidence details only for the bounded first inspection window. Inspection reports the total count and the first 20 observations. The complete evidence collection remains available in the Read Model and the group's complete reference list. Duplicate associations are removed per element and equal sets share the same group ID.
+
+The change does not alter ArchitectureIR, Architectural Significance, High-Level Architecture Projection, nodes, edges, hypotheses or architectural relations. It is a serialization/performance refinement only. No ADR was created because the existing evidence and renderer-boundary decisions remain sufficient.

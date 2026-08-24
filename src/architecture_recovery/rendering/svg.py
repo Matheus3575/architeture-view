@@ -46,7 +46,8 @@ class SemanticSvgRenderer:
 
         groups = self._groups(model.nodes)
         positions, bands, width, height = self._layout(groups, model.hypotheses)
-        hypothesis_refs = self._hypothesis_refs(model)
+        evidence_group_index = _evidence_group_index(model)
+        hypothesis_refs = self._hypothesis_refs(model, evidence_group_index)
         svg: list[str] = [
             '<?xml version="1.0" encoding="UTF-8"?>',
             (
@@ -124,11 +125,11 @@ class SemanticSvgRenderer:
             target = positions.get(edge.target)
             if source is None or target is None:
                 continue
-            svg.append(self._edge_svg(edge, source, target, hypothesis_refs))
+            svg.append(self._edge_svg(edge, source, target, hypothesis_refs, _effective_evidence_refs(edge, evidence_group_index)))
 
         for node in sorted(model.nodes, key=lambda item: item.id):
             x, y = positions[node.id]
-            svg.append(self._node_svg(node, x, y, model.edges, hypothesis_refs))
+            svg.append(self._node_svg(node, x, y, model.edges, hypothesis_refs, _effective_evidence_refs(node, evidence_group_index)))
 
         svg.extend(self._hypotheses_svg(model, width, height))
         svg.extend(_inspection_panel(width, height))
@@ -169,6 +170,7 @@ class SemanticSvgRenderer:
         source,
         target,
         hypothesis_refs: dict[str, set[str]],
+        element_refs: set[str],
     ) -> str:
         sx, sy = source
         tx, ty = target
@@ -185,7 +187,7 @@ class SemanticSvgRenderer:
         style = f'stroke="{stroke}" stroke-width="{width}" opacity="{opacity}"'
         if dash:
             style += f' stroke-dasharray="{dash}"'
-        associations = _hypothesis_associations(edge.evidence_refs, hypothesis_refs)
+        associations = _hypothesis_associations(element_refs, hypothesis_refs)
         return (
             f'<g id="edge-{_safe_id(edge.id)}" data-read-model-id="{_escape(edge.id)}" '
             f'class="inspectable edge-{relation_class}" data-selection-kind="edge" '
@@ -197,7 +199,7 @@ class SemanticSvgRenderer:
             f'data-related-node-ids="{_escape(edge.source + "," + edge.target)}" '
             f'data-hypothesis-associations="{_escape(_refs(associations))}" '
             f'data-origin-ref="{_escape(edge.origin_ref or "")}" '
-            f'data-evidence-refs="{_escape(_refs(edge.evidence_refs))}" '
+            f'{_evidence_attributes(edge)}'
             f'data-status="{edge.status.value}" data-confidence="{edge.confidence}">'
             f'<path d="{path}" fill="none" {style} marker-end="url(#{marker})"/>'
             f'<text x="{(sx + tx + self.NODE_WIDTH) // 2}" '
@@ -206,13 +208,13 @@ class SemanticSvgRenderer:
             f'text-anchor="middle">{_escape(edge.kind)}</text></g>'
         )
 
-    def _node_svg(self, node: VisualizationNode, x: int, y: int, edges, hypothesis_refs: dict[str, set[str]]) -> str:
+    def _node_svg(self, node: VisualizationNode, x: int, y: int, edges, hypothesis_refs: dict[str, set[str]], element_refs: set[str]) -> str:
         element_id = f"node-{_safe_id(node.id)}"
         related_edges = sorted(
             edge.id for edge in edges
             if edge.source == node.id or edge.target == node.id
         )
-        associations = _hypothesis_associations(node.evidence_refs, hypothesis_refs)
+        associations = _hypothesis_associations(element_refs, hypothesis_refs)
         attrs = (
             f'id="{element_id}" data-read-model-id="{_escape(node.id)}" '
             f'class="inspectable node-{_safe_id(node.kind)}" data-selection-kind="node" '
@@ -223,7 +225,7 @@ class SemanticSvgRenderer:
             f'data-related-edge-ids="{_escape(_refs(related_edges))}" '
             f'data-hypothesis-associations="{_escape(_refs(associations))}" '
             f'data-origin-ref="{_escape(node.origin_ref or "")}" '
-            f'data-evidence-refs="{_escape(_refs(node.evidence_refs))}" '
+            f'{_evidence_attributes(node)}'
             f'data-status="{node.status.value}" data-confidence="{node.confidence}" '
             f'data-kind="{_escape(node.kind)}"'
         )
@@ -278,7 +280,10 @@ class SemanticSvgRenderer:
                 f'data-supporting-evidence="{_escape(_refs(hypothesis.supporting_evidence))}" '
                 f'data-contradicting-evidence="{_escape(_refs(hypothesis.contradicting_evidence))}" '
                 f'data-explanation="{_escape(hypothesis.explanation)}" '
-                f'data-evidence-refs="{_escape(ref)}" data-status="{hypothesis.status.value}" '
+                f'{_evidence_attributes(hypothesis)}'
+                f'{_evidence_attributes(hypothesis, "supporting_evidence", "supporting_evidence_group_ref", "supporting_evidence_count", "supporting")}'
+                f'{_evidence_attributes(hypothesis, "contradicting_evidence", "contradicting_evidence_group_ref", "contradicting_evidence_count", "contradicting")}'
+                f'data-status="{hypothesis.status.value}" '
                 f'data-confidence="{hypothesis.confidence}">'
                 f'<text x="{x}" y="{y + 25}" font-family="sans-serif" font-size="11" '
                 f'font-weight="bold" fill="#7c2d12">{_escape(hypothesis.pattern)}</text>'
@@ -316,9 +321,14 @@ class SemanticSvgRenderer:
         return "architectural" if kind in SemanticSvgRenderer.IMPORTANT_RELATIONS else "relation"
 
     @staticmethod
-    def _hypothesis_refs(model: VisualizationReadModel):
+    def _hypothesis_refs(model: VisualizationReadModel, evidence_group_index=None):
+        groups = _evidence_group_index(model) if evidence_group_index is None else evidence_group_index
         return {
-            item.pattern: set(item.evidence_refs) | set(item.supporting_evidence) | set(item.contradicting_evidence)
+            item.pattern: (
+                _effective_evidence_refs(item, groups)
+                | _effective_evidence_refs(item, groups, "supporting_evidence", "supporting_evidence_group_ref")
+                | _effective_evidence_refs(item, groups, "contradicting_evidence", "contradicting_evidence_group_ref")
+            )
             for item in model.hypotheses
         }
 
@@ -342,6 +352,31 @@ class SemanticSvgRenderer:
 
 def render_svg(model: VisualizationReadModel, mode: str = "static") -> str:
     return SemanticSvgRenderer().render(model, mode=mode)
+
+
+def _evidence_group_index(model: VisualizationReadModel):
+    return {group.id: group for group in model.evidence_groups}
+
+
+def _effective_evidence_refs(item, evidence_group_index, field: str = "evidence_refs", group_field: str = "evidence_group_ref") -> set[str]:
+    refs = set(getattr(item, field, []) or [])
+    group_ref = getattr(item, group_field, None)
+    group = evidence_group_index.get(group_ref) if group_ref else None
+    if group is not None:
+        refs.update(group.evidence_refs)
+    return refs
+
+
+def _evidence_attributes(item, field: str = "evidence_refs", group_field: str = "evidence_group_ref", count_field: str = "evidence_count", prefix: str = "") -> str:
+    refs = sorted(set(getattr(item, field, []) or []))
+    count = getattr(item, count_field, 0) or len(refs)
+    attributes = [f'data-{prefix}evidence-count="{count}"']
+    group_ref = getattr(item, group_field, None)
+    if group_ref:
+        attributes.append(f'data-{prefix}evidence-group="{_escape(group_ref)}"')
+    if refs:
+        attributes.append(f'data-{prefix}evidence-refs="{_escape(_refs(refs))}"')
+    return " ".join(attributes) + " "
 
 
 def _refs(refs: Iterable[str]) -> str:
@@ -447,7 +482,8 @@ def _interaction_payload(model: VisualizationReadModel) -> dict:
     def source_data(item):
         return item.source.model_dump(mode="json") if item.source else None
 
-    hypothesis_refs = SemanticSvgRenderer._hypothesis_refs(model)
+    evidence_group_index = _evidence_group_index(model)
+    hypothesis_refs = SemanticSvgRenderer._hypothesis_refs(model, evidence_group_index)
     nodes = {}
     for node in sorted(model.nodes, key=lambda item: item.id):
         nodes[node.id] = {
@@ -459,9 +495,11 @@ def _interaction_payload(model: VisualizationReadModel) -> dict:
             "confidence": node.confidence,
             "origin_ref": node.origin_ref,
             "evidence_refs": sorted(set(node.evidence_refs)),
+            "evidence_group_ref": node.evidence_group_ref,
+            "evidence_count": node.evidence_count or len(set(node.evidence_refs)),
             "related_edge_ids": sorted(set(edges_by_node.get(node.id, []))),
             "hypothesis_associations": _hypothesis_associations(
-                node.evidence_refs,
+                _effective_evidence_refs(node, evidence_group_index),
                 hypothesis_refs,
             ),
         }
@@ -477,14 +515,31 @@ def _interaction_payload(model: VisualizationReadModel) -> dict:
             "confidence": edge.confidence,
             "origin_ref": edge.origin_ref,
             "evidence_refs": sorted(set(edge.evidence_refs)),
+            "evidence_group_ref": edge.evidence_group_ref,
+            "evidence_count": edge.evidence_count or len(set(edge.evidence_refs)),
             "hypothesis_associations": _hypothesis_associations(
-                edge.evidence_refs,
+                _effective_evidence_refs(edge, evidence_group_index),
                 hypothesis_refs,
             ),
         }
 
+    if model.evidence_groups:
+        payload_evidence_ids = {
+            ref
+            for item in [*model.nodes, *model.edges, *model.hypotheses]
+            for ref in item.evidence_refs
+        }
+        payload_evidence_ids.update(
+            ref
+            for group in model.evidence_groups
+            for ref in group.evidence_refs[:20]
+        )
+    else:
+        payload_evidence_ids = {item.id for item in model.evidence}
     evidence = {}
     for item in sorted(model.evidence, key=lambda item: item.id):
+        if item.id not in payload_evidence_ids:
+            continue
         evidence[item.id] = {
             "source_type": item.source_type,
             "detail": item.detail,
@@ -492,6 +547,10 @@ def _interaction_payload(model: VisualizationReadModel) -> dict:
             "weight": item.weight,
         }
 
+    evidence_groups = {
+        group.id: group.model_dump(mode="json")
+        for group in sorted(model.evidence_groups, key=lambda item: item.id)
+    }
     hypotheses = {}
     for item in sorted(model.hypotheses, key=lambda item: item.pattern):
         hypotheses[item.pattern] = {
@@ -499,20 +558,26 @@ def _interaction_payload(model: VisualizationReadModel) -> dict:
             "confidence": item.confidence,
             "explanation": item.explanation,
             "supporting_evidence": sorted(set(item.supporting_evidence)),
+            "supporting_evidence_group_ref": item.supporting_evidence_group_ref,
+            "supporting_evidence_count": item.supporting_evidence_count or len(set(item.supporting_evidence)),
             "contradicting_evidence": sorted(set(item.contradicting_evidence)),
+            "contradicting_evidence_group_ref": item.contradicting_evidence_group_ref,
+            "contradicting_evidence_count": item.contradicting_evidence_count or len(set(item.contradicting_evidence)),
             "evidence_refs": sorted(set(item.evidence_refs)),
+            "evidence_group_ref": item.evidence_group_ref,
+            "evidence_count": item.evidence_count or len(set(item.evidence_refs)),
         }
 
     return {
         "nodes": nodes,
         "edges": edges,
         "evidence": evidence,
+        "evidence_groups": evidence_groups,
         "hypotheses": hypotheses,
         "related_edges": {
             key: sorted(value) for key, value in sorted(edges_by_node.items())
         },
     }
-
 
 def _interaction_script(model: VisualizationReadModel, mode: str = "static") -> str:
     payload = json.dumps(
@@ -563,13 +628,32 @@ def _interaction_script(model: VisualizationReadModel, mode: str = "static") -> 
     ];
   }}
 
-  function evidenceLines(refs, context) {{
-    const output = ["Evidence (" + context + "):"];
-    if (!refs || refs.length === 0) {{
+  function refsFor(item, refsField, groupField) {{
+    const inlineRefs = item[refsField] || [];
+    const groupId = item[groupField];
+    const group = groupId ? DATA.evidence_groups[groupId] : null;
+    const groupedRefs = group && group.evidence_refs ? group.evidence_refs : [];
+    return Array.from(new Set(inlineRefs.concat(groupedRefs))).sort();
+  }}
+
+  function shortRefs(refs) {{
+    const values = (refs || []).slice(0, 20);
+    const suffix = refs && refs.length > values.length ? " ..." : "";
+    return values.join(", ") + suffix;
+  }}
+
+  function evidenceLines(refs, context, count) {{
+    const allRefs = Array.from(new Set(refs || [])).sort();
+    const shownRefs = allRefs.slice(0, 20);
+    const output = [
+      "Evidence count: " + value(count === undefined ? allRefs.length : count),
+      "Showing first " + shownRefs.length + " of " + allRefs.length + " (" + value(context) + "):"
+    ];
+    if (shownRefs.length === 0) {{
       output.push("  UNKNOWN");
       return output;
     }}
-    refs.forEach(function (ref) {{
+    shownRefs.forEach(function (ref) {{
       const evidence = DATA.evidence[ref];
       if (!evidence) {{
         output.push("  " + ref + ": UNKNOWN");
@@ -634,7 +718,7 @@ def _interaction_script(model: VisualizationReadModel, mode: str = "static") -> 
         "origin: " + value(item.origin_ref),
         "edges: " + value(item.related_edge_ids.join(", ")),
         "hypotheses: " + value(item.hypothesis_associations.join(", "))
-      ].concat(evidenceLines(item.evidence_refs, id));
+      ].concat(evidenceLines(refsFor(item, "evidence_refs", "evidence_group_ref"), id, item.evidence_count));
     }} else if (kind === "edge") {{
       output = [
         "EDGE: " + value(id),
@@ -645,21 +729,21 @@ def _interaction_script(model: VisualizationReadModel, mode: str = "static") -> 
         "status: " + value(item.status),
         "confidence: " + value(item.confidence),
         "origin: " + value(item.origin_ref)
-      ].concat(evidenceLines(item.evidence_refs, id));
+      ].concat(evidenceLines(refsFor(item, "evidence_refs", "evidence_group_ref"), id, item.evidence_count));
     }} else {{
+      const supportingRefs = refsFor(item, "supporting_evidence", "supporting_evidence_group_ref");
+      const contradictingRefs = refsFor(item, "contradicting_evidence", "contradicting_evidence_group_ref");
+      const hypothesisRefs = refsFor(item, "evidence_refs", "evidence_group_ref");
       output = [
         "HYPOTHESIS: " + value(id),
         "status: " + value(item.status),
         "confidence: " + value(item.confidence),
         "explanation: " + value(item.explanation),
-        "supporting: " + value(item.supporting_evidence.join(", ")),
-        "contradicting: " + value(item.contradicting_evidence.join(", "))
-      ].concat(evidenceLines(item.evidence_refs, id));
-      item.supporting_evidence.concat(item.contradicting_evidence).forEach(function (ref) {{
-        if (item.evidence_refs.indexOf(ref) < 0) {{
-          output.push("evidence ref: " + ref);
-        }}
-      }});
+        "supporting count: " + value(item.supporting_evidence_count || supportingRefs.length),
+        "supporting: " + shortRefs(supportingRefs),
+        "contradicting count: " + value(item.contradicting_evidence_count || contradictingRefs.length),
+        "contradicting: " + shortRefs(contradictingRefs)
+      ].concat(evidenceLines(hypothesisRefs, id, item.evidence_count));
     }}
     setPanel(output);
   }}

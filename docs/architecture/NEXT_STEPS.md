@@ -115,3 +115,8 @@ M6.6 is complete as a conservative Microservices detector. Independent applicati
 ## M8.1 result
 
 M8.1 is complete. High-level projection now decides architectural visibility before the renderer while preserving detailed significance records and traceability. The next recommended milestone is materialized Architectural Decision Recovery over existing evidence, not more visual filtering.
+## M8.1.1 result
+
+M8.1.1 is complete. Large evidence associations now use shared deterministic groups at the VisualizationReadModel/SVG boundary. Full traceability remains available through the Read Model; visual attributes contain stable group references and counts, and inspection is bounded to the first 20 observations. ArchitectureIR, Architectural Significance and High-Level Architecture Projection are unchanged.
+
+The next recommended milestone is Architectural Decision Recovery over materialized evidence, with explicit separation between observed technical facts and inferred human intent. A future navigation milestone may consume `contains_refs` and evidence groups for drill-down without reintroducing duplicated SVG payloads.

@@ -184,3 +184,23 @@ The benchmark suite adds eight Microservices fixtures covering clear HTTP and me
 ## M8.1 status
 
 The benchmark suite adds a synthetic many-module projection case. It measures significance recall/precision, detailed versus high-level node counts, reduction ratio, projected edge validity, projection traceability, LOW/UNKNOWN preservation and determinism. The reduction ratio is reported as an operational metric and is not treated as quality by itself.
+## M8.1.1 status
+
+The suite adds `evidence_payload_stress`, a controlled one-application fixture with benchmark-only synthetic evidence augmentation. The projection and its node/edge signatures are compared before and after payload augmentation; only Read Model serialization is measured.
+
+Observed stress metrics:
+
+```yaml
+projected_nodes: unchanged
+projected_edges: unchanged
+evidence_reference_count: 12035
+inline_evidence_reference_count: 26
+evidence_group_count: 3
+evidence_traceability: true
+evidence_projection_semantics_unchanged: true
+legacy_inline_svg_bytes: 1125373
+svg_payload_bytes: 345145
+evidence_payload_reduction_ratio: 0.693306
+```
+
+The complete collection remains recoverable through the Read Model groups, duplicate associations are deterministic, and SVG/inspection output remains valid. The reduction is a representation metric, not an architectural quality metric.

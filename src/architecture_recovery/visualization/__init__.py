@@ -1,3 +1,4 @@
+from .evidence import EvidenceGroup, INLINE_EVIDENCE_REF_LIMIT
 from .projection import ArchitecturalSignificance, ArchitecturalProjectionBuilder, HighLevelArchitectureProjection, ProjectedEdge, SignificanceLevel
 from .read_model import (
     VisualizationEdge,
@@ -10,6 +11,8 @@ from .read_model import (
 )
 
 __all__ = [
+    "EvidenceGroup",
+    "INLINE_EVIDENCE_REF_LIMIT",
     "ArchitecturalSignificance",
     "ArchitecturalProjectionBuilder",
     "HighLevelArchitectureProjection",

@@ -159,3 +159,10 @@ ArchitectureIR or renderer responsibilities. The project treats architecture
 in two dimensions: relevant high-level structures and materialized technical
 decisions. Decision recovery remains a future milestone and no human intent is
 inferred here.
+## M8.1.1 status
+
+Evidence payload serialization is now shared and bounded. `EvidenceGroup` is the Read Model auxiliary schema: `id`, `evidence_count`, complete deduplicated `evidence_refs`, deterministic source-type `summary` and `source_refs`. Group IDs are SHA-1-derived from sorted evidence IDs and are stable across repeated builds. `INLINE_EVIDENCE_REF_LIMIT = 20` is an explicit serialization threshold; it never changes significance or projection.
+
+The builder performs one indexed pass over visual evidence associations. Large node, edge and hypothesis associations are represented by group references and counts, while small lists remain inline. SVG elements expose stable IDs, status, confidence, origin, count and group reference. The inspection panel resolves the shared index and displays at most the first 20 evidence items. Read Model validation checks group identity, counts and all group references against the complete evidence set.
+
+This milestone preserves the distinction: traceability is provided by references and indexes, not by duplicating the complete evidence set inside every visual element. ArchitectureIR and HighLevelArchitectureProjection are unchanged semantically.

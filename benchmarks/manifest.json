@@ -190,6 +190,11 @@
       "name": "projection_many_modules",
       "repository": "benchmarks/fixtures/projection_many_modules",
       "ground_truth": "ground_truth/projection_many_modules.json"
+    },
+    {
+      "name": "evidence_payload_stress",
+      "repository": "benchmarks/fixtures/evidence_payload_stress",
+      "ground_truth": "ground_truth/evidence_payload_stress.json"
     }
   ]
 }

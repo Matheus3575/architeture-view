@@ -9,7 +9,7 @@ from typing import Any
 
 from architecture_recovery.pipeline import analyze_repository
 from architecture_recovery.rendering import render_svg
-from architecture_recovery.visualization import VisualizationReadModelBuilder
+from architecture_recovery.visualization import VisualizationEvidence, VisualizationReadModelBuilder
 from architecture_recovery.web import create_visualization_server
 
 
@@ -206,6 +206,14 @@ def _evaluate_read_model(first, second, ground_truth, failures):
     builder = VisualizationReadModelBuilder()
     first_model = builder.build(first)
     second_model = builder.build(second)
+    stress_spec = spec.get("stress_evidence", {})
+    projection_node_ids_before = {node.id for node in first_model.nodes}
+    projection_edge_signature_before = {
+        (edge.source, edge.target, edge.kind) for edge in first_model.edges
+    }
+    if stress_spec:
+        first_model = _augment_evidence_stress(first_model, stress_spec, builder)
+        second_model = _augment_evidence_stress(second_model, stress_spec, builder)
     node_ids = {node.id for node in first_model.nodes}
     valid_edges = all(
         edge.source in node_ids and edge.target in node_ids
@@ -247,10 +255,17 @@ def _evaluate_read_model(first, second, ground_truth, failures):
     if spec.get("require_hypotheses") and not first_model.hypotheses:
         failures.append("visualization read model has no hypotheses")
     evidence_ids = {item.id for item in first_model.evidence}
-    traceable = all(
-        ref in evidence_ids
-        for item in [*first_model.nodes, *first_model.edges, *first_model.hypotheses, *first_model.architectural_significance]
-        for ref in item.evidence_refs
+    traceable = (
+        all(
+            ref in evidence_ids
+            for item in [*first_model.nodes, *first_model.edges, *first_model.hypotheses, *first_model.architectural_significance]
+            for ref in item.evidence_refs
+        )
+        and all(
+            ref in evidence_ids
+            for group in first_model.evidence_groups
+            for ref in group.evidence_refs
+        )
     )
     if spec.get("require_traceability") and not traceable:
         failures.append("visualization read model is not traceable")
@@ -266,12 +281,38 @@ def _evaluate_read_model(first, second, ground_truth, failures):
     static_svg_bytes = animated_svg_bytes = None
     web_static_available = web_animated_available = None
     accessibility_metadata = web_output_deterministic = None
+    stress_metrics = {
+        "svg_payload_bytes": None,
+        "legacy_inline_svg_bytes": None,
+        "evidence_payload_reduction_ratio": None,
+        "evidence_reference_count": first_model.metadata.get("evidence_reference_count"),
+        "inline_evidence_reference_count": first_model.metadata.get("inline_evidence_reference_count"),
+        "evidence_group_count": first_model.metadata.get("evidence_group_count"),
+        "evidence_traceability": traceable,
+        "evidence_projection_semantics_unchanged": None,
+    }
     if spec.get("svg"):
         before_render = first_model.model_dump_json()
         first_svg = render_svg(first_model, mode="static")
         second_svg = render_svg(second_model, mode="static")
         first_animated_svg = render_svg(first_model, mode="animated")
         second_animated_svg = render_svg(second_model, mode="animated")
+        if stress_spec:
+            legacy_svg = render_svg(_inline_evidence_model(first_model))
+            stress_metrics.update({
+                "svg_payload_bytes": len(first_svg.encode("utf-8")),
+                "legacy_inline_svg_bytes": len(legacy_svg.encode("utf-8")),
+                "evidence_payload_reduction_ratio": _ratio(
+                    len(legacy_svg.encode("utf-8")) - len(first_svg.encode("utf-8")),
+                    len(legacy_svg.encode("utf-8")),
+                ),
+                "evidence_projection_semantics_unchanged": (
+                    projection_node_ids_before == {node.id for node in first_model.nodes}
+                    and projection_edge_signature_before == {
+                        (edge.source, edge.target, edge.kind) for edge in first_model.edges
+                    }
+                ),
+            })
         after_render = first_model.model_dump_json()
         read_model_unchanged = before_render == after_render
         static_deterministic = first_svg == second_svg
@@ -341,20 +382,30 @@ def _evaluate_read_model(first, second, ground_truth, failures):
             item for item in root.iter()
             if item.attrib.get("id", "").startswith("edge-")
         ] if root is not None else []
+        def has_evidence_binding(item):
+            return (
+                "data-evidence-count" in item.attrib
+                and (
+                    "data-evidence-refs" in item.attrib
+                    or "data-evidence-group" in item.attrib
+                    or item.attrib.get("data-evidence-count") == "0"
+                )
+            )
+
         svg_inspection_metadata = (
             all(
                 all(key in item.attrib for key in (
                     "data-read-model-id", "data-label", "data-related-edge-ids",
-                    "data-evidence-refs", "data-status", "data-confidence",
-                ))
+                    "data-status", "data-confidence",
+                )) and has_evidence_binding(item)
                 for item in rendered_nodes
             )
             and all(
                 all(key in item.attrib for key in (
                     "data-read-model-id", "data-source", "data-target",
-                    "data-kind", "data-relation-class", "data-evidence-refs",
+                    "data-kind", "data-relation-class",
                     "data-status", "data-confidence",
-                ))
+                )) and has_evidence_binding(item)
                 for item in rendered_edges
             )
         )
@@ -404,6 +455,17 @@ def _evaluate_read_model(first, second, ground_truth, failures):
         if missing_groups:
             failures.append(f"SVG missing layout groups: {sorted(missing_groups)}")
 
+    if stress_spec:
+        if stress_spec.get("require_group") and not first_model.evidence_groups:
+            failures.append("evidence payload stress did not produce an evidence group")
+        if stress_spec.get("require_traceability") and not traceable:
+            failures.append("evidence payload stress is not traceable")
+        if stress_spec.get("require_material_reduction") and (
+            stress_metrics["evidence_payload_reduction_ratio"] is None
+            or stress_metrics["evidence_payload_reduction_ratio"] < 0.3
+        ):
+            failures.append("evidence payload reduction was not material")
+
     return {
         "architectural_significance_recall": _ratio(matched_significant, len(expected_significant)),
         "architectural_significance_precision": _ratio(len(expected_significant & set(node_ids)), projection_metadata.get("high_level_node_count") or 0),
@@ -436,8 +498,76 @@ def _evaluate_read_model(first, second, ground_truth, failures):
         "web_animated_available": web_animated_available,
         "accessibility_metadata": accessibility_metadata,
         "web_output_deterministic": web_output_deterministic,
+        **stress_metrics,
     }
 
+
+
+def _augment_evidence_stress(model, spec, builder):
+    target_id = spec.get("target")
+    target = next((node for node in model.nodes if node.id == target_id), None)
+    if target is None:
+        raise ValueError(f"stress evidence target is not in the read model: {target_id}")
+    prefix = spec.get("prefix", "synthetic-stress")
+    count = int(spec.get("count", 0))
+    refs = [f"{prefix}-{index:05d}" for index in range(count)]
+    evidence = [
+        VisualizationEvidence(
+            id=ref,
+            source_type="CALL_GRAPH",
+            detail=f"synthetic payload observation {index}",
+            source=None,
+            weight=1.0,
+        )
+        for index, ref in enumerate(refs)
+    ]
+    updated_target = target.model_copy(update={
+        "evidence_refs": sorted(set(target.evidence_refs) | set(refs)),
+    })
+    updated_nodes = [updated_target if node.id == target_id else node for node in model.nodes]
+    updated_edges = [
+        edge.model_copy(update={
+            "evidence_refs": sorted(set(edge.evidence_refs) | set(refs)),
+        })
+        if edge.source == target_id or edge.target == target_id else edge
+        for edge in model.edges
+    ]
+    augmented = model.model_copy(update={
+        "nodes": updated_nodes,
+        "edges": updated_edges,
+        "evidence": [*model.evidence, *evidence],
+        "evidence_groups": [],
+    })
+    return builder._compact_evidence(augmented)
+
+
+def _inline_evidence_model(model):
+    groups = {group.id: group for group in model.evidence_groups}
+
+    def expand(item, field, group_field, count_field):
+        group = groups.get(getattr(item, group_field, None))
+        if group is None:
+            return item
+        return item.model_copy(update={
+            field: list(group.evidence_refs),
+            group_field: None,
+            count_field: group.evidence_count,
+        })
+
+    nodes = [expand(item, "evidence_refs", "evidence_group_ref", "evidence_count") for item in model.nodes]
+    edges = [expand(item, "evidence_refs", "evidence_group_ref", "evidence_count") for item in model.edges]
+    hypotheses = []
+    for item in model.hypotheses:
+        expanded = expand(item, "evidence_refs", "evidence_group_ref", "evidence_count")
+        expanded = expand(expanded, "supporting_evidence", "supporting_evidence_group_ref", "supporting_evidence_count")
+        expanded = expand(expanded, "contradicting_evidence", "contradicting_evidence_group_ref", "contradicting_evidence_count")
+        hypotheses.append(expanded)
+    return model.model_copy(update={
+        "nodes": nodes,
+        "edges": edges,
+        "hypotheses": hypotheses,
+        "evidence_groups": [],
+    })
 
 
 def _evaluate_source_origins(ir, ground_truth, failures):
