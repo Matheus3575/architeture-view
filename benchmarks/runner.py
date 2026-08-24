@@ -154,30 +154,41 @@ def _evaluate_hypotheses(ir, ground_truth, failures):
 
 def _evaluate_read_model(first, second, ground_truth, failures):
     spec = ground_truth.get("read_model")
+    empty = {
+        "read_model_node_count": None,
+        "read_model_edge_count": None,
+        "read_model_edges_valid": None,
+        "read_model_traceability": None,
+        "read_model_deterministic": None,
+        "svg_valid": None,
+        "svg_complete": None,
+        "svg_deterministic": None,
+        "svg_inspection_metadata": None,
+        "svg_relation_classes": None,
+        "svg_layout_groups": None,
+    }
     if not spec:
-        return {
-            "read_model_node_count": None,
-            "read_model_edge_count": None,
-            "read_model_edges_valid": None,
-            "read_model_traceability": None,
-            "read_model_deterministic": None,
-            "svg_valid": None,
-            "svg_complete": None,
-            "svg_deterministic": None,
-        }
+        return empty
     builder = VisualizationReadModelBuilder()
     first_model = builder.build(first)
     second_model = builder.build(second)
     node_ids = {node.id for node in first_model.nodes}
-    valid_edges = all(edge.source in node_ids and edge.target in node_ids for edge in first_model.edges)
+    valid_edges = all(
+        edge.source in node_ids and edge.target in node_ids
+        for edge in first_model.edges
+    )
     if spec.get("require_all_edges_valid") and not valid_edges:
         failures.append("visualization read model contains an orphan edge")
     actual_kinds = {node.kind for node in first_model.nodes}
-    missing_node_kinds = sorted(set(spec.get("required_node_kinds", [])) - actual_kinds)
+    missing_node_kinds = sorted(
+        set(spec.get("required_node_kinds", [])) - actual_kinds
+    )
     if missing_node_kinds:
         failures.append(f"missing visualization node kinds: {missing_node_kinds}")
     actual_edge_kinds = {edge.kind for edge in first_model.edges}
-    missing_edge_kinds = sorted(set(spec.get("required_edge_kinds", [])) - actual_edge_kinds)
+    missing_edge_kinds = sorted(
+        set(spec.get("required_edge_kinds", [])) - actual_edge_kinds
+    )
     if missing_edge_kinds:
         failures.append(f"missing visualization edge kinds: {missing_edge_kinds}")
     if spec.get("require_hypotheses") and not first_model.hypotheses:
@@ -193,9 +204,9 @@ def _evaluate_read_model(first, second, ground_truth, failures):
     deterministic = first_model.model_dump_json() == second_model.model_dump_json()
     if spec.get("require_determinism") and not deterministic:
         failures.append("visualization read model is not deterministic")
-    svg_valid = None
-    svg_complete = None
-    svg_deterministic = None
+
+    svg_valid = svg_complete = svg_deterministic = None
+    svg_inspection_metadata = svg_relation_classes = svg_layout_groups = None
     if spec.get("svg"):
         first_svg = render_svg(first_model)
         second_svg = render_svg(second_model)
@@ -203,21 +214,67 @@ def _evaluate_read_model(first, second, ground_truth, failures):
             root = ElementTree.fromstring(first_svg)
             svg_valid = root.tag.endswith("svg")
         except ElementTree.ParseError:
+            root = None
             svg_valid = False
         rendered = {
             item.attrib.get("data-read-model-id")
             for item in root.iter()
             if item.attrib.get("data-read-model-id")
-        } if svg_valid else set()
-        expected = {node.id for node in first_model.nodes} | {edge.id for edge in first_model.edges}
+        } if svg_valid and root is not None else set()
+        expected = {node.id for node in first_model.nodes} | {
+            edge.id for edge in first_model.edges
+        }
         svg_complete = expected <= rendered
         svg_deterministic = first_svg == second_svg
-        if spec["svg"].get("require_valid") and not svg_valid:
+        rendered_nodes = [
+            item for item in root.iter()
+            if item.attrib.get("id", "").startswith("node-")
+        ] if root is not None else []
+        rendered_edges = [
+            item for item in root.iter()
+            if item.attrib.get("id", "").startswith("edge-")
+        ] if root is not None else []
+        svg_inspection_metadata = (
+            all(
+                all(key in item.attrib for key in (
+                    "data-read-model-id", "data-label", "data-related-edge-ids",
+                    "data-evidence-refs", "data-status", "data-confidence",
+                ))
+                for item in rendered_nodes
+            )
+            and all(
+                all(key in item.attrib for key in (
+                    "data-read-model-id", "data-source", "data-target",
+                    "data-kind", "data-relation-class", "data-evidence-refs",
+                    "data-status", "data-confidence",
+                ))
+                for item in rendered_edges
+            )
+        )
+        svg_relation_classes = {
+            item.attrib.get("data-relation-class") for item in rendered_edges
+        }
+        svg_layout_groups = [
+            item.attrib.get("data-layout-group")
+            for item in root.iter()
+            if item.attrib.get("data-layout-group")
+        ] if root is not None else []
+        svg_spec = spec["svg"]
+        if svg_spec.get("require_valid") and not svg_valid:
             failures.append("renderer did not produce valid SVG")
-        if spec["svg"].get("require_all_elements") and not svg_complete:
+        if svg_spec.get("require_all_elements") and not svg_complete:
             failures.append("renderer omitted read-model elements")
-        if spec["svg"].get("require_determinism") and not svg_deterministic:
+        if svg_spec.get("require_determinism") and not svg_deterministic:
             failures.append("SVG renderer is not deterministic")
+        if svg_spec.get("require_inspection_metadata") and not svg_inspection_metadata:
+            failures.append("SVG inspection metadata is incomplete")
+        missing_classes = set(svg_spec.get("required_relation_classes", [])) - svg_relation_classes
+        if missing_classes:
+            failures.append(f"SVG missing relation classes: {sorted(missing_classes)}")
+        missing_groups = set(svg_spec.get("required_layout_groups", [])) - set(svg_layout_groups)
+        if missing_groups:
+            failures.append(f"SVG missing layout groups: {sorted(missing_groups)}")
+
     return {
         "read_model_node_count": len(first_model.nodes),
         "read_model_edge_count": len(first_model.edges),
@@ -227,7 +284,11 @@ def _evaluate_read_model(first, second, ground_truth, failures):
         "svg_valid": svg_valid,
         "svg_complete": svg_complete,
         "svg_deterministic": svg_deterministic,
+        "svg_inspection_metadata": svg_inspection_metadata,
+        "svg_relation_classes": sorted(svg_relation_classes) if svg_relation_classes is not None else None,
+        "svg_layout_groups": svg_layout_groups,
     }
+
 
 
 def _evaluate_source_origins(ir, ground_truth, failures):

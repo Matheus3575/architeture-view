@@ -156,3 +156,7 @@ The benchmark suite now contains 23 deterministic fixtures, including `visualiza
 ## M7.2 status
 
 The `visualization_read_model` benchmark now validates the SVG output in addition to the read model. It requires valid SVG, all read-model nodes/edges represented, and deterministic repeated rendering. The case passes with 9 nodes and 7 edges; read-model edge validity, SVG validity, completeness and determinism are all true. The complete suite contains 23 passing benchmark cases.
+
+## M7.3 status
+
+The visualization benchmark now checks semantic layout groups, architectural/structural relation classes, complete inspection metadata, valid SVG, element completeness and deterministic repeated rendering. The 23-case suite passes; the visualization fixture produces 9 nodes and 7 edges with all required groups and relation classes.

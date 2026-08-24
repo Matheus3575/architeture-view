@@ -69,3 +69,7 @@ M7.1 is complete. ArchitectureIR can now be projected into a renderer-neutral re
 ## M7.2 result
 
 M7.2 is complete. The engine now has a first semantic SVG presentation layer consuming only VisualizationReadModel. The next recommended milestone is renderer/read-model contract hardening or a separate interactive consumer, while keeping discovery and layout responsibilities separated.
+
+## M7.3 result
+
+M7.3 is complete. The SVG renderer now provides semantic grouping, bounded orthogonal routing, relation prioritization and inspection metadata while preserving all Read Model elements and hypotheses. The next recommended milestone is a small evidence inspection consumer or a renderer contract hardening pass; interactive UI remains deferred.

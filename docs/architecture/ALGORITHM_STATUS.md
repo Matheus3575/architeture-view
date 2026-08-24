@@ -96,3 +96,7 @@ The Visualization Read Model is complete with bounded linear-style transformatio
 ## M7.2 status
 
 The semantic SVG renderer MVP is complete. It provides a bounded layout over read-model nodes and edges, semantic shapes for components, endpoints, infrastructure, external and unknown nodes, and separate hypothesis presentation. It rejects invalid read models before rendering and emits self-contained XML SVG without coordinates in ArchitectureIR or the Read Model.
+
+## M7.3 status
+
+Semantic SVG layout and inspection are complete with bounded deterministic behavior. Existing layer/group/preferred-layer hints take precedence; fallback grouping uses only existing semantic kind, role and entrypoint hints. Relation kinds are preserved and visually classified without removing Read Model edges. Cross-band routes are simple orthogonal paths. SVG metadata preserves element identity, relationships, evidence and hypothesis associations. No Raw Graph, parser, scanner or architectural inference is accessed.

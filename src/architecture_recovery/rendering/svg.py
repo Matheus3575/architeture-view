@@ -24,6 +24,12 @@ class SemanticSvgRenderer:
     TOP = 42
     RIGHT = 320
     HYPOTHESIS_HEIGHT = 92
+    IMPORTANT_RELATIONS = {
+        "ROUTES_TO", "DEPENDS_ON", "QUERIES", "CONNECTS_TO", "DEPLOYS",
+        "PUBLISHES", "CONSUMES", "FRAMEWORK_DEPENDENCY", "RESPONSE_SCHEMA",
+        "ROUTER_INCLUSION",
+    }
+    STRUCTURAL_RELATIONS = {"IMPORTS", "CONTAINS"}
 
     def render(self, model: VisualizationReadModel) -> str:
         report = validate_visualization_read_model(
@@ -35,6 +41,7 @@ class SemanticSvgRenderer:
 
         groups = self._groups(model.nodes)
         positions, bands, width, height = self._layout(groups, model.hypotheses)
+        hypothesis_refs = self._hypothesis_refs(model)
         svg: list[str] = [
             '<?xml version="1.0" encoding="UTF-8"?>',
             (
@@ -60,6 +67,9 @@ class SemanticSvgRenderer:
                 '<path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker>'
             ),
             "</defs>",
+            "<style>.inspectable:hover{filter:brightness(0.94)}"
+            ".edge-structural{stroke-linecap:round}"
+            ".edge-architectural{stroke-linecap:round}</style>",
             '<g id="layout-bands" aria-label="semantic groups">',
         ]
 
@@ -77,16 +87,17 @@ class SemanticSvgRenderer:
             )
         svg.append("</g>")
 
-        for edge in sorted(model.edges, key=lambda item: (item.source, item.target, item.kind, item.id)):
+        ordered_edges = sorted(model.edges, key=lambda item: (item.source, item.target, item.kind, item.id))
+        for edge in ordered_edges:
             source = positions.get(edge.source)
             target = positions.get(edge.target)
             if source is None or target is None:
                 continue
-            svg.append(self._edge_svg(edge, source, target))
+            svg.append(self._edge_svg(edge, source, target, hypothesis_refs))
 
         for node in sorted(model.nodes, key=lambda item: item.id):
             x, y = positions[node.id]
-            svg.append(self._node_svg(node, x, y))
+            svg.append(self._node_svg(node, x, y, model.edges, hypothesis_refs))
 
         svg.extend(self._hypotheses_svg(model, width, height))
         svg.append("</svg>")
@@ -119,38 +130,60 @@ class SemanticSvgRenderer:
         height = base_height + (self.HYPOTHESIS_HEIGHT if hypotheses else 0)
         return positions, bands, content_width, height
 
-    def _edge_svg(self, edge: VisualizationEdge, source, target) -> str:
+    def _edge_svg(
+        self,
+        edge: VisualizationEdge,
+        source,
+        target,
+        hypothesis_refs: dict[str, set[str]],
+    ) -> str:
         sx, sy = source
         tx, ty = target
-        sx += self.NODE_WIDTH // 2
-        sy += self.NODE_HEIGHT // 2
-        tx += self.NODE_WIDTH // 2
-        ty += self.NODE_HEIGHT // 2
+        path = _orthogonal_path((sx, sy), (tx, ty), self.NODE_WIDTH, self.NODE_HEIGHT)
         stroke, dash, marker = {
             "observed": ("#374151", "", "arrow-observed"),
             "inferred": ("#2563eb", "7 4", "arrow-inferred"),
             "uncertain": ("#d97706", "3 4", "arrow-observed"),
             "unknown": ("#6b7280", "2 5", "arrow-observed"),
         }[edge.status.value]
-        style = f'stroke="{stroke}" stroke-width="1.8"'
+        relation_class = self._relation_class(edge.kind)
+        width = "2.8" if relation_class == "architectural" else "1.2"
+        opacity = "1" if relation_class == "architectural" else "0.58"
+        style = f'stroke="{stroke}" stroke-width="{width}" opacity="{opacity}"'
         if dash:
             style += f' stroke-dasharray="{dash}"'
+        associations = _hypothesis_associations(edge.evidence_refs, hypothesis_refs)
         return (
             f'<g id="edge-{_safe_id(edge.id)}" data-read-model-id="{_escape(edge.id)}" '
+            f'class="inspectable edge-{relation_class}" data-source="{_escape(edge.source)}" '
+            f'data-target="{_escape(edge.target)}" data-kind="{_escape(edge.kind)}" '
+            f'data-relation-class="{relation_class}" '
+            f'data-related-node-ids="{_escape(edge.source + "," + edge.target)}" '
+            f'data-hypothesis-associations="{_escape(_refs(associations))}" '
             f'data-origin-ref="{_escape(edge.origin_ref or "")}" '
             f'data-evidence-refs="{_escape(_refs(edge.evidence_refs))}" '
             f'data-status="{edge.status.value}" data-confidence="{edge.confidence}">'
-            f'<line x1="{sx}" y1="{sy}" x2="{tx}" y2="{ty}" {style} '
-            f'marker-end="url(#{marker})"/>'
-            f'<text x="{(sx + tx) // 2}" y="{(sy + ty) // 2 - 4}" '
+            f'<path d="{path}" fill="none" {style} marker-end="url(#{marker})"/>'
+            f'<text x="{(sx + tx + self.NODE_WIDTH) // 2}" '
+            f'y="{(sy + ty + self.NODE_HEIGHT) // 2 - 4}" '
             f'font-family="sans-serif" font-size="10" fill="{stroke}" '
             f'text-anchor="middle">{_escape(edge.kind)}</text></g>'
         )
 
-    def _node_svg(self, node: VisualizationNode, x: int, y: int) -> str:
+    def _node_svg(self, node: VisualizationNode, x: int, y: int, edges, hypothesis_refs: dict[str, set[str]]) -> str:
         element_id = f"node-{_safe_id(node.id)}"
+        related_edges = sorted(
+            edge.id for edge in edges
+            if edge.source == node.id or edge.target == node.id
+        )
+        associations = _hypothesis_associations(node.evidence_refs, hypothesis_refs)
         attrs = (
             f'id="{element_id}" data-read-model-id="{_escape(node.id)}" '
+            f'class="inspectable node-{_safe_id(node.kind)}" '
+            f'data-label="{_escape(node.label)}" data-role="{_escape(node.role or "")}" '
+            f'data-layer="{_escape(node.layer or "")}" '
+            f'data-related-edge-ids="{_escape(_refs(related_edges))}" '
+            f'data-hypothesis-associations="{_escape(_refs(associations))}" '
             f'data-origin-ref="{_escape(node.origin_ref or "")}" '
             f'data-evidence-refs="{_escape(_refs(node.evidence_refs))}" '
             f'data-status="{node.status.value}" data-confidence="{node.confidence}" '
@@ -199,6 +232,10 @@ class SemanticSvgRenderer:
             lines.append(
                 f'<g id="hypothesis-{_safe_id(hypothesis.pattern)}" '
                 f'data-read-model-id="{_escape(hypothesis.pattern)}" '
+                f'class="inspectable hypothesis" data-pattern="{_escape(hypothesis.pattern)}" '
+                f'data-supporting-evidence="{_escape(_refs(hypothesis.supporting_evidence))}" '
+                f'data-contradicting-evidence="{_escape(_refs(hypothesis.contradicting_evidence))}" '
+                f'data-explanation="{_escape(hypothesis.explanation)}" '
                 f'data-evidence-refs="{_escape(ref)}" data-status="{hypothesis.status.value}" '
                 f'data-confidence="{hypothesis.confidence}">'
                 f'<text x="{x}" y="{y + 25}" font-family="sans-serif" font-size="11" '
@@ -212,13 +249,36 @@ class SemanticSvgRenderer:
 
     @staticmethod
     def _group_key(node: VisualizationNode) -> str:
-        return (
-            node.layout_hints.get("group")
-            or node.layer
-            or node.layout_hints.get("preferred_layer")
-            or node.layout_hints.get("semantic_kind")
-            or node.kind
-        )
+        explicit = node.layout_hints.get("group") or node.layer or node.layout_hints.get("preferred_layer")
+        if explicit:
+            return str(explicit).lower()
+        semantic = str(node.layout_hints.get("semantic_kind") or node.kind).lower()
+        if node.layout_hints.get("entrypoint") or semantic in {"endpoint", "http_endpoint", "router"}:
+            return "presentation"
+        if semantic in {"application", "service", "controller", "controller_like"} or node.role in {"service", "controller"}:
+            return "application"
+        if semantic in {"repository", "database", "cache", "queue", "message_broker"} or node.role in {"repository", "persistence"}:
+            return "persistence"
+        if node.layout_hints.get("external") or semantic in {"external", "external_dependency", "external_service"}:
+            return "external"
+        if node.layout_hints.get("semantic_kind") == "infrastructure" or semantic in {"infrastructure", "container"}:
+            return "infrastructure"
+        if semantic in {"component", "module", "domain"}:
+            return "domain"
+        return semantic
+
+    @staticmethod
+    def _relation_class(kind: str) -> str:
+        if kind in SemanticSvgRenderer.STRUCTURAL_RELATIONS:
+            return "structural"
+        return "architectural" if kind in SemanticSvgRenderer.IMPORTANT_RELATIONS else "relation"
+
+    @staticmethod
+    def _hypothesis_refs(model: VisualizationReadModel):
+        return {
+            item.pattern: set(item.evidence_refs) | set(item.supporting_evidence) | set(item.contradicting_evidence)
+            for item in model.hypotheses
+        }
 
     @staticmethod
     def _group_label(group_key: str) -> str:
@@ -255,6 +315,29 @@ def _safe_id(value: str) -> str:
     if not safe or safe[0].isdigit():
         safe = "x-" + safe
     return safe
+
+
+def _hypothesis_associations(evidence_refs: Iterable[str], hypothesis_refs: dict[str, set[str]]) -> list[str]:
+    refs = set(evidence_refs)
+    return sorted(pattern for pattern, associated in hypothesis_refs.items() if refs & associated)
+
+
+def _orthogonal_path(source, target, width: int, height: int) -> str:
+    sx, sy = source
+    tx, ty = target
+    if sy == ty:
+        start_x = sx + width if sx <= tx else sx
+        end_x = tx if sx <= tx else tx + width
+        y = sy + height // 2
+        return f"M{start_x} {y} L{end_x} {y}"
+    if sy < ty:
+        start = (sx + width // 2, sy + height)
+        end = (tx + width // 2, ty)
+    else:
+        start = (sx + width // 2, sy)
+        end = (tx + width // 2, ty + height)
+    mid_y = (start[1] + end[1]) // 2
+    return f"M{start[0]} {start[1]} L{start[0]} {mid_y} L{end[0]} {mid_y} L{end[0]} {end[1]}"
 
 
 __all__ = ["SemanticSvgRenderer", "render_svg"]

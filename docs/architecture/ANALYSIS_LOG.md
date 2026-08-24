@@ -750,3 +750,9 @@ M7.1 adds a deterministic renderer-neutral projection from ArchitectureIR to a s
 ## M7.2 — Semantic SVG Renderer MVP
 
 M7.2 adds a deterministic SVG renderer that consumes only VisualizationReadModel. It uses fixed semantic bands, stable node ordering, fixed spacing and status-aware edge styles. SVG elements preserve read-model IDs, origin refs, evidence refs, status and confidence through data attributes. Architecture hypotheses are rendered in a separate panel and are not converted into structural facts. No source, Raw Graph, parser, resolver, framework adapter or layout dependency is accessed by the renderer.
+
+## M7.3 â€” Semantic Visualization Layout & Inspection
+
+M7.3 evolves the SVG consumer without changing ArchitectureIR, discovery or the VisualizationReadModel contract. The renderer now prioritizes explicit layer/group/preferred-layer hints, then bounded semantic fallback from existing node kind, role and hints. Entrypoints are placed in presentation, application/domain/persistence/infrastructure/external groups when supported by existing data.
+
+Relations remain present but are classified visually as architectural, structural or generic. Architectural relations receive stronger styling; structural relations remain visible with reduced emphasis. Cross-band edges use deterministic orthogonal paths anchored at node boundaries. SVG nodes, edges and hypotheses expose stable IDs and inspection metadata for labels, roles, layers, related edges, source/target, relation kind, statuses, confidence, evidence refs and hypothesis associations. No new analysis or inference is performed.
