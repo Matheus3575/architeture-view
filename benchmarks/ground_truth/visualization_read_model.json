@@ -11,6 +11,11 @@
     "require_hypotheses": true,
     "require_all_edges_valid": true,
     "require_traceability": true,
-    "require_determinism": true
+    "require_determinism": true,
+    "svg": {
+      "require_valid": true,
+      "require_all_elements": true,
+      "require_determinism": true
+    }
   }
 }

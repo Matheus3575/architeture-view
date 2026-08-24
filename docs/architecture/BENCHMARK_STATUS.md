@@ -153,3 +153,6 @@ The 22-fixture benchmark suite now measures complete FastAPI framework-fact prec
 ## M7.1 status
 
 The benchmark suite now contains 23 deterministic fixtures, including `visualization_read_model`. The new case validates endpoint and infrastructure nodes, ROUTES_TO and ROUTER_INCLUSION edges, edge validity, evidence preservation, hypothesis preservation and determinism. All 23 benchmarks pass; the read-model case produced 9 nodes and 7 edges with valid edges, traceability and deterministic output. The observed full runner time was approximately 9.279 seconds across two analyses per fixture; this is operational data, not a hard threshold.
+## M7.2 status
+
+The `visualization_read_model` benchmark now validates the SVG output in addition to the read model. It requires valid SVG, all read-model nodes/edges represented, and deterministic repeated rendering. The case passes with 9 nodes and 7 edges; read-model edge validity, SVG validity, completeness and determinism are all true. The complete suite contains 23 passing benchmark cases.

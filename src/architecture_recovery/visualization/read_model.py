@@ -7,7 +7,6 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from architecture_recovery.ir import (
-    ArchitectureHypothesis,
     ArchitectureIR,
     Edge,
     Evidence,

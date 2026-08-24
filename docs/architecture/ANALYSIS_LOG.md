@@ -747,3 +747,6 @@ M6.4 strengthened the existing FastAPI adapter without adding a parser, reposito
 ## M7.1 — Architecture Visualization Read Model
 
 M7.1 adds a deterministic renderer-neutral projection from ArchitectureIR to a serializable VisualizationReadModel. The projection consumes only Architectural Graph nodes/edges, components, infrastructure resources/relations, framework facts, evidence and hypotheses already present in the IR. It creates explicit endpoint and UNKNOWN target nodes only from evidenced framework facts, preserves original relation kinds/status/confidence/evidence refs, and keeps hypotheses separate from visual facts. No renderer, layout algorithm, parser or repository scan was added.
+## M7.2 — Semantic SVG Renderer MVP
+
+M7.2 adds a deterministic SVG renderer that consumes only VisualizationReadModel. It uses fixed semantic bands, stable node ordering, fixed spacing and status-aware edge styles. SVG elements preserve read-model IDs, origin refs, evidence refs, status and confidence through data attributes. Architecture hypotheses are rendered in a separate panel and are not converted into structural facts. No source, Raw Graph, parser, resolver, framework adapter or layout dependency is accessed by the renderer.

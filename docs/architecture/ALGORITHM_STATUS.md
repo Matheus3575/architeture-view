@@ -93,3 +93,6 @@ Framework Facts are strengthened with bounded indexed interpretation. Existing A
 ## M7.1 status
 
 The Visualization Read Model is complete with bounded linear-style transformation over existing IR collections. It provides deterministic nodes, edges, hypotheses, evidence, unknown markers, semantic layer hints and origin refs. A dedicated validator rejects duplicate IDs, orphan edges, missing identities and invalid evidence references. Infrastructure-backed nodes remain distinguishable from application components.
+## M7.2 status
+
+The semantic SVG renderer MVP is complete. It provides a bounded layout over read-model nodes and edges, semantic shapes for components, endpoints, infrastructure, external and unknown nodes, and separate hypothesis presentation. It rejects invalid read models before rendering and emits self-contained XML SVG without coordinates in ArchitectureIR or the Read Model.

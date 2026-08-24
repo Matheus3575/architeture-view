@@ -66,3 +66,6 @@ M6.4 is complete. Framework Facts are richer and more traceable while remaining 
 ## M7.1 result
 
 M7.1 is complete. ArchitectureIR can now be projected into a renderer-neutral read model without exposing Raw Graph interpretation to a future renderer. The next recommended milestone is a renderer-specific consumer or a read-model contract review before implementing visual layout.
+## M7.2 result
+
+M7.2 is complete. The engine now has a first semantic SVG presentation layer consuming only VisualizationReadModel. The next recommended milestone is renderer/read-model contract hardening or a separate interactive consumer, while keeping discovery and layout responsibilities separated.

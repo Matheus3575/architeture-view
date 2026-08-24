@@ -4,9 +4,11 @@ import argparse
 import json
 import time
 from pathlib import Path
+from xml.etree import ElementTree
 from typing import Any
 
 from architecture_recovery.pipeline import analyze_repository
+from architecture_recovery.rendering import render_svg
 from architecture_recovery.visualization import VisualizationReadModelBuilder
 
 
@@ -159,6 +161,9 @@ def _evaluate_read_model(first, second, ground_truth, failures):
             "read_model_edges_valid": None,
             "read_model_traceability": None,
             "read_model_deterministic": None,
+            "svg_valid": None,
+            "svg_complete": None,
+            "svg_deterministic": None,
         }
     builder = VisualizationReadModelBuilder()
     first_model = builder.build(first)
@@ -188,12 +193,40 @@ def _evaluate_read_model(first, second, ground_truth, failures):
     deterministic = first_model.model_dump_json() == second_model.model_dump_json()
     if spec.get("require_determinism") and not deterministic:
         failures.append("visualization read model is not deterministic")
+    svg_valid = None
+    svg_complete = None
+    svg_deterministic = None
+    if spec.get("svg"):
+        first_svg = render_svg(first_model)
+        second_svg = render_svg(second_model)
+        try:
+            root = ElementTree.fromstring(first_svg)
+            svg_valid = root.tag.endswith("svg")
+        except ElementTree.ParseError:
+            svg_valid = False
+        rendered = {
+            item.attrib.get("data-read-model-id")
+            for item in root.iter()
+            if item.attrib.get("data-read-model-id")
+        } if svg_valid else set()
+        expected = {node.id for node in first_model.nodes} | {edge.id for edge in first_model.edges}
+        svg_complete = expected <= rendered
+        svg_deterministic = first_svg == second_svg
+        if spec["svg"].get("require_valid") and not svg_valid:
+            failures.append("renderer did not produce valid SVG")
+        if spec["svg"].get("require_all_elements") and not svg_complete:
+            failures.append("renderer omitted read-model elements")
+        if spec["svg"].get("require_determinism") and not svg_deterministic:
+            failures.append("SVG renderer is not deterministic")
     return {
         "read_model_node_count": len(first_model.nodes),
         "read_model_edge_count": len(first_model.edges),
         "read_model_edges_valid": valid_edges,
         "read_model_traceability": traceable,
         "read_model_deterministic": deterministic,
+        "svg_valid": svg_valid,
+        "svg_complete": svg_complete,
+        "svg_deterministic": svg_deterministic,
     }
 
 
