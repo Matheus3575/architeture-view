@@ -108,3 +108,7 @@ Interactive evidence inspection is complete as a renderer-only capability. The S
 ## M7.5 status
 
 Optional SVG motion is complete as a renderer-only feature. render_svg(model, mode="static") is the default; mode="animated" enables deterministic CSS classes and shared keyframes. Architectural flow animation is limited to observed/inferred relevant relations, and infrastructure indicators are emitted only for known observed/inferred resources. STATIC and ANIMATED preserve IDs, evidence, inspection and Read Model contents. No runtime behavior is simulated.
+
+## M7.6 status
+
+Web consumption and basic accessibility are complete without changing the analysis pipeline. The standard-library consumer serves pre-generated SVG bytes through fixed routes only. The SVG exposes title/description, semantic roles, keyboard-selectable nodes/edges/hypotheses, an aria-live inspection panel and keyboard-accessible mode controls. The web layer performs no discovery, inference, parsing or repository access.

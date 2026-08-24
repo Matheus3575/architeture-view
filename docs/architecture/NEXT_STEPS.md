@@ -81,3 +81,17 @@ M7.4 is complete as interactive inspection only. The SVG can select nodes, edges
 ## M7.5 result
 
 M7.5 is complete as optional motion and visual semantics only. STATIC remains the default; ANIMATED provides restrained CSS-based flow/resource indicators without runtime simulation or architectural inference. The next recommended milestone is an optional browser-facing delivery layer or accessibility hardening, while the renderer boundary remains unchanged.
+
+## M7.6 result
+
+M7.6 is complete. Pre-generated SVG files can be opened offline or served locally through the fixed-route standard-library web consumer. STATIC is the default browser presentation and ANIMATED remains optional. The next recommended milestone is accessibility hardening or packaging a small user-facing command, without moving inference into the web layer.
+
+Operational usage:
+
+~~~powershell
+python -c "from pathlib import Path; from architecture_recovery.pipeline import analyze_repository; from architecture_recovery.visualization import VisualizationReadModelBuilder; from architecture_recovery.rendering import render_svg; model=VisualizationReadModelBuilder().build(analyze_repository('URL_DO_REPOSITORIO')); Path('architecture.svg').write_text(render_svg(model, mode='static'), encoding='utf-8'); Path('architecture-animated.svg').write_text(render_svg(model, mode='animated'), encoding='utf-8')"
+Start-Process .\architecture.svg
+python -m architecture_recovery.web --static-svg architecture.svg --animated-svg architecture-animated.svg
+~~~
+
+The web consumer serves only pre-generated files at fixed routes and performs no repository analysis.

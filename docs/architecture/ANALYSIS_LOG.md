@@ -764,3 +764,7 @@ M7.4 adds interaction only to the SVG consumer. The renderer embeds deterministi
 ## M7.5 — Optional Motion & Visual Semantics
 
 M7.5 adds optional presentation-only motion to the SVG renderer. STATIC remains the default and safe mode; ANIMATED enables reusable CSS effects for supported architectural flow relations and known infrastructure resources. Animation is never runtime simulation or architectural inference. The same VisualizationReadModel is used in both modes, with no ArchitectureIR, Raw Graph or analysis changes. Unknown and uncertain facts do not receive confirmed-flow animation, and selected elements can suppress animation for readability.
+
+## M7.6 — Web Consumption & Accessibility
+
+M7.6 adds a minimal optional browser consumer using only Python's standard library. It serves a previously rendered static SVG at /architecture.svg, an optional animated SVG at /architecture-animated.svg and a small accessible HTML page at /. The HTTP layer has fixed routes and never accepts repository paths, commands or analysis requests. SVG remains the primary renderer, STATIC remains the default, and the Read Model is not reconstructed by the web layer.

@@ -189,6 +189,8 @@ class SemanticSvgRenderer:
         return (
             f'<g id="edge-{_safe_id(edge.id)}" data-read-model-id="{_escape(edge.id)}" '
             f'class="inspectable edge-{relation_class}" data-selection-kind="edge" '
+            f'role="button" tabindex="0" '
+            f'aria-label="{_escape("Edge " + edge.kind + " from " + edge.source + " to " + edge.target + "; status " + edge.status.value)}" '
             f'data-source="{_escape(edge.source)}" '
             f'data-target="{_escape(edge.target)}" data-kind="{_escape(edge.kind)}" '
             f'data-relation-class="{relation_class}" '
@@ -214,6 +216,8 @@ class SemanticSvgRenderer:
         attrs = (
             f'id="{element_id}" data-read-model-id="{_escape(node.id)}" '
             f'class="inspectable node-{_safe_id(node.kind)}" data-selection-kind="node" '
+            f'role="button" tabindex="0" '
+            f'aria-label="{_escape("Node " + node.label + "; kind " + node.kind + "; status " + node.status.value)}" '
             f'data-label="{_escape(node.label)}" data-role="{_escape(node.role or "")}" '
             f'data-layer="{_escape(node.layer or "")}" '
             f'data-related-edge-ids="{_escape(_refs(related_edges))}" '
@@ -268,6 +272,8 @@ class SemanticSvgRenderer:
                 f'<g id="hypothesis-{_safe_id(hypothesis.pattern)}" '
                 f'data-read-model-id="{_escape(hypothesis.pattern)}" '
                 f'class="inspectable hypothesis" data-selection-kind="hypothesis" '
+                f'role="button" tabindex="0" '
+                f'aria-label="{_escape("Hypothesis " + hypothesis.pattern + "; status " + hypothesis.status.value)}" '
                 f'data-pattern="{_escape(hypothesis.pattern)}" '
                 f'data-supporting-evidence="{_escape(_refs(hypothesis.supporting_evidence))}" '
                 f'data-contradicting-evidence="{_escape(_refs(hypothesis.contradicting_evidence))}" '
@@ -392,23 +398,28 @@ def _activity_marker(node: VisualizationNode, x: int, y: int) -> str:
 def _inspection_panel(width: int, height: int) -> list[str]:
     x = width - SemanticSvgRenderer.RIGHT + 20
     lines = [
-        f'<g id="inspection-panel" aria-label="Evidence inspection panel">',
+        f'<g id="inspection-panel" role="region" aria-live="polite" '
+        'aria-label="Evidence inspection panel">',
         f'<rect x="{x}" y="20" width="{SemanticSvgRenderer.RIGHT - 40}" '
         f'height="{height - 40}" rx="10" fill="#ffffff" stroke="#94a3b8"/>',
         f'<text x="{x + 16}" y="48" font-family="sans-serif" font-size="14" '
         'font-weight="bold" fill="#1e293b">Inspection</text>',
         f'<text x="{x + 16}" y="70" font-family="sans-serif" font-size="10" '
         'fill="#475569">Animation:</text>',
-        f'<rect class="animation-control" data-animation-mode="static" '
+        f'<rect class="animation-control" role="button" tabindex="0" '
+        f'aria-label="Use static animation mode" data-animation-mode="static" '
         f'x="{x + 82}" y="54" width="58" height="22" rx="4" '
         'fill="#e2e8f0" stroke="#64748b"/>',
-        f'<text class="animation-control" data-animation-mode="static" '
+        f'<text class="animation-control" role="button" tabindex="0" '
+        f'aria-label="Use static animation mode" data-animation-mode="static" '
         f'x="{x + 111}" y="69" text-anchor="middle" font-family="sans-serif" '
         'font-size="9" fill="#334155">STATIC</text>',
-        f'<rect class="animation-control" data-animation-mode="animated" '
+        f'<rect class="animation-control" role="button" tabindex="0" '
+        f'aria-label="Use animated animation mode" data-animation-mode="animated" '
         f'x="{x + 146}" y="54" width="72" height="22" rx="4" '
         'fill="#f1f5f9" stroke="#94a3b8"/>',
-        f'<text class="animation-control" data-animation-mode="animated" '
+        f'<text class="animation-control" role="button" tabindex="0" '
+        f'aria-label="Use animated animation mode" data-animation-mode="animated" '
         f'x="{x + 182}" y="69" text-anchor="middle" font-family="sans-serif" '
         'font-size="9" fill="#334155">ANIMATED</text>',
         f'<rect class="inspect-clear" x="{x + SemanticSvgRenderer.RIGHT - 105}" '
@@ -679,11 +690,24 @@ def _interaction_script(model: VisualizationReadModel, mode: str = "static") -> 
       select(element.getAttribute("data-selection-kind"),
         element.getAttribute("data-read-model-id"));
     }});
+    element.addEventListener("keydown", function (event) {{
+      if (event.key === "Enter" || event.key === " ") {{
+        event.preventDefault();
+        select(element.getAttribute("data-selection-kind"),
+          element.getAttribute("data-read-model-id"));
+      }}
+    }});
   }});
   animationControls.forEach(function (control) {{
     control.addEventListener("click", function (event) {{
       event.stopPropagation();
       setMode(control.getAttribute("data-animation-mode"));
+    }});
+    control.addEventListener("keydown", function (event) {{
+      if (event.key === "Enter" || event.key === " ") {{
+        event.preventDefault();
+        setMode(control.getAttribute("data-animation-mode"));
+      }}
     }});
   }});
   Array.from(root.querySelectorAll(".inspect-clear")).forEach(function (element) {{

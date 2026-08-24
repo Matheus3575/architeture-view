@@ -10,6 +10,7 @@ from typing import Any
 from architecture_recovery.pipeline import analyze_repository
 from architecture_recovery.rendering import render_svg
 from architecture_recovery.visualization import VisualizationReadModelBuilder
+from architecture_recovery.web import create_visualization_server
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -174,6 +175,10 @@ def _evaluate_read_model(first, second, ground_truth, failures):
         "read_model_unchanged": None,
         "static_svg_bytes": None,
         "animated_svg_bytes": None,
+        "web_static_available": None,
+        "web_animated_available": None,
+        "accessibility_metadata": None,
+        "web_output_deterministic": None,
     }
     if not spec:
         return empty
@@ -219,6 +224,8 @@ def _evaluate_read_model(first, second, ground_truth, failures):
     static_deterministic = animated_deterministic = None
     animation_semantics_preserved = read_model_unchanged = None
     static_svg_bytes = animated_svg_bytes = None
+    web_static_available = web_animated_available = None
+    accessibility_metadata = web_output_deterministic = None
     if spec.get("svg"):
         before_render = first_model.model_dump_json()
         first_svg = render_svg(first_model, mode="static")
@@ -245,6 +252,26 @@ def _evaluate_read_model(first, second, ground_truth, failures):
             animated_root = None
             static_svg_valid = svg_valid
             animated_svg_valid = False
+        try:
+            web_server = create_visualization_server(
+                first_svg,
+                first_animated_svg,
+                port=0,
+            )
+            web_static_available = True
+            web_animated_available = True
+            web_server.server_close()
+        except (OSError, ValueError):
+            web_static_available = False
+            web_animated_available = False
+        accessibility_metadata = (
+            root is not None
+            and root.attrib.get("role") == "img"
+            and root.find("{http://www.w3.org/2000/svg}title") is not None
+            and root.find("{http://www.w3.org/2000/svg}desc") is not None
+            and "inspection-panel" in first_svg
+        )
+        web_output_deterministic = static_deterministic and animated_deterministic
         animation_semantics_preserved = (
             svg_valid
             and animated_svg_valid
@@ -319,6 +346,15 @@ def _evaluate_read_model(first, second, ground_truth, failures):
             failures.append("SVG animation semantics were not preserved")
         if animation_spec.get("require_read_model_unchanged") and not read_model_unchanged:
             failures.append("rendering changed the VisualizationReadModel")
+        web_spec = spec.get("web", {})
+        if web_spec.get("require_static_available") and not web_static_available:
+            failures.append("static web route is unavailable")
+        if web_spec.get("require_animated_available") and not web_animated_available:
+            failures.append("animated web route is unavailable")
+        if web_spec.get("require_accessibility_metadata") and not accessibility_metadata:
+            failures.append("web accessibility metadata is incomplete")
+        if web_spec.get("require_deterministic_output") and not web_output_deterministic:
+            failures.append("web output is not deterministic")
         if svg_spec.get("require_inspection_metadata") and not svg_inspection_metadata:
             failures.append("SVG inspection metadata is incomplete")
         missing_classes = set(svg_spec.get("required_relation_classes", [])) - svg_relation_classes
@@ -348,6 +384,10 @@ def _evaluate_read_model(first, second, ground_truth, failures):
         "read_model_unchanged": read_model_unchanged,
         "static_svg_bytes": static_svg_bytes,
         "animated_svg_bytes": animated_svg_bytes,
+        "web_static_available": web_static_available,
+        "web_animated_available": web_animated_available,
+        "accessibility_metadata": accessibility_metadata,
+        "web_output_deterministic": web_output_deterministic,
     }
 
 

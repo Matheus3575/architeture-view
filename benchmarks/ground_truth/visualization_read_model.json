@@ -37,6 +37,12 @@
       "require_animated_deterministic": true,
       "require_semantics_preserved": true,
       "require_read_model_unchanged": true
+    },
+    "web": {
+      "require_static_available": true,
+      "require_animated_available": true,
+      "require_accessibility_metadata": true,
+      "require_deterministic_output": true
     }
   }
 }

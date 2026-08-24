@@ -168,3 +168,7 @@ The visualization tests now cover interaction payload presence, stable IDs, insp
 ## M7.5 status
 
 The visualization benchmark now measures static and animated SVG validity, deterministic repeated rendering for both modes, animation semantic preservation, Read Model immutability and output sizes. The 23-case suite passes; the visualization fixture reports valid deterministic outputs in both modes and unchanged Read Model data.
+
+## M7.6 status
+
+The visualization benchmark now reports web_static_available, web_animated_available, accessibility_metadata and web_output_deterministic separately from architectural quality metrics. The 23-case suite passes; static and animated routes are available, accessibility metadata is present and served output remains deterministic.
