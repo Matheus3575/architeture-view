@@ -85,6 +85,31 @@
       "name": "hypothesis_ambiguous",
       "repository": "benchmarks/fixtures/hypothesis_ambiguous",
       "ground_truth": "ground_truth/hypothesis_ambiguous.json"
+    },
+    {
+      "name": "mvc_positive",
+      "repository": "benchmarks/fixtures/mvc_positive",
+      "ground_truth": "ground_truth/mvc_positive.json"
+    },
+    {
+      "name": "mvc_names_only",
+      "repository": "benchmarks/fixtures/mvc_names_only",
+      "ground_truth": "ground_truth/mvc_names_only.json"
+    },
+    {
+      "name": "mvc_contradiction",
+      "repository": "benchmarks/fixtures/mvc_contradiction",
+      "ground_truth": "ground_truth/mvc_contradiction.json"
+    },
+    {
+      "name": "mvc_layered_coexist",
+      "repository": "benchmarks/fixtures/mvc_layered_coexist",
+      "ground_truth": "ground_truth/mvc_layered_coexist.json"
+    },
+    {
+      "name": "mvc_negative",
+      "repository": "benchmarks/fixtures/mvc_negative",
+      "ground_truth": "ground_truth/mvc_negative.json"
     }
   ]
 }

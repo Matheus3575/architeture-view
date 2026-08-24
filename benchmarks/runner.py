@@ -131,11 +131,18 @@ def _evaluate_hypotheses(ir, ground_truth, failures):
             traceable += 1
     forbidden = sorted(set(expected.get("forbidden", [])) & set(actual))
     failures.extend(f"forbidden architecture hypothesis: {item}" for item in forbidden)
+    false_positive_count = sum(
+        1 for item in required
+        if item.get("status") == "unknown"
+        and actual.get(item["pattern"])
+        and actual[item["pattern"]].status.value != "unknown"
+    )
     return {
         "hypothesis_evaluated": len(required),
         "hypothesis_recall": _ratio(len(required) - sum(1 for item in required if item["pattern"] not in actual), len(required)),
         "hypothesis_traceability_recall": _ratio(traceable, len(required)),
         "hypothesis_forbidden_count": len(forbidden),
+        "hypothesis_false_positive_count": false_positive_count,
         "hypothesis_supporting_count": sum(len(item.supporting_evidence) for item in actual.values()),
         "hypothesis_contradicting_count": sum(len(item.contradicting_evidence) for item in actual.values()),
     }

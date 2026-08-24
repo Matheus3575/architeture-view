@@ -23,6 +23,11 @@ def test_controlled_benchmarks_pass_and_report_metrics():
         "hypothesis_names_only",
         "hypothesis_reversed",
         "hypothesis_ambiguous",
+        "mvc_positive",
+        "mvc_names_only",
+        "mvc_contradiction",
+        "mvc_layered_coexist",
+        "mvc_negative",
     }
     assert all(result["passed"] for result in results)
     assert all(result["execution_passed"] for result in results)

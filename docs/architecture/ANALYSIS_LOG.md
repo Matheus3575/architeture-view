@@ -738,3 +738,6 @@ without relations return UNKNOWN; reverse-only evidence remains traceable as a
 contradiction and returns UNKNOWN; mixed forward/reverse evidence returns
 UNCERTAIN. The global deterministic scorer was preserved. No parser, scanner,
 framework adapter or infrastructure adapter was changed.
+## M6.3 — MVC evidence detector
+
+M6.3 adds an independent deterministic `mvc` hypothesis to the existing engine. It consumes indexed ArchitectureIR relations and existing HTTP/framework facts only. Support requires semantic controller-to-model and model-to-persistence direction, with optional HTTP/controller and controller/view signals. Direct controller-to-persistence and reverse persistence-to-controller relations remain contradictory evidence. Directory names without semantic relations remain UNKNOWN. The five controlled MVC fixtures pass with deterministic output; no parser, scan, Raw Graph or renderer changes were introduced.

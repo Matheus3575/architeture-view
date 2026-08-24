@@ -144,3 +144,6 @@ checks hypothesis status, support/contradiction presence, forbidden patterns,
 traceability and determinism. The four hypothesis fixtures pass with
 hypothesis recall 1.0 and traceability recall 1.0; the names-only case reports
 UNKNOWN with zero supporting evidence.
+## M6.3 status
+
+The benchmark suite now contains 22 deterministic fixtures, including five MVC cases: positive semantic MVC, names-only UNKNOWN, MVC with a direct contradiction, MVC/Layered coexistence, and a clearly non-MVC case. Ground truths evaluate MVC status, hypothesis recall, traceability recall, false-positive count for expected UNKNOWN, supporting evidence, contradicting evidence and determinism. All five MVC cases pass; MVC hypothesis recall and traceability recall are 1.0, names-only/non-MVC false-positive count is 0, and contradiction evidence is present in the contradiction case.

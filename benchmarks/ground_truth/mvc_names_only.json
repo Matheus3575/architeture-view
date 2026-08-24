@@ -1,0 +1,14 @@
+{
+  "hypotheses": {
+    "required": [
+      {
+        "pattern": "mvc",
+        "status": "unknown",
+        "requires_no_support": true
+      }
+    ],
+    "forbidden": [
+      "Microservices"
+    ]
+  }
+}

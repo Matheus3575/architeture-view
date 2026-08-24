@@ -84,3 +84,6 @@ A relation is required; directory or component names alone produce UNKNOWN.
 Dependency direction has higher weights than naming metadata, while reverse
 skip-layer relations receive an additional contradiction penalty. The global
 M6.1 scorer and status contract remain unchanged.
+## M6.3 status
+
+MVC detection is complete with bounded coverage. The detector reuses the M6.1 scorer and evaluates independent evidence contributions from ArchitectureIR raw/architectural relations and framework facts. It preserves contradiction refs and emits UNKNOWN when names are the only available signal. Layered behavior and the hypothesis contract remain compatible.

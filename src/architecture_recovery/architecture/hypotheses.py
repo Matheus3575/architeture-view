@@ -38,6 +38,10 @@ _INFRASTRUCTURE_TYPES = {
     NodeType.DATABASE, NodeType.CACHE, NodeType.QUEUE,
     NodeType.MESSAGE_BROKER, NodeType.CONTAINER,
 }
+_MVC_CONTROLLER_LAYERS = {"controllers", "api"}
+_MVC_MODEL_LAYERS = {"models", "domain"}
+_MVC_PERSISTENCE_LAYERS = {"repositories", "infrastructure", "database", "storage"}
+_MVC_VIEW_LAYERS = {"views"}
 
 
 @dataclass(frozen=True)
@@ -75,42 +79,36 @@ class ArchitectureHypothesisEngine:
     """Evaluate hypotheses from an existing ArchitectureIR only."""
 
     def infer(self, ir: ArchitectureIR) -> ArchitectureAnalysis:
-        supporting, contradicting = self._layered_signals(ir)
+        layered_supporting, layered_contradicting = self._layered_signals(ir)
+        layered = self._hypothesis("layered", layered_supporting, layered_contradicting, "Layered", "cross-layer relation", "layer names alone are insufficient")
+        mvc_supporting, mvc_contradicting = self._mvc_signals(ir)
+        mvc = self._hypothesis("mvc", mvc_supporting, mvc_contradicting, "MVC", "semantic MVC relation", "controller/model/persistence evidence is insufficient")
+        return ArchitectureAnalysis(
+            hypotheses=[layered, mvc],
+            metrics={
+                "hypothesis_engine": "m6.3",
+                "hypothesis_evidence_scoring": "(support - contradiction) / (support + contradiction + 1)",
+                "layered_support_count": len(layered_supporting),
+                "layered_contradiction_count": len(layered_contradicting),
+                "layered_signal_sources": sorted({item.reason.split(":", 1)[0] for item in layered_supporting + layered_contradicting}),
+                "mvc_support_count": len(mvc_supporting),
+                "mvc_contradiction_count": len(mvc_contradicting),
+                "mvc_signal_sources": sorted({item.reason.split(":", 1)[0] for item in mvc_supporting + mvc_contradicting}),
+            },
+        )
+
+    @staticmethod
+    def _hypothesis(pattern, supporting, contradicting, label, relation_label, unknown_detail):
         confidence, status = EvidenceScorer.score(supporting, contradicting)
         support_refs = _refs(supporting)
         contradiction_refs = _refs(contradicting)
-        refs = sorted(set(support_refs + contradiction_refs))
         if status is EvidenceStatus.UNKNOWN:
-            explanation = (
-                "No evidence-bearing cross-layer relation was available; "
-                "layer names alone are insufficient for Layered."
-            )
+            explanation = f"No evidence-bearing {relation_label} was available; {unknown_detail}."
         else:
-            explanation = (
-                f"Layered hypothesis uses {len(supporting)} supporting relation(s) "
-                f"and {len(contradicting)} contradicting relation(s). "
-                "Dependency direction is weighted above structural naming metadata."
-            )
+            explanation = f"{label} hypothesis uses {len(supporting)} supporting relation(s) and {len(contradicting)} contradicting relation(s)."
             if contradiction_refs:
-                explanation += " Reverse or skip-layer relations were preserved as contradictory evidence."
-        return ArchitectureAnalysis(
-            hypotheses=[ArchitectureHypothesis(
-                pattern="layered",
-                status=status,
-                confidence=confidence,
-                supporting_evidence=support_refs,
-                contradicting_evidence=contradiction_refs,
-                evidence_refs=refs,
-                explanation=explanation,
-            )],
-            metrics={
-                "hypothesis_engine": "m6.2",
-                "hypothesis_evidence_scoring": "(support - contradiction) / (support + contradiction + 1)",
-                "layered_support_count": len(supporting),
-                "layered_contradiction_count": len(contradicting),
-                "layered_signal_sources": sorted({item.reason.split(":", 1)[0] for item in supporting + contradicting}),
-            },
-        )
+                explanation += " Contradicting evidence was preserved."
+        return ArchitectureHypothesis(pattern=pattern, status=status, confidence=confidence, supporting_evidence=support_refs, contradicting_evidence=contradiction_refs, evidence_refs=sorted(set(support_refs + contradiction_refs)), explanation=explanation)
 
     def _layered_signals(self, ir: ArchitectureIR) -> tuple[list[EvidenceContribution], list[EvidenceContribution]]:
         raw_nodes = {node.id: node for node in ir.raw_graph.nodes}
@@ -147,6 +145,52 @@ class ArchitectureHypothesisEngine:
             supporting.append(contribution)
         return supporting, contradicting
 
+    def _mvc_signals(self, ir: ArchitectureIR):
+        raw_nodes = {node.id: node for node in ir.raw_graph.nodes}
+        arch_nodes = _architectural_node_index(ir, raw_nodes)
+        evidence = {item.id: item for item in ir.evidence}
+        mvc_layers = _mvc_layer_index(raw_nodes, arch_nodes)
+        supporting, contradicting, seen = [], [], set()
+        edges = [*sorted(ir.raw_graph.edges, key=_edge_key), *sorted(ir.architectural_graph.edges, key=_edge_key)]
+        for edge in edges:
+            signal = self._mvc_edge_signal(edge, raw_nodes, arch_nodes, evidence, mvc_layers)
+            if signal is None or signal.evidence_refs in seen:
+                continue
+            seen.add(signal.evidence_refs)
+            (supporting if signal.reason.startswith("support:") else contradicting).append(signal)
+        for fact in sorted(ir.framework_facts, key=lambda item: (item.kind, item.subject or "", item.target or "")):
+            if fact.kind not in {"HTTP_ENDPOINT", "ROUTER", "ROUTER_INCLUSION"}:
+                continue
+            subject = _node_for_relation(fact.subject or "", raw_nodes, arch_nodes, ir)
+            refs = tuple(sorted(ref for ref in fact.evidence_refs if ref in evidence))
+            if subject and mvc_layers.get(subject.id) in _MVC_CONTROLLER_LAYERS and refs and refs not in seen:
+                seen.add(refs)
+                supporting.append(EvidenceContribution(refs, 3.0 * fact.confidence, f"support:mvc:{fact.kind.lower()} -> controller", fact.status))
+        return supporting, contradicting
+
+    @staticmethod
+    def _mvc_edge_signal(edge, raw_nodes, arch_nodes, evidence, mvc_layers):
+        source = _node_for_relation(edge.source, raw_nodes, arch_nodes, None)
+        target = _node_for_relation(edge.target, raw_nodes, arch_nodes, None)
+        if not source or not target:
+            return None
+        refs = tuple(sorted(ref for ref in edge.evidence_refs if ref in evidence))
+        if not refs:
+            return None
+        source_layer = mvc_layers.get(source.id)
+        target_layer = mvc_layers.get(target.id)
+        if source_layer in _MVC_CONTROLLER_LAYERS and target_layer in _MVC_MODEL_LAYERS:
+            return EvidenceContribution(refs, 4.0 * edge.confidence, f"support:mvc:controller -> model via {edge.type.value}", edge.status)
+        if source_layer in _MVC_CONTROLLER_LAYERS and target_layer in _MVC_VIEW_LAYERS:
+            return EvidenceContribution(refs, 2.0 * edge.confidence, f"support:mvc:controller -> view via {edge.type.value}", edge.status)
+        if source_layer in _MVC_MODEL_LAYERS and target_layer in _MVC_PERSISTENCE_LAYERS:
+            return EvidenceContribution(refs, 4.0 * edge.confidence, f"support:mvc:model -> persistence via {edge.type.value}", edge.status)
+        if source_layer in _MVC_CONTROLLER_LAYERS and target_layer in _MVC_PERSISTENCE_LAYERS:
+            return EvidenceContribution(refs, 4.0 * edge.confidence, f"contradiction:mvc:controller -> persistence via {edge.type.value}", edge.status)
+        if source_layer in _MVC_PERSISTENCE_LAYERS and target_layer in _MVC_CONTROLLER_LAYERS:
+            return EvidenceContribution(refs, 4.0 * edge.confidence, f"contradiction:mvc:persistence -> controller via {edge.type.value}", edge.status)
+        return None
+
     def _edge_signal(self, edge: Edge, nodes: dict[str, Node], evidence: dict, roles: dict[str, set[str]], architectural: bool = False) -> EvidenceContribution | None:
         source, target = nodes.get(edge.source), nodes.get(edge.target)
         if not source or not target:
@@ -177,6 +221,35 @@ class ArchitectureHypothesisEngine:
             weight *= 1.5
         origin = "architectural" if architectural else "raw"
         return EvidenceContribution(refs, weight, f"{direction}:{origin}:{source_layer} -> {target_layer} via {edge.type.value}", edge.status)
+
+
+def _mvc_layer_index(raw_nodes: dict[str, Node], arch_nodes: dict[str, Node]) -> dict[str, str]:
+    layers = {node_id: node.layer for node_id, node in raw_nodes.items() if node.layer}
+    path_layers: dict[str, list[str]] = {}
+    for node in raw_nodes.values():
+        if node.layer and node.source:
+            path_layers.setdefault(node.source.path, []).append(node.layer)
+    for node_id, node in raw_nodes.items():
+        if node.layer:
+            continue
+        if node.source and node.source.path in path_layers:
+            layers[node_id] = sorted(path_layers[node.source.path], key=lambda item: (_LAYER_ORDER.get(item, 99), item))[0]
+            continue
+        lookup_id = node_id.removeprefix("module:")
+        parts = lookup_id.split(".")
+        for end in range(len(parts) - 1, 0, -1):
+            prefix = ".".join(parts[:end])
+            if prefix in layers:
+                layers[node_id] = layers[prefix]
+                break
+    for node_id, node in arch_nodes.items():
+        if node.layer:
+            layers[node_id] = node.layer
+            continue
+        candidates = [layers[item] for item in node.metadata.get("raw_node_ids", []) if item in layers]
+        if candidates:
+            layers[node_id] = sorted(candidates, key=lambda item: (_LAYER_ORDER.get(item, 99), item))[0]
+    return layers
 
 
 def _architectural_node_index(ir: ArchitectureIR, raw_nodes: dict[str, Node]) -> dict[str, Node]:

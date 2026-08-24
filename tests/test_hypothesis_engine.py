@@ -1,5 +1,5 @@
 from architecture_recovery.architecture import ArchitectureHypothesisEngine
-from architecture_recovery.ir import ArchitectureIR, ArchitecturalGraph, Edge, EdgeType, Evidence, EvidenceSource, EvidenceStatus, Node, NodeType, RawCodeGraph, RepositoryInfo, SourceOrigin, SourceRef
+from architecture_recovery.ir import ArchitectureIR, ArchitecturalGraph, Edge, EdgeType, Evidence, EvidenceSource, EvidenceStatus, FrameworkFact, Node, NodeType, RawCodeGraph, RepositoryInfo, SourceOrigin, SourceRef
 
 
 def _ir(with_contradiction=True):
@@ -53,3 +53,57 @@ def test_layered_hypothesis_can_use_infrastructure_as_terminal_layer():
     hypothesis = ArchitectureHypothesisEngine().infer(ir).hypotheses[0]
     assert hypothesis.status == EvidenceStatus.INFERRED
     assert "ev-repo-database" in hypothesis.supporting_evidence
+
+
+def _mvc_ir(with_contradiction=False, names_only=False):
+    nodes = [
+        Node(id="controller", type=NodeType.MODULE, name="controllers", layer="controllers", origin=SourceOrigin.FIRST_PARTY),
+        Node(id="model", type=NodeType.MODULE, name="models", layer="models", origin=SourceOrigin.FIRST_PARTY),
+        Node(id="repo", type=NodeType.MODULE, name="repository", layer="repositories", origin=SourceOrigin.FIRST_PARTY),
+    ]
+    edges = []
+    evidence = []
+    if not names_only:
+        edges = [
+            Edge(id="mvc-controller-model", source="controller", target="model", type=EdgeType.CALLS, evidence_refs=["mvc-controller-model"]),
+            Edge(id="mvc-model-repo", source="model", target="repo", type=EdgeType.CALLS, evidence_refs=["mvc-model-repo"]),
+        ]
+        evidence.extend(
+            Evidence(id=ref, source_type=EvidenceSource.CALL_GRAPH, detail=ref, source=SourceRef(path="fixture.py", start_line=1))
+            for ref in ["mvc-controller-model", "mvc-model-repo", "mvc-http", "mvc-contradiction"]
+        )
+    if with_contradiction:
+        edges.append(Edge(id="mvc-controller-repo", source="controller", target="repo", type=EdgeType.CALLS, evidence_refs=["mvc-contradiction"]))
+    facts = [] if names_only else [
+        FrameworkFact(kind="HTTP_ENDPOINT", subject="controller", evidence_refs=["mvc-http"])
+    ]
+    return ArchitectureIR(
+        repository=RepositoryInfo(name="mvc", path="."),
+        raw_graph=RawCodeGraph(nodes=nodes, edges=edges),
+        architectural_graph=ArchitecturalGraph(nodes=nodes, edges=edges),
+        framework_facts=facts,
+        evidence=evidence,
+    )
+
+
+def test_mvc_hypothesis_requires_semantic_relations_and_is_traceable():
+    result = ArchitectureHypothesisEngine().infer(_mvc_ir())
+    hypotheses = {item.pattern: item for item in result.hypotheses}
+    assert hypotheses["mvc"].status == EvidenceStatus.INFERRED
+    assert hypotheses["mvc"].supporting_evidence
+    assert hypotheses["mvc"].evidence_refs == sorted(set(hypotheses["mvc"].supporting_evidence))
+    assert "layered" in hypotheses
+
+
+def test_mvc_names_only_remains_unknown():
+    hypothesis = {item.pattern: item for item in ArchitectureHypothesisEngine().infer(_mvc_ir(names_only=True)).hypotheses}["mvc"]
+    assert hypothesis.status == EvidenceStatus.UNKNOWN
+    assert hypothesis.confidence == 0
+    assert hypothesis.supporting_evidence == []
+
+
+def test_mvc_preserves_direct_controller_persistence_contradiction():
+    hypothesis = {item.pattern: item for item in ArchitectureHypothesisEngine().infer(_mvc_ir(with_contradiction=True)).hypotheses}["mvc"]
+    assert hypothesis.status == EvidenceStatus.INFERRED
+    assert "mvc-contradiction" in hypothesis.contradicting_evidence
+    assert "mvc-contradiction" in hypothesis.evidence_refs

@@ -57,3 +57,6 @@ Microservices and LLM-assisted interpretation remain future work.
 M6.2 is complete. Layered hypotheses require evidence-bearing directional
 relations; names-only structures remain UNKNOWN and reverse/conflicting
 relations remain traceable.
+## M6.3 result
+
+M6.3 is complete. MVC is an independent evidence-based hypothesis and does not force a single winning architecture. The next recommended milestone is a bounded additional detector or repository-boundary hardening; Clean, Hexagonal, Microservices and LLM reasoning remain deferred.
