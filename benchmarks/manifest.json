@@ -110,6 +110,11 @@
       "name": "mvc_negative",
       "repository": "benchmarks/fixtures/mvc_negative",
       "ground_truth": "ground_truth/mvc_negative.json"
+    },
+    {
+      "name": "visualization_read_model",
+      "repository": "benchmarks/fixtures/visualization_read_model",
+      "ground_truth": "ground_truth/visualization_read_model.json"
     }
   ]
 }

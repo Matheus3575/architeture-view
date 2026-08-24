@@ -90,3 +90,6 @@ MVC detection is complete with bounded coverage. The detector reuses the M6.1 sc
 ## M6.4 status
 
 Framework Facts are strengthened with bounded indexed interpretation. Existing APPLICATION, ROUTER, HTTP_ENDPOINT, FRAMEWORK_DEPENDENCY, RESPONSE_SCHEMA, SCHEMA and ROUTER_INCLUSION facts remain framework-neutral; CONTROLLER_LIKE is emitted only for a resolved HTTP route handler with definition evidence. Facts retain expression, source and raw-evidence traceability metadata. No architectural pattern inference was added to the adapter.
+## M7.1 status
+
+The Visualization Read Model is complete with bounded linear-style transformation over existing IR collections. It provides deterministic nodes, edges, hypotheses, evidence, unknown markers, semantic layer hints and origin refs. A dedicated validator rejects duplicate IDs, orphan edges, missing identities and invalid evidence references. Infrastructure-backed nodes remain distinguishable from application components.

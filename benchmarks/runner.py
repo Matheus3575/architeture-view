@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from architecture_recovery.pipeline import analyze_repository
+from architecture_recovery.visualization import VisualizationReadModelBuilder
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -68,6 +69,7 @@ def evaluate_case(first, second, ground_truth: dict[str, Any]) -> dict[str, Any]
     component_metrics = _evaluate_component_detection(first, ground_truth, failures)
     infrastructure_metrics = _evaluate_infrastructure(first, ground_truth, failures)
     hypothesis_metrics = _evaluate_hypotheses(first, ground_truth, failures)
+    read_model_metrics = _evaluate_read_model(first, second, ground_truth, failures)
 
     deterministic = first.model_dump_json() == second.model_dump_json()
     if not deterministic:
@@ -87,6 +89,7 @@ def evaluate_case(first, second, ground_truth: dict[str, Any]) -> dict[str, Any]
         **component_metrics,
         **infrastructure_metrics,
         **hypothesis_metrics,
+        **read_model_metrics,
         "unknown_node_rate": _unknown_node_rate(first),
         "raw_node_count": len(first.raw_graph.nodes),
         "raw_edge_count": len(first.raw_graph.edges),
@@ -146,6 +149,53 @@ def _evaluate_hypotheses(ir, ground_truth, failures):
         "hypothesis_supporting_count": sum(len(item.supporting_evidence) for item in actual.values()),
         "hypothesis_contradicting_count": sum(len(item.contradicting_evidence) for item in actual.values()),
     }
+
+def _evaluate_read_model(first, second, ground_truth, failures):
+    spec = ground_truth.get("read_model")
+    if not spec:
+        return {
+            "read_model_node_count": None,
+            "read_model_edge_count": None,
+            "read_model_edges_valid": None,
+            "read_model_traceability": None,
+            "read_model_deterministic": None,
+        }
+    builder = VisualizationReadModelBuilder()
+    first_model = builder.build(first)
+    second_model = builder.build(second)
+    node_ids = {node.id for node in first_model.nodes}
+    valid_edges = all(edge.source in node_ids and edge.target in node_ids for edge in first_model.edges)
+    if spec.get("require_all_edges_valid") and not valid_edges:
+        failures.append("visualization read model contains an orphan edge")
+    actual_kinds = {node.kind for node in first_model.nodes}
+    missing_node_kinds = sorted(set(spec.get("required_node_kinds", [])) - actual_kinds)
+    if missing_node_kinds:
+        failures.append(f"missing visualization node kinds: {missing_node_kinds}")
+    actual_edge_kinds = {edge.kind for edge in first_model.edges}
+    missing_edge_kinds = sorted(set(spec.get("required_edge_kinds", [])) - actual_edge_kinds)
+    if missing_edge_kinds:
+        failures.append(f"missing visualization edge kinds: {missing_edge_kinds}")
+    if spec.get("require_hypotheses") and not first_model.hypotheses:
+        failures.append("visualization read model has no hypotheses")
+    evidence_ids = {item.id for item in first_model.evidence}
+    traceable = all(
+        ref in evidence_ids
+        for item in [*first_model.nodes, *first_model.edges, *first_model.hypotheses]
+        for ref in item.evidence_refs
+    )
+    if spec.get("require_traceability") and not traceable:
+        failures.append("visualization read model is not traceable")
+    deterministic = first_model.model_dump_json() == second_model.model_dump_json()
+    if spec.get("require_determinism") and not deterministic:
+        failures.append("visualization read model is not deterministic")
+    return {
+        "read_model_node_count": len(first_model.nodes),
+        "read_model_edge_count": len(first_model.edges),
+        "read_model_edges_valid": valid_edges,
+        "read_model_traceability": traceable,
+        "read_model_deterministic": deterministic,
+    }
+
 
 def _evaluate_source_origins(ir, ground_truth, failures):
     actual = {

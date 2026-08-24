@@ -744,3 +744,6 @@ M6.3 adds an independent deterministic `mvc` hypothesis to the existing engine. 
 ## M6.4 — Strengthened framework facts
 
 M6.4 strengthened the existing FastAPI adapter without adding a parser, repository scan or architectural detector. Framework-neutral facts now preserve resolved application/router expressions, endpoint router and handler relationships, `CONTROLLER_LIKE` facts for resolved HTTP route handlers, endpoint-associated dependencies, and observation metadata containing source location and raw evidence refs. Alias imports continue to resolve through the existing import index. Dynamic providers, generic routers and unresolved schemas remain UNKNOWN or absent. The complete FastAPI ground truth passes with deterministic output.
+## M7.1 — Architecture Visualization Read Model
+
+M7.1 adds a deterministic renderer-neutral projection from ArchitectureIR to a serializable VisualizationReadModel. The projection consumes only Architectural Graph nodes/edges, components, infrastructure resources/relations, framework facts, evidence and hypotheses already present in the IR. It creates explicit endpoint and UNKNOWN target nodes only from evidenced framework facts, preserves original relation kinds/status/confidence/evidence refs, and keeps hypotheses separate from visual facts. No renderer, layout algorithm, parser or repository scan was added.

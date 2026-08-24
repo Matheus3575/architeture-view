@@ -1,0 +1,16 @@
+{
+  "read_model": {
+    "required_node_kinds": [
+      "endpoint",
+      "database"
+    ],
+    "required_edge_kinds": [
+      "ROUTES_TO",
+      "ROUTER_INCLUSION"
+    ],
+    "require_hypotheses": true,
+    "require_all_edges_valid": true,
+    "require_traceability": true,
+    "require_determinism": true
+  }
+}

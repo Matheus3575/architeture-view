@@ -150,3 +150,6 @@ The benchmark suite now contains 22 deterministic fixtures, including five MVC c
 ## M6.4 status
 
 The 22-fixture benchmark suite now measures complete FastAPI framework-fact precision in addition to recall. The FastAPI semantic fixture reports framework fact recall 1.0, precision 1.0, UNKNOWN recall 1.0, complete fact traceability and determinism. Alias application/Depends resolution, endpoint-router-handler facts, controller-like roles, dependencies, response schemas, router inclusion, dynamic UNKNOWN behavior and generic-router false positives are covered. All 22 benchmarks pass. The observed full runner time was 8.976 seconds across the runner's two analyses per fixture; no directly comparable M6.3 timing baseline was retained.
+## M7.1 status
+
+The benchmark suite now contains 23 deterministic fixtures, including `visualization_read_model`. The new case validates endpoint and infrastructure nodes, ROUTES_TO and ROUTER_INCLUSION edges, edge validity, evidence preservation, hypothesis preservation and determinism. All 23 benchmarks pass; the read-model case produced 9 nodes and 7 edges with valid edges, traceability and deterministic output. The observed full runner time was approximately 9.279 seconds across two analyses per fixture; this is operational data, not a hard threshold.

@@ -28,6 +28,7 @@ def test_controlled_benchmarks_pass_and_report_metrics():
         "mvc_contradiction",
         "mvc_layered_coexist",
         "mvc_negative",
+        "visualization_read_model",
     }
     assert all(result["passed"] for result in results)
     assert all(result["execution_passed"] for result in results)
