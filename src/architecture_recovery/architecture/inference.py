@@ -1,58 +1,47 @@
 from __future__ import annotations
 
+from architecture_recovery.architecture.hypotheses import ArchitectureHypothesisEngine
 from architecture_recovery.graph.analysis import graph_metrics
 from architecture_recovery.graph.builder import PropertyGraph
 from architecture_recovery.ir import (
+    ArchitecturalGraph,
+    ArchitectureIR,
     ArchitectureAnalysis,
     ArchitectureHypothesis,
     EvidenceStatus,
+    RawCodeGraph,
+    RepositoryInfo,
     StackProfile,
 )
 
 
 class ArchitectureInferer:
-    """Small, explainable rule set for the first architecture hypotheses."""
+    """Backward-compatible facade; new callers should pass an ArchitectureIR to the engine."""
 
-    def infer(self, graph: PropertyGraph, stack: StackProfile) -> ArchitectureAnalysis:
-        metrics = graph_metrics(graph)
-        hypotheses: list[ArchitectureHypothesis] = []
-        layer_nodes = [node for node in graph.nodes.values() if node.layer]
-        if layer_nodes:
-            evidence = sorted({ref for node in layer_nodes for ref in node.evidence_refs})
-            hypotheses.append(
-                ArchitectureHypothesis(
-                    pattern="layered",
-                    status=EvidenceStatus.INFERRED,
-                    confidence=min(0.95, 0.55 + len({node.layer for node in layer_nodes}) * 0.08),
-                    evidence_refs=evidence,
-                    explanation="Source nodes use recognizable controller/service/repository/domain layers.",
-                )
-            )
-        if any(framework.name in {"Django", "Flask", "FastAPI"} for framework in stack.frameworks):
-            framework = next(framework for framework in stack.frameworks if framework.name in {"Django", "Flask", "FastAPI"})
-            hypotheses.append(
-                ArchitectureHypothesis(
+    def infer(self, graph: PropertyGraph, stack: StackProfile):
+        ir = ArchitectureIR(
+            repository=RepositoryInfo(name="legacy", path="."),
+            raw_graph=RawCodeGraph(nodes=list(graph.nodes.values()), edges=graph.edges),
+            architectural_graph=ArchitecturalGraph(nodes=list(graph.nodes.values()), edges=graph.edges),
+            evidence=list(graph.evidence.values()),
+            stack=stack,
+        )
+        analysis = ArchitectureHypothesisEngine().infer(ir)
+        if not any(item.status is not EvidenceStatus.INFERRED for item in analysis.hypotheses):
+            framework = next((item for item in stack.frameworks if item.name in {"Django", "Flask", "FastAPI"}), None)
+            if framework:
+                analysis.hypotheses.append(ArchitectureHypothesis(
                     pattern="framework-guided application",
                     status=EvidenceStatus.INFERRED,
                     confidence=framework.confidence,
-                    evidence_refs=framework.evidence_refs,
+                    evidence_refs=sorted(framework.evidence_refs),
+                    supporting_evidence=sorted(framework.evidence_refs),
                     explanation=f"Framework adapter signal detected for {framework.name}.",
-                )
-            )
-        if not hypotheses:
-            hypotheses.append(
-                ArchitectureHypothesis(
-                    pattern="unknown",
-                    status=EvidenceStatus.UNKNOWN,
-                    confidence=0.0,
-                    explanation="No architecture pattern had sufficient evidence.",
-                )
-            )
-        return ArchitectureAnalysis(
-            hypotheses=hypotheses,
-            metrics=metrics,
-            smells=[
-                {"type": "circular_dependency", "nodes": cycle}
-                for cycle in metrics["strongly_connected_components"]
-            ],
-        )
+                ))
+        metrics = graph_metrics(graph)
+        analysis.metrics = metrics | {key: value for key, value in analysis.metrics.items() if key.startswith("hypothesis_") or key.startswith("layered_")}
+        analysis.smells = [{"type": "circular_dependency", "nodes": cycle} for cycle in metrics["strongly_connected_components"]]
+        return analysis
+
+
+__all__ = ["ArchitectureInferer", "ArchitectureHypothesisEngine"]

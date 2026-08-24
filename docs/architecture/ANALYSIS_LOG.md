@@ -708,3 +708,19 @@ indexed parsed calls, Compose services and environment maps; it does not scan
 all symbols per component. Dockerfile continuation semantics, Compose
 interpolation, env-file contents, Kubernetes, CI, Terraform and runtime
 behavior remain future extensions.
+
+## M6.1 — Architecture Hypothesis Engine
+
+M6.1 introduced a small deterministic `ArchitectureHypothesisEngine` over the
+existing ArchitectureIR. The IR contract was extended additively with support
+and contradiction evidence references; the canonical evidence list remains the
+single traceability system. The scorer discounts INFERRED, UNCERTAIN and
+UNKNOWN evidence relative to OBSERVED evidence and keeps contradictory
+relations visible in the explanation.
+
+The first detector is deliberately limited to Layered. It requires existing
+layer metadata plus evidence-bearing cross-layer CALLS, IMPORTS or DEPENDS_ON
+relations, so directory naming alone cannot create a hypothesis. A controlled
+fixture demonstrates a controller -> service -> repository chain, and tests
+cover contradiction preservation, UNKNOWN and deterministic output. No LLM,
+new parser, dynamic analysis or additional repository scan was added.

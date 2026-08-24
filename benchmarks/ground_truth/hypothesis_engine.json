@@ -1,0 +1,1 @@
+{"hypotheses":{"required":[{"pattern":"layered","status":"inferred","requires_traceability":true}],"forbidden":["MVC","Microservices"]}}

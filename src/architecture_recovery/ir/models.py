@@ -200,6 +200,8 @@ class ArchitectureHypothesis(BaseModel):
     pattern: str
     status: EvidenceStatus = EvidenceStatus.UNCERTAIN
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    supporting_evidence: list[str] = Field(default_factory=list)
+    contradicting_evidence: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     explanation: str = ""
 

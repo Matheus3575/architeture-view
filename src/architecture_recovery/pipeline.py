@@ -178,7 +178,7 @@ def _analyze_local_repository(
     ir.validation = structural_report
 
     if structural_report.valid:
-        ir.architecture = ArchitectureInferer().infer(architectural_graph, stack)
+        ir.architecture = ArchitectureInferer().infer(graph, stack)
 
     final_report = validator.validate(ir)
     final_report.warnings = sorted(set(structural_report.warnings + final_report.warnings))

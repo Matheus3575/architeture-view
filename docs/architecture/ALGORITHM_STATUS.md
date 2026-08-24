@@ -55,7 +55,7 @@ evidence. Renderers consume the IR and do not perform analysis.
 | M5 | Complete | Docker/Compose infrastructure facts, conservative resource kinds, explicit configuration mapping and traceable relations |
 | Framework semantics | Complete v1 | FastAPI reference adapter; Django/Flask remain future adapters |
 | Component detection | Complete with bounded coverage | Module-level candidates; no architectural pattern inference |
-| Architecture inference | Future | Pattern hypotheses with confidence and traceability |
+| M6.1 hypothesis engine | Complete with bounded coverage | Deterministic evidence scoring and minimal Layered hypothesis detector |
 
 ## Safety policy
 

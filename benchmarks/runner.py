@@ -67,6 +67,7 @@ def evaluate_case(first, second, ground_truth: dict[str, Any]) -> dict[str, Any]
     framework_metrics = _evaluate_framework_facts(first, ground_truth, failures)
     component_metrics = _evaluate_component_detection(first, ground_truth, failures)
     infrastructure_metrics = _evaluate_infrastructure(first, ground_truth, failures)
+    hypothesis_metrics = _evaluate_hypotheses(first, ground_truth, failures)
 
     deterministic = first.model_dump_json() == second.model_dump_json()
     if not deterministic:
@@ -85,6 +86,7 @@ def evaluate_case(first, second, ground_truth: dict[str, Any]) -> dict[str, Any]
         **framework_metrics,
         **component_metrics,
         **infrastructure_metrics,
+        **hypothesis_metrics,
         "unknown_node_rate": _unknown_node_rate(first),
         "raw_node_count": len(first.raw_graph.nodes),
         "raw_edge_count": len(first.raw_graph.edges),
@@ -104,6 +106,31 @@ def evaluate_case(first, second, ground_truth: dict[str, Any]) -> dict[str, Any]
         "metrics": metrics,
     }
 
+
+def _evaluate_hypotheses(ir, ground_truth, failures):
+    expected = ground_truth.get("hypotheses", {})
+    actual = {item.pattern: item for item in ir.architecture.hypotheses}
+    required = expected.get("required", [])
+    traceable = 0
+    for item in required:
+        hypothesis = actual.get(item["pattern"])
+        if not hypothesis:
+            failures.append(f"missing architecture hypothesis: {item['pattern']}")
+            continue
+        if item.get("status") and hypothesis.status.value != item["status"]:
+            failures.append(f"wrong hypothesis status: {item['pattern']} expected {item['status']} got {hypothesis.status.value}")
+        if item.get("requires_traceability") and not hypothesis.evidence_refs:
+            failures.append(f"untraceable architecture hypothesis: {item['pattern']}")
+        else:
+            traceable += 1
+    forbidden = sorted(set(expected.get("forbidden", [])) & set(actual))
+    failures.extend(f"forbidden architecture hypothesis: {item}" for item in forbidden)
+    return {
+        "hypothesis_evaluated": len(required),
+        "hypothesis_recall": _ratio(len(required) - sum(1 for item in required if item["pattern"] not in actual), len(required)),
+        "hypothesis_traceability_recall": _ratio(traceable, len(required)),
+        "hypothesis_forbidden_count": len(forbidden),
+    }
 
 def _evaluate_source_origins(ir, ground_truth, failures):
     actual = {

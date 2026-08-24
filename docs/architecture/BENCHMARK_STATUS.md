@@ -126,3 +126,11 @@ deterministic: true
 
 The fixture analysis remained bounded and static. It does not execute Docker,
 make network calls or inspect local container state.
+## M6.1 status
+
+A 14th fixture, `benchmarks/fixtures/hypothesis_engine/`, validates the
+minimal hypothesis engine. It requires a Layered hypothesis, traceability and
+forbids MVC and Microservices. The fixture is analyzed twice and must remain
+deterministic. The observed Layered result is `inferred` with confidence
+`0.666667` from two evidence-bearing cross-layer relations; no pattern certainty
+is asserted.

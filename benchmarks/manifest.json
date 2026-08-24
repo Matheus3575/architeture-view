@@ -65,6 +65,11 @@
       "name": "infrastructure_semantics",
       "repository": "benchmarks/fixtures/infrastructure_semantics",
       "ground_truth": "ground_truth/infrastructure_semantics.json"
+    },
+    {
+      "name": "hypothesis_engine",
+      "repository": "benchmarks/fixtures/hypothesis_engine",
+      "ground_truth": "ground_truth/hypothesis_engine.json"
     }
   ]
 }
