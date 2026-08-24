@@ -1,0 +1,1 @@
+{"hypotheses":{"required":[{"pattern":"layered","status":"uncertain","requires_support":true,"requires_contradiction":true}],"forbidden":["MVC","Microservices"]}}

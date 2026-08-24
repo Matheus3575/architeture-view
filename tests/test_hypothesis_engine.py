@@ -20,7 +20,7 @@ def _ir(with_contradiction=True):
 
 def test_layered_hypothesis_preserves_support_and_contradiction():
     hypothesis = ArchitectureHypothesisEngine().infer(_ir()).hypotheses[0]
-    assert hypothesis.status == EvidenceStatus.INFERRED
+    assert hypothesis.status == EvidenceStatus.UNCERTAIN
     assert hypothesis.confidence > 0
     assert hypothesis.supporting_evidence == ["ev-api-service", "ev-service-repo"]
     assert hypothesis.contradicting_evidence == ["ev-repo-api"]
@@ -36,7 +36,20 @@ def test_hypothesis_engine_is_deterministic():
 def test_layered_hypothesis_is_unknown_without_evidence_bearing_relations():
     ir = _ir(False)
     ir.raw_graph.edges = []
+    ir.architectural_graph.edges = []
     result = ArchitectureHypothesisEngine().infer(ir).hypotheses[0]
     assert result.status == EvidenceStatus.UNKNOWN
     assert result.confidence == 0
     assert result.evidence_refs == []
+
+
+
+
+def test_layered_hypothesis_can_use_infrastructure_as_terminal_layer():
+    ir = _ir(False)
+    ir.raw_graph.nodes.append(Node(id="database", type=NodeType.DATABASE, name="postgres", origin=SourceOrigin.UNKNOWN))
+    ir.raw_graph.edges.append(Edge(id="edge-repo-database", source="repo", target="database", type=EdgeType.DEPENDS_ON, evidence_refs=["ev-repo-database"]))
+    ir.evidence.append(Evidence(id="ev-repo-database", source_type=EvidenceSource.DOCKER_COMPOSE, detail="repo depends on postgres", source=SourceRef(path="docker-compose.yml", start_line=3)))
+    hypothesis = ArchitectureHypothesisEngine().infer(ir).hypotheses[0]
+    assert hypothesis.status == EvidenceStatus.INFERRED
+    assert "ev-repo-database" in hypothesis.supporting_evidence

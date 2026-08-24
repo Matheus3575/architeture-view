@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-from architecture_recovery.architecture import ArchitectureInferer
+from architecture_recovery.architecture import ArchitectureHypothesisEngine
 from architecture_recovery.classification import PythonRepositoryClassifier
 from architecture_recovery.components import ComponentDetectionContext, ComponentDetector
 from architecture_recovery.graph import (
@@ -178,7 +178,7 @@ def _analyze_local_repository(
     ir.validation = structural_report
 
     if structural_report.valid:
-        ir.architecture = ArchitectureInferer().infer(graph, stack)
+        ir.architecture = ArchitectureHypothesisEngine().infer(ir)
 
     final_report = validator.validate(ir)
     final_report.warnings = sorted(set(structural_report.warnings + final_report.warnings))

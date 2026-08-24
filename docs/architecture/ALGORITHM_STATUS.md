@@ -56,6 +56,7 @@ evidence. Renderers consume the IR and do not perform analysis.
 | Framework semantics | Complete v1 | FastAPI reference adapter; Django/Flask remain future adapters |
 | Component detection | Complete with bounded coverage | Module-level candidates; no architectural pattern inference |
 | M6.1 hypothesis engine | Complete with bounded coverage | Deterministic evidence scoring and minimal Layered hypothesis detector |
+| M6.2 evidence-based Layered detector | Complete with bounded coverage | Directional structural relations, semantic signals and conservative contradictions |
 
 ## Safety policy
 
@@ -73,3 +74,13 @@ before this status document. Update this file when a milestone changes the
 observable algorithm or its guarantees; record experiments in
 `ANALYSIS_LOG.md` and durable cross-cutting decisions in an ADR.
 | Next implementation step | Recommended | Architecture Pattern Inference, with infrastructure remaining evidence rather than architecture proof |
+
+## M6.2 status
+
+The Layered detector now consumes the complete ArchitectureIR and combines
+relation direction, CALLS, IMPORTS, INSTANTIATES, data-flow metadata, framework
+roles, Architectural Graph edges and infrastructure terminals when available.
+A relation is required; directory or component names alone produce UNKNOWN.
+Dependency direction has higher weights than naming metadata, while reverse
+skip-layer relations receive an additional contradiction penalty. The global
+M6.1 scorer and status contract remain unchanged.

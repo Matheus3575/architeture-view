@@ -1,0 +1,2 @@
+class ServiceMarker:
+    pass

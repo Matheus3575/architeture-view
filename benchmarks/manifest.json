@@ -70,6 +70,21 @@
       "name": "hypothesis_engine",
       "repository": "benchmarks/fixtures/hypothesis_engine",
       "ground_truth": "ground_truth/hypothesis_engine.json"
+    },
+    {
+      "name": "hypothesis_names_only",
+      "repository": "benchmarks/fixtures/hypothesis_names_only",
+      "ground_truth": "ground_truth/hypothesis_names_only.json"
+    },
+    {
+      "name": "hypothesis_reversed",
+      "repository": "benchmarks/fixtures/hypothesis_reversed",
+      "ground_truth": "ground_truth/hypothesis_reversed.json"
+    },
+    {
+      "name": "hypothesis_ambiguous",
+      "repository": "benchmarks/fixtures/hypothesis_ambiguous",
+      "ground_truth": "ground_truth/hypothesis_ambiguous.json"
     }
   ]
 }

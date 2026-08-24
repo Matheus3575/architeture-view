@@ -134,3 +134,13 @@ forbids MVC and Microservices. The fixture is analyzed twice and must remain
 deterministic. The observed Layered result is `inferred` with confidence
 `0.666667` from two evidence-bearing cross-layer relations; no pattern certainty
 is asserted.
+
+## M6.2 status
+
+The benchmark now contains 17 deterministic fixtures. The M6.2 cases cover a
+clear API -> service -> repository -> PostgreSQL chain, names-only structure,
+reverse repository -> API dependency and conflicting evidence. Ground truth
+checks hypothesis status, support/contradiction presence, forbidden patterns,
+traceability and determinism. The four hypothesis fixtures pass with
+hypothesis recall 1.0 and traceability recall 1.0; the names-only case reports
+UNKNOWN with zero supporting evidence.

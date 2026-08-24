@@ -724,3 +724,17 @@ relations, so directory naming alone cannot create a hypothesis. A controlled
 fixture demonstrates a controller -> service -> repository chain, and tests
 cover contradiction preservation, UNKNOWN and deterministic output. No LLM,
 new parser, dynamic analysis or additional repository scan was added.
+
+## M6.2 — Evidence-Based Layered Detector
+
+M6.2 refined Layered detection to consume the complete ArchitectureIR. The
+engine now indexes raw and architectural nodes, component roles and framework
+entrypoint facts, and combines directional structural relations with data-flow
+metadata and infrastructure terminal relations when resolvable. Names remain
+only a way to interpret existing layer metadata; they cannot create a signal.
+
+The benchmark adds names-only, reverse-dependency and ambiguous fixtures. Names
+without relations return UNKNOWN; reverse-only evidence remains traceable as a
+contradiction and returns UNKNOWN; mixed forward/reverse evidence returns
+UNCERTAIN. The global deterministic scorer was preserved. No parser, scanner,
+framework adapter or infrastructure adapter was changed.

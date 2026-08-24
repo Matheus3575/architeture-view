@@ -20,6 +20,9 @@ def test_controlled_benchmarks_pass_and_report_metrics():
         "basic_data_flow",
         "infrastructure_semantics",
         "hypothesis_engine",
+        "hypothesis_names_only",
+        "hypothesis_reversed",
+        "hypothesis_ambiguous",
     }
     assert all(result["passed"] for result in results)
     assert all(result["execution_passed"] for result in results)

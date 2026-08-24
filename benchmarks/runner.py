@@ -121,6 +121,12 @@ def _evaluate_hypotheses(ir, ground_truth, failures):
             failures.append(f"wrong hypothesis status: {item['pattern']} expected {item['status']} got {hypothesis.status.value}")
         if item.get("requires_traceability") and not hypothesis.evidence_refs:
             failures.append(f"untraceable architecture hypothesis: {item['pattern']}")
+        elif item.get("requires_no_support") and hypothesis.supporting_evidence:
+            failures.append(f"unexpected support for hypothesis: {item['pattern']}")
+        elif item.get("requires_support") and not hypothesis.supporting_evidence:
+            failures.append(f"missing support for hypothesis: {item['pattern']}")
+        elif item.get("requires_contradiction") and not hypothesis.contradicting_evidence:
+            failures.append(f"missing contradiction for hypothesis: {item['pattern']}")
         else:
             traceable += 1
     forbidden = sorted(set(expected.get("forbidden", [])) & set(actual))
@@ -130,6 +136,8 @@ def _evaluate_hypotheses(ir, ground_truth, failures):
         "hypothesis_recall": _ratio(len(required) - sum(1 for item in required if item["pattern"] not in actual), len(required)),
         "hypothesis_traceability_recall": _ratio(traceable, len(required)),
         "hypothesis_forbidden_count": len(forbidden),
+        "hypothesis_supporting_count": sum(len(item.supporting_evidence) for item in actual.values()),
+        "hypothesis_contradicting_count": sum(len(item.contradicting_evidence) for item in actual.values()),
     }
 
 def _evaluate_source_origins(ir, ground_truth, failures):

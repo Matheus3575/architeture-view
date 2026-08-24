@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from architecture_recovery.ir import ArchitectureIR, Edge, EdgeType, Node, NodeType, RepositoryInfo
-from architecture_recovery.architecture import ArchitectureInferer
+from architecture_recovery.architecture import ArchitectureHypothesisEngine
 from architecture_recovery.pipeline import analyze_repository
 import architecture_recovery.pipeline as pipeline_module
 from architecture_recovery.rendering import render_graphml, render_mermaid
@@ -68,13 +68,13 @@ def test_pipeline_validates_ir_before_and_after_inference(monkeypatch):
             events.append(("validate", len(ir.architecture.hypotheses)))
             return super().validate(ir)
 
-    class TrackingInferer(ArchitectureInferer):
-        def infer(self, graph, stack):
+    class TrackingEngine(ArchitectureHypothesisEngine):
+        def infer(self, ir):
             events.append(("infer", 0))
-            return super().infer(graph, stack)
+            return super().infer(ir)
 
     monkeypatch.setattr(pipeline_module, "ArchitectureValidator", TrackingValidator)
-    monkeypatch.setattr(pipeline_module, "ArchitectureInferer", TrackingInferer)
+    monkeypatch.setattr(pipeline_module, "ArchitectureHypothesisEngine", TrackingEngine)
     analyze_repository(str(FIXTURE))
 
     assert events[0] == ("validate", 0)

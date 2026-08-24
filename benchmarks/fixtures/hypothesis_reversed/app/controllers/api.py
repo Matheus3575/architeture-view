@@ -1,0 +1,2 @@
+def endpoint():
+    return None

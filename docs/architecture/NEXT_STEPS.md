@@ -15,10 +15,11 @@ M5 is complete. Docker and Compose now produce infrastructure-neutral,
 evidence-backed resources and relations without changing Component Detection.
 UNKNOWN and unsupported configuration remain explicit.
 
-## Recommended next milestone: M6.2 Pattern Detectors
+## Recommended next milestone: M6.3 Additional Pattern Detector
 
-The next step is to evaluate architectural hypotheses from code, framework,
-component and infrastructure evidence while preserving UNKNOWN and traceability.
+M6.2 now provides a conservative evidence-based Layered detector. The next
+step is to add one separately validated pattern detector while preserving UNKNOWN
+and traceability.
 
 ## Alternatives
 
@@ -48,3 +49,11 @@ Component Detection
 
 M6.1 is complete with one bounded Layered detector. MVC, Clean, Hexagonal,
 Microservices and LLM-assisted interpretation remain future work.
+
+
+
+## M6.2 result
+
+M6.2 is complete. Layered hypotheses require evidence-bearing directional
+relations; names-only structures remain UNKNOWN and reverse/conflicting
+relations remain traceable.

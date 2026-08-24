@@ -1,2 +1,6 @@
+import os
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
 def load():
-    return {"ok": True}
+    return DATABASE_URL
