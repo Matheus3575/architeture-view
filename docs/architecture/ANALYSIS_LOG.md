@@ -741,3 +741,6 @@ framework adapter or infrastructure adapter was changed.
 ## M6.3 — MVC evidence detector
 
 M6.3 adds an independent deterministic `mvc` hypothesis to the existing engine. It consumes indexed ArchitectureIR relations and existing HTTP/framework facts only. Support requires semantic controller-to-model and model-to-persistence direction, with optional HTTP/controller and controller/view signals. Direct controller-to-persistence and reverse persistence-to-controller relations remain contradictory evidence. Directory names without semantic relations remain UNKNOWN. The five controlled MVC fixtures pass with deterministic output; no parser, scan, Raw Graph or renderer changes were introduced.
+## M6.4 — Strengthened framework facts
+
+M6.4 strengthened the existing FastAPI adapter without adding a parser, repository scan or architectural detector. Framework-neutral facts now preserve resolved application/router expressions, endpoint router and handler relationships, `CONTROLLER_LIKE` facts for resolved HTTP route handlers, endpoint-associated dependencies, and observation metadata containing source location and raw evidence refs. Alias imports continue to resolve through the existing import index. Dynamic providers, generic routers and unresolved schemas remain UNKNOWN or absent. The complete FastAPI ground truth passes with deterministic output.

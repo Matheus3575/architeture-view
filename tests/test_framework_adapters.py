@@ -74,6 +74,28 @@ def test_fastapi_include_router_preserves_observed_metadata_without_path_composi
     }
 
 
+
+
+def test_fastapi_facts_expose_router_handler_and_controller_like_role():
+    ir = analyze_repository(FIXTURE)
+    endpoint = next(item for item in facts(ir, "HTTP_ENDPOINT") if item.attributes["handler"] == "api.list_users")
+    role = next(item for item in facts(ir, "CONTROLLER_LIKE") if item.subject == "api.list_users")
+    assert endpoint.target == "api.list_users"
+    assert endpoint.attributes["router"] == "users_router"
+    assert role.attributes["basis"] == "resolved_http_route_handler"
+    assert role.evidence_refs
+    assert set(role.evidence_refs) <= {item.id for item in ir.evidence}
+
+
+def test_fastapi_aliases_still_resolve_to_framework_neutral_facts():
+    ir = analyze_repository(FIXTURE)
+    dependency = next(item for item in facts(ir, "FRAMEWORK_DEPENDENCY") if item.subject == "api.list_users")
+    application = next(item for item in facts(ir, "APPLICATION"))
+    assert dependency.target == "logic.get_service"
+    assert dependency.attributes["expression"] == "Inject"
+    assert application.attributes["symbol"] == "fastapi.FastAPI"
+
+
 def test_dynamic_dependency_is_unknown_and_traceable():
     ir = analyze_repository(FIXTURE)
     unknown = [

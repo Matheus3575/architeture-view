@@ -89,6 +89,7 @@ class FastAPIAdapter(FrameworkAdapter):
                                 "application": assignment.target,
                                 "symbol": binding.symbol,
                                 "module": facts.module_name,
+                                "expression": assignment.value,
                             },
                             path=assignment.path,
                             line=assignment.line,
@@ -106,6 +107,7 @@ class FastAPIAdapter(FrameworkAdapter):
                                 "router": assignment.target,
                                 "symbol": binding.symbol,
                                 "module": facts.module_name,
+                                "expression": assignment.value,
                             },
                             path=assignment.path,
                             line=assignment.line,
@@ -117,7 +119,7 @@ class FastAPIAdapter(FrameworkAdapter):
 
             for call in facts.calls:
                 self._analyze_include_router(call, facts, bindings, shadowed, context, result)
-                self._analyze_dependency(call, facts, bindings, shadowed, context, result)
+                self._analyze_dependency(call, facts, bindings, shadowed, imports, context, result)
 
             for decorator in facts.decorators:
                 self._analyze_route(decorator, facts, bindings, shadowed, imports, context, result)
@@ -178,6 +180,8 @@ class FastAPIAdapter(FrameworkAdapter):
             "path": path,
             "handler": decorator.owner,
             "owner": receiver,
+            "router": receiver if binding.kind == "router" else None,
+            "expression": decorator.expression,
         }
         response_model = dict(decorator.keywords).get("response_model")
         raw_refs = self._decorator_refs(context.raw_graph, decorator)
@@ -195,6 +199,30 @@ class FastAPIAdapter(FrameworkAdapter):
             confidence=confidence,
         )
         result.facts.append(endpoint)
+        handler_refs = self._definition_refs(context.raw_graph, decorator.owner)
+        if handler_refs:
+            result.facts.append(
+                self._fact(
+                    "CONTROLLER_LIKE",
+                    subject=decorator.owner,
+                    target=decorator.owner,
+                    attributes={
+                        "handler": decorator.owner,
+                        "endpoint": decorator.owner,
+                        "router": receiver if binding.kind == "router" else None,
+                        "method": method.upper(),
+                        "path": path,
+                        "role": "controller_like",
+                        "basis": "resolved_http_route_handler",
+                        "expression": decorator.expression,
+                    },
+                    path=decorator.path,
+                    line=decorator.line,
+                    context=context,
+                    raw_refs=sorted(set(raw_refs) | handler_refs),
+                    result=result,
+                )
+            )
         if response_model is not None:
             schema = context.symbols.resolve_reference(facts.module_name, response_model, caller=decorator.owner)
             schema_value = schema or "UNKNOWN"
@@ -224,10 +252,11 @@ class FastAPIAdapter(FrameworkAdapter):
         facts: ParseFacts,
         bindings: dict[tuple[str, str, str], _Binding],
         shadowed: set[tuple[str, str, str]],
+        imports: dict[tuple[str, str], str],
         context: FrameworkAnalysisContext,
         result: FrameworkAnalysis,
     ) -> None:
-        imported = self._import_for_local(facts.module_name, call.callee, context.parsed_files)
+        imported = imports.get((facts.module_name, call.callee))
         if imported != "fastapi.Depends" or (facts.module_name, facts.module_name, call.callee) in shadowed:
             return
         provider_expression = call.arguments[0] if call.arguments else "UNKNOWN"
@@ -241,8 +270,10 @@ class FastAPIAdapter(FrameworkAdapter):
                 target=provider_value,
                 attributes={
                     "consumer": call.caller,
+                    "endpoint": call.caller,
                     "provider": provider_value,
                     "provider_expression": provider_expression,
+                    "expression": call.callee,
                 },
                 path=call.path,
                 line=call.line,
@@ -411,7 +442,11 @@ class FastAPIAdapter(FrameworkAdapter):
             confidence=confidence,
             evidence_refs=sorted(set(refs)),
             source=SourceRef(path=path, start_line=line, end_line=line, symbol=subject),
-            metadata={"adapter": result.framework},
+            metadata={
+                "adapter": result.framework,
+                "raw_evidence_refs": sorted(set(raw_refs)),
+                "observation": {"path": path, "line": line, "symbol": subject},
+            },
         )
 
     @staticmethod

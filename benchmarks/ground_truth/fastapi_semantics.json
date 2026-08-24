@@ -3,56 +3,228 @@
   "required_facts": [
     {
       "kind": "APPLICATION",
-      "attributes": {"application": "application", "symbol": "fastapi.FastAPI", "module": "app"}
+      "subject": "application",
+      "target": null,
+      "attributes": {
+        "application": "application",
+        "symbol": "fastapi.FastAPI",
+        "module": "app",
+        "expression": "Api"
+      },
+      "status": "observed"
     },
     {
-      "kind": "ROUTER",
-      "attributes": {"router": "users_router", "symbol": "fastapi.APIRouter", "module": "api"}
+      "kind": "CONTROLLER_LIKE",
+      "subject": "api.ambiguous_dependency",
+      "target": "api.ambiguous_dependency",
+      "attributes": {
+        "handler": "api.ambiguous_dependency",
+        "endpoint": "api.ambiguous_dependency",
+        "router": "users_router",
+        "method": "GET",
+        "path": "/ambiguous",
+        "role": "controller_like",
+        "basis": "resolved_http_route_handler",
+        "expression": "users_router.get"
+      },
+      "status": "observed"
     },
     {
-      "kind": "HTTP_ENDPOINT",
-      "attributes": {"method": "GET", "path": "/users", "handler": "api.list_users"}
+      "kind": "CONTROLLER_LIKE",
+      "subject": "api.create_user",
+      "target": "api.create_user",
+      "attributes": {
+        "handler": "api.create_user",
+        "endpoint": "api.create_user",
+        "router": "users_router",
+        "method": "POST",
+        "path": "/users",
+        "role": "controller_like",
+        "basis": "resolved_http_route_handler",
+        "expression": "users_router.post"
+      },
+      "status": "observed"
     },
     {
-      "kind": "HTTP_ENDPOINT",
-      "attributes": {"method": "POST", "path": "/users", "handler": "api.create_user"}
+      "kind": "CONTROLLER_LIKE",
+      "subject": "api.list_users",
+      "target": "api.list_users",
+      "attributes": {
+        "handler": "api.list_users",
+        "endpoint": "api.list_users",
+        "router": "users_router",
+        "method": "GET",
+        "path": "/users",
+        "role": "controller_like",
+        "basis": "resolved_http_route_handler",
+        "expression": "users_router.get"
+      },
+      "status": "observed"
     },
     {
       "kind": "FRAMEWORK_DEPENDENCY",
-      "attributes": {"consumer": "api.list_users", "provider": "logic.get_service"}
+      "subject": "api.ambiguous_dependency",
+      "target": "UNKNOWN",
+      "attributes": {
+        "consumer": "api.ambiguous_dependency",
+        "endpoint": "api.ambiguous_dependency",
+        "provider": "UNKNOWN",
+        "provider_expression": "registry['service']",
+        "expression": "Inject"
+      },
+      "status": "unknown"
+    },
+    {
+      "kind": "FRAMEWORK_DEPENDENCY",
+      "subject": "api.create_user",
+      "target": "logic.get_service",
+      "attributes": {
+        "consumer": "api.create_user",
+        "endpoint": "api.create_user",
+        "provider": "logic.get_service",
+        "provider_expression": "get_service",
+        "expression": "Inject"
+      },
+      "status": "observed"
+    },
+    {
+      "kind": "FRAMEWORK_DEPENDENCY",
+      "subject": "api.list_users",
+      "target": "logic.get_service",
+      "attributes": {
+        "consumer": "api.list_users",
+        "endpoint": "api.list_users",
+        "provider": "logic.get_service",
+        "provider_expression": "get_service",
+        "expression": "Inject"
+      },
+      "status": "observed"
+    },
+    {
+      "kind": "HTTP_ENDPOINT",
+      "subject": "api.ambiguous_dependency",
+      "target": "api.ambiguous_dependency",
+      "attributes": {
+        "method": "GET",
+        "path": "/ambiguous",
+        "handler": "api.ambiguous_dependency",
+        "owner": "users_router",
+        "router": "users_router",
+        "expression": "users_router.get"
+      },
+      "status": "observed"
+    },
+    {
+      "kind": "HTTP_ENDPOINT",
+      "subject": "api.create_user",
+      "target": "api.create_user",
+      "attributes": {
+        "method": "POST",
+        "path": "/users",
+        "handler": "api.create_user",
+        "owner": "users_router",
+        "router": "users_router",
+        "expression": "users_router.post"
+      },
+      "status": "observed"
+    },
+    {
+      "kind": "HTTP_ENDPOINT",
+      "subject": "api.list_users",
+      "target": "api.list_users",
+      "attributes": {
+        "method": "GET",
+        "path": "/users",
+        "handler": "api.list_users",
+        "owner": "users_router",
+        "router": "users_router",
+        "expression": "users_router.get"
+      },
+      "status": "observed"
     },
     {
       "kind": "RESPONSE_SCHEMA",
-      "attributes": {"endpoint": "api.list_users", "schema": "schemas.UserResponse"}
+      "subject": "api.create_user",
+      "target": "schemas.UserResponse",
+      "attributes": {
+        "endpoint": "api.create_user",
+        "schema": "schemas.UserResponse",
+        "response_model": "UserResponse"
+      },
+      "status": "observed"
     },
     {
-      "kind": "SCHEMA",
-      "attributes": {"model": "schemas.UserResponse", "base": "pydantic.BaseModel"}
+      "kind": "RESPONSE_SCHEMA",
+      "subject": "api.list_users",
+      "target": "schemas.UserResponse",
+      "attributes": {
+        "endpoint": "api.list_users",
+        "schema": "schemas.UserResponse",
+        "response_model": "UserResponse"
+      },
+      "status": "observed"
+    },
+    {
+      "kind": "ROUTER",
+      "subject": "users_router",
+      "target": null,
+      "attributes": {
+        "router": "users_router",
+        "symbol": "fastapi.APIRouter",
+        "module": "api",
+        "expression": "APIRouter"
+      },
+      "status": "observed"
     },
     {
       "kind": "ROUTER_INCLUSION",
-      "attributes": {"application": "application", "router": "users_router", "prefix": "/v1", "tags": "['users']"}
+      "subject": "application",
+      "target": "users_router",
+      "attributes": {
+        "application": "application",
+        "router": "users_router",
+        "prefix": "/v1",
+        "tags": "['users']"
+      },
+      "status": "observed"
     },
     {
-      "kind": "HTTP_ENDPOINT",
-      "attributes": {"method": "GET", "path": "/ambiguous", "handler": "api.ambiguous_dependency"}
-    },
-    {
-      "kind": "FRAMEWORK_DEPENDENCY",
-      "attributes": {"consumer": "api.ambiguous_dependency", "provider": "UNKNOWN"},
-      "status": "unknown"
+      "kind": "SCHEMA",
+      "subject": "schemas.UserResponse",
+      "target": null,
+      "attributes": {
+        "model": "schemas.UserResponse",
+        "base": "pydantic.BaseModel",
+        "framework": "Pydantic"
+      },
+      "status": "observed"
     }
   ],
   "forbidden_facts": [
-    {"kind": "HTTP_ENDPOINT", "attributes": {"path": "/not-fastapi"}},
-    {"kind": "HTTP_ENDPOINT", "attributes": {"path": "/other"}}
+    {
+      "kind": "HTTP_ENDPOINT",
+      "attributes": {
+        "path": "/not-fastapi"
+      }
+    },
+    {
+      "kind": "HTTP_ENDPOINT",
+      "attributes": {
+        "path": "/other"
+      }
+    }
   ],
   "unknown_facts": [
-    {"kind": "FRAMEWORK_DEPENDENCY", "subject": "api.ambiguous_dependency", "target": "UNKNOWN"}
+    {
+      "kind": "FRAMEWORK_DEPENDENCY",
+      "subject": "api.ambiguous_dependency",
+      "target": "UNKNOWN"
+    }
   ],
   "evidence": {
     "required_source_type": "FRAMEWORK_ADAPTER",
     "all_facts_traceable": true
   },
-  "determinism": true
+  "determinism": true,
+  "facts_complete": true
 }

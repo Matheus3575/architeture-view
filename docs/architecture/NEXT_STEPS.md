@@ -60,3 +60,6 @@ relations remain traceable.
 ## M6.3 result
 
 M6.3 is complete. MVC is an independent evidence-based hypothesis and does not force a single winning architecture. The next recommended milestone is a bounded additional detector or repository-boundary hardening; Clean, Hexagonal, Microservices and LLM reasoning remain deferred.
+## M6.4 result
+
+M6.4 is complete. Framework Facts are richer and more traceable while remaining separate from architectural inference. The next recommended milestone is a bounded visualization/read-model preparation layer or additional framework adapter coverage, subject to preserving UNKNOWN and the renderer boundary.

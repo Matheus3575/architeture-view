@@ -147,3 +147,6 @@ UNKNOWN with zero supporting evidence.
 ## M6.3 status
 
 The benchmark suite now contains 22 deterministic fixtures, including five MVC cases: positive semantic MVC, names-only UNKNOWN, MVC with a direct contradiction, MVC/Layered coexistence, and a clearly non-MVC case. Ground truths evaluate MVC status, hypothesis recall, traceability recall, false-positive count for expected UNKNOWN, supporting evidence, contradicting evidence and determinism. All five MVC cases pass; MVC hypothesis recall and traceability recall are 1.0, names-only/non-MVC false-positive count is 0, and contradiction evidence is present in the contradiction case.
+## M6.4 status
+
+The 22-fixture benchmark suite now measures complete FastAPI framework-fact precision in addition to recall. The FastAPI semantic fixture reports framework fact recall 1.0, precision 1.0, UNKNOWN recall 1.0, complete fact traceability and determinism. Alias application/Depends resolution, endpoint-router-handler facts, controller-like roles, dependencies, response schemas, router inclusion, dynamic UNKNOWN behavior and generic-router false positives are covered. All 22 benchmarks pass. The observed full runner time was 8.976 seconds across the runner's two analyses per fixture; no directly comparable M6.3 timing baseline was retained.

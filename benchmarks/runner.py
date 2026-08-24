@@ -368,7 +368,33 @@ def _evaluate_framework_facts(ir, ground_truth, failures):
         "framework_unknown_recall": _ratio(unknown_matched, len(unknown_expected)),
         "framework_fact_count": len(actual),
         "framework_facts_traceable": traceable,
+        "framework_fact_precision": _framework_fact_precision(actual, expected)
+        if ground_truth.get("facts_complete") else None,
     }
+
+
+def _framework_fact_precision(actual, expected):
+    def key(item):
+        if hasattr(item, "kind"):
+            return (
+                item.kind,
+                item.subject,
+                item.target,
+                tuple(sorted(item.attributes.items())),
+                item.status.value,
+            )
+        return (
+            item["kind"],
+            item.get("subject"),
+            item.get("target"),
+            tuple(sorted(item.get("attributes", {}).items())),
+            item.get("status", "observed"),
+        )
+    expected_keys = {key(item) for item in expected}
+    actual_keys = {key(item) for item in actual}
+    if not actual_keys:
+        return 1.0 if not expected_keys else 0.0
+    return len(actual_keys & expected_keys) / len(actual_keys)
 
 
 def _evaluate_component_detection(ir, ground_truth, failures):

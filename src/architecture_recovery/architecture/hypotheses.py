@@ -159,13 +159,26 @@ class ArchitectureHypothesisEngine:
             seen.add(signal.evidence_refs)
             (supporting if signal.reason.startswith("support:") else contradicting).append(signal)
         for fact in sorted(ir.framework_facts, key=lambda item: (item.kind, item.subject or "", item.target or "")):
-            if fact.kind not in {"HTTP_ENDPOINT", "ROUTER", "ROUTER_INCLUSION"}:
+            if fact.kind not in {"HTTP_ENDPOINT", "CONTROLLER_LIKE", "ROUTER", "ROUTER_INCLUSION"}:
                 continue
             subject = _node_for_relation(fact.subject or "", raw_nodes, arch_nodes, ir)
             refs = tuple(sorted(ref for ref in fact.evidence_refs if ref in evidence))
-            if subject and mvc_layers.get(subject.id) in _MVC_CONTROLLER_LAYERS and refs and refs not in seen:
+            if (
+                subject
+                and refs
+                and (
+                    mvc_layers.get(subject.id) in _MVC_CONTROLLER_LAYERS
+                    or fact.kind == "CONTROLLER_LIKE"
+                )
+                and refs not in seen
+            ):
                 seen.add(refs)
-                supporting.append(EvidenceContribution(refs, 3.0 * fact.confidence, f"support:mvc:{fact.kind.lower()} -> controller", fact.status))
+                supporting.append(EvidenceContribution(
+                    refs,
+                    3.0 * fact.confidence,
+                    f"support:mvc:{fact.kind.lower()} -> controller",
+                    fact.status,
+                ))
         return supporting, contradicting
 
     @staticmethod
@@ -274,6 +287,8 @@ def _role_index(ir: ArchitectureIR) -> dict[str, set[str]]:
     for fact in ir.framework_facts:
         if fact.kind in {"HTTP_ENDPOINT", "APPLICATION"} and fact.subject:
             roles.setdefault(fact.subject, set()).add("http_entrypoint")
+        if fact.kind == "CONTROLLER_LIKE" and fact.subject:
+            roles.setdefault(fact.subject, set()).add("controller_like")
     return roles
 
 

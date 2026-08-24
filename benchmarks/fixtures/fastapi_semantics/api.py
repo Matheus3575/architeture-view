@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends as Inject
 
 from .logic import get_service
 from .schemas import UserResponse
@@ -8,12 +8,12 @@ users_router = APIRouter()
 
 
 @users_router.get("/users", response_model=UserResponse)
-def list_users(service=Depends(get_service)):
+def list_users(service=Inject(get_service)):
     return service
 
 
 @users_router.post("/users", response_model=UserResponse)
-def create_user(service=Depends(get_service)):
+def create_user(service=Inject(get_service)):
     return service
 
 
@@ -47,5 +47,5 @@ registry = {"service": get_service}
 
 
 @users_router.get("/ambiguous")
-def ambiguous_dependency(service=Depends(registry["service"])):
+def ambiguous_dependency(service=Inject(registry["service"])):
     return service
