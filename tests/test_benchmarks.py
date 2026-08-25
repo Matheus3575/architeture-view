@@ -44,6 +44,7 @@ def test_controlled_benchmarks_pass_and_report_metrics():
         "microservices_negative",
         "projection_many_modules",
         "evidence_payload_stress",
+        "significance_calibration",
     }
     assert all(result["passed"] for result in results)
     assert all(result["execution_passed"] for result in results)

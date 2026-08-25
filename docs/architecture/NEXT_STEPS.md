@@ -125,4 +125,9 @@ The next recommended milestone is Architectural Decision Recovery over materiali
 
 M8.1.2 is complete as measured profiling and limited hotspot reduction. The CLI prints macro timings and cardinalities after execution, the synthetic harness covers small/medium/large inputs, and profile-enabled output is semantically identical to the unprofiled result.
 
-The next recommended step is a focused measurement/design pass for duplicate source reads in StackDetector. If a representative local large repository is available, run it manually with --profile; PrefectHQ/prefect remains optional and is not a suite dependency. Do not introduce parallelism or change evidence semantics to hide the remaining hotspot.
+The next recommended step is a focused measurement/design pass for duplicate source reads in StackDetector. If a representative local large repository is available, run it manually with --profile; PrefectHQ/prefect remains optional and is not a suite dependency. Do not introduce parallelism or change evidence semantics to hide the remaining hotspot.'
+
+## M8.1.3 result
+
+M8.1.3 is complete as a bounded evidence calibration. The next recommended milestone is a manual run against a locally available large repository, preferably Prefect if present, to validate framework/persistence role coverage without adding repository-specific rules. Remaining work should focus on evidence coverage for semantically critical external drivers and bounded drill-down consumption of preserved LOW/UNKNOWN records; do not move filtering into the renderer or add global graph ranking.
+'

@@ -1,0 +1,9 @@
+fastapi
+redis
+psycopg
+anyio
+pytest
+requests
+PyYAML
+Pillow
+python-dateutil

@@ -175,4 +175,13 @@ The measured optimization covers two proven Raw Graph costs: edge deduplication 
 
 The synthetic scale harness lives in benchmarks/scale_profile.py and uses temporary repositories at 50, 200 and 400 modules. It records raw and architectural cardinalities, projection/read-model cardinalities and growth ratios. The profile remains a diagnostic boundary; ArchitectureIR and the high-level projection contracts are unchanged semantically.
 
-The remaining measured hotspot is source text reading in StackDetector; it is intentionally deferred until source-content reuse can be designed and measured without changing stack evidence.
+The remaining measured hotspot is source text reading in StackDetector; it is intentionally deferred until source-content reuse can be designed and measured without changing stack evidence.'
+
+## M8.1.3 status
+
+Architectural significance is calibrated independently from structural graph presence. External dependencies default to LOW when observed but semantically unsupported, rather than inheriting significance from node type or import count. The principal framework package is promoted only when an application/router fact identifies its framework symbol; persistence technologies and explicit architectural roles provide bounded additional support. Framework facts remain evidence, not automatic high-level nodes.
+
+Component detection remains structural evidence. Component candidates do not automatically become HIGH. Direct application/endpoint/infrastructure facts provide strong support; framework dependency/schema facts provide medium support; one bounded contextual pass can support a component only through an evidence-backed semantic raw relation. LOW and UNKNOWN records remain in `HighLevelArchitectureProjection` for future drill-down.
+
+The deterministic capped formula uses strong weights 0.55 for primary semantic anchors, 0.45 for explicit roles/infrastructure relations and 0.40 for strong architectural relations; medium weights range from 0.15 to 0.30; generic aggregated relations contribute 0.04 only. HIGH requires strong support with score >= 0.55; MEDIUM requires strong or medium support with score >= 0.15. ArchitectureIR and renderer responsibilities are unchanged.
+'

@@ -12,6 +12,11 @@
       "ground_truth": "ground_truth/fastapi_semantics.json"
     },
     {
+      "name": "significance_calibration",
+      "repository": "benchmarks/fixtures/significance_calibration",
+      "ground_truth": "ground_truth/significance_calibration.json"
+    },
+    {
       "name": "fastapi_sample",
       "repository": "examples/fastapi_sample",
       "ground_truth": "ground_truth/fastapi_sample.json"

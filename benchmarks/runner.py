@@ -235,6 +235,10 @@ def _evaluate_read_model(first, second, ground_truth, failures):
         failures.extend(f"forbidden high-level projection node: {item}" for item in sorted(forbidden_projected))
     if expected_low and not expected_low <= set(actual_significance):
         failures.append("low/unknown significance was not preserved")
+    expected_levels = projection_spec.get("expected_significance", {})
+    for subject, expected_level in sorted(expected_levels.items()):
+        if actual_significance.get(subject) != expected_level:
+            failures.append(f"wrong significance for {subject}: expected {expected_level} got {actual_significance.get(subject)}")
     projection_metadata = first_model.metadata
     if projection_spec.get("require_projected_edges_valid") and not projection_metadata.get("projected_edge_validity"):
         failures.append("projected edges are invalid")
@@ -475,6 +479,13 @@ def _evaluate_read_model(first, second, ground_truth, failures):
         "projected_edge_validity": projection_metadata.get("projected_edge_validity"),
         "projection_traceability": projection_metadata.get("projection_traceability"),
         "low_significance_preservation": bool(expected_low <= set(actual_significance)) if expected_low else projection_metadata.get("low_significance_preservation"),
+        "false_architectural_promotion_count": len(set(projection_spec.get("forbid_projected", [])) & set(node_ids)),
+        "external_dependency_detailed_count": sum(1 for node in first.architectural_graph.nodes if node.type.value == "external_dependency"),
+        "external_dependency_projected_count": sum(1 for node in first.architectural_graph.nodes if node.type.value == "external_dependency" and node.id in node_ids),
+        "external_dependency_promotion_precision": _ratio(
+            len(set(projection_spec.get("expected_external_promoted", [])) & set(node_ids)),
+            sum(1 for node in first.architectural_graph.nodes if node.type.value == "external_dependency" and node.id in node_ids),
+        ),
         "read_model_node_count": len(first_model.nodes),
         "read_model_edge_count": len(first_model.edges),
         "read_model_edges_valid": valid_edges,

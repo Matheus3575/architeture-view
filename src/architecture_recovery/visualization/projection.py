@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from collections import defaultdict
 from enum import StrEnum
+import re
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from architecture_recovery.ir import ArchitectureIR, Edge, EdgeType, EvidenceStatus, Node, NodeType
+from architecture_recovery.ir import ArchitectureIR, EdgeType, EvidenceStatus, Node, NodeType
 
 
 class SignificanceLevel(StrEnum):
@@ -62,43 +63,78 @@ class HighLevelArchitectureProjection(BaseModel):
 
 
 class ArchitecturalProjectionBuilder:
-    """Build a traceable high-level view without changing ArchitectureIR."""
+    """Build a traceable high-level view without changing ArchitectureIR.
 
-    _ANCHOR_TYPES = {
-        NodeType.REPOSITORY,
+    Structural observations and architectural significance are intentionally
+    separate.  The builder uses semantic signals first and applies one bounded
+    contextual pass; raw degree and generic import aggregation never promote a
+    node on their own.
+    """
+
+    _STRONG_NODE_TYPES = {
         NodeType.APPLICATION,
-        NodeType.COMPONENT,
         NodeType.API,
         NodeType.ENDPOINT,
         NodeType.DATABASE,
         NodeType.CACHE,
         NodeType.QUEUE,
         NodeType.MESSAGE_BROKER,
-        NodeType.CONTAINER,
         NodeType.EXTERNAL_SERVICE,
-        NodeType.EXTERNAL_DEPENDENCY,
         NodeType.INFRASTRUCTURE,
     }
-    _EDGE_WEIGHTS = {
-        EdgeType.ROUTES_TO: 1.0,
-        EdgeType.DEPENDS_ON: 0.75,
-        EdgeType.QUERIES: 1.0,
-        EdgeType.PUBLISHES: 1.0,
-        EdgeType.CONSUMES: 1.0,
-        EdgeType.CONNECTS_TO: 0.75,
-        EdgeType.DEPLOYS: 0.5,
+    _MEDIUM_NODE_TYPES = {NodeType.CONTAINER}
+    _STRONG_FRAMEWORK_FACTS = {"APPLICATION", "HTTP_ENDPOINT", "CONTROLLER_LIKE", "ROUTER"}
+    _MEDIUM_FRAMEWORK_FACTS = {"ROUTER_INCLUSION", "FRAMEWORK_DEPENDENCY", "RESPONSE_SCHEMA", "SCHEMA"}
+    _STRONG_EDGE_TYPES = {
+        EdgeType.ROUTES_TO,
+        EdgeType.QUERIES,
+        EdgeType.PUBLISHES,
+        EdgeType.CONSUMES,
     }
+    _MEDIUM_EDGE_TYPES = {EdgeType.CONNECTS_TO, EdgeType.DEPLOYS}
     _INFRASTRUCTURE_KINDS = {"DATABASE", "CACHE", "QUEUE", "MESSAGE_BROKER", "CONTAINER", "SERVICE"}
+    _SEMANTIC_ROLES = {
+        "application",
+        "application_entrypoint",
+        "http_endpoint",
+        "http_entrypoint",
+        "database",
+        "database_driver",
+        "message_broker",
+        "cache",
+        "runtime",
+        "external_service",
+        "framework",
+    }
+    _PACKAGE_TOKEN_RE = re.compile(r"[a-z0-9]+")
 
     def build(self, ir: ArchitectureIR) -> HighLevelArchitectureProjection:
         raw_nodes = {node.id: node for node in ir.raw_graph.nodes}
         arch_nodes = {node.id: node for node in ir.architectural_graph.nodes}
         raw_to_arch = self._raw_to_arch(ir)
         evidence_ids = {item.id for item in ir.evidence}
-        scores: dict[str, float] = defaultdict(float)
+        resource_ids = {resource.id for resource in ir.infrastructure_resources}
+        raw_edges = {edge.id: edge for edge in ir.raw_graph.edges if edge.id}
+        strong: dict[str, list[tuple[float, str]]] = defaultdict(list)
+        medium: dict[str, list[tuple[float, str]]] = defaultdict(list)
+        weak: dict[str, list[tuple[float, str]]] = defaultdict(list)
         refs: dict[str, set[str]] = defaultdict(set)
         reasons: dict[str, list[str]] = defaultdict(list)
         contains: dict[str, list[str]] = defaultdict(list)
+
+        def add_signal(
+            subject: str,
+            category: str,
+            weight: float,
+            reason: str,
+            signal_refs: set[str] | list[str] = (),
+        ) -> None:
+            if subject not in arch_nodes and subject not in resource_ids:
+                return
+            target = {"strong": strong, "medium": medium, "weak": weak}[category]
+            target[subject].append((weight, reason))
+            reasons[subject].append(reason)
+            refs[subject].update(set(signal_refs) & evidence_ids)
 
         for node in arch_nodes.values():
             contains[node.id] = sorted(set(node.metadata.get("raw_node_ids", [])))
@@ -108,94 +144,140 @@ class ArchitecturalProjectionBuilder:
                 if raw:
                     node_refs.update(raw.evidence_refs)
             refs[node.id].update(node_refs & evidence_ids)
-            if node.type in self._ANCHOR_TYPES:
-                scores[node.id] += {
-                    NodeType.APPLICATION: 4.0,
-                    NodeType.COMPONENT: 3.0,
-                    NodeType.API: 3.0,
-                    NodeType.ENDPOINT: 3.0,
-                    NodeType.REPOSITORY: 1.0,
-                }.get(node.type, 2.5)
-                reasons[node.id].append(f"semantic node type: {node.type.value}")
+            if node.type in self._STRONG_NODE_TYPES:
+                add_signal(node.id, "strong", 0.55, f"strong semantic node type: {node.type.value}", node_refs)
+            elif node.type in self._MEDIUM_NODE_TYPES:
+                add_signal(node.id, "medium", 0.20, f"medium infrastructure node type: {node.type.value}", node_refs)
+            elif node.type == NodeType.REPOSITORY:
+                # The repository root remains selected as navigation context,
+                # but its significance is not fabricated from its existence.
+                reasons[node.id].append("repository context retained for navigation")
+
+            explicit_role = str(node.metadata.get("architectural_role", node.metadata.get("role", ""))).lower()
+            if explicit_role in self._SEMANTIC_ROLES:
+                add_signal(node.id, "strong", 0.45, f"explicit architectural role: {explicit_role}", node_refs)
 
         for resource in ir.infrastructure_resources:
+            kind = resource.kind.upper()
             refs[resource.id].update(set(resource.evidence_refs) & evidence_ids)
-            if resource.kind.upper() in self._INFRASTRUCTURE_KINDS:
-                scores[resource.id] += 3.0
-                reasons[resource.id].append(f"observed infrastructure: {resource.kind}")
+            if kind in self._INFRASTRUCTURE_KINDS and kind != "CONTAINER":
+                add_signal(resource.id, "strong", 0.55, f"observed infrastructure resource: {kind}", resource.evidence_refs)
+            elif kind == "CONTAINER":
+                add_signal(resource.id, "medium", 0.20, "observed container retained as infrastructure context", resource.evidence_refs)
 
-        candidate_index: dict[str, list[str]] = defaultdict(list)
         for candidate in ir.component_candidates:
             candidate_refs = set(candidate.evidence_refs) & evidence_ids
             for member in candidate.node_ids:
                 subject = self._resolve(member, arch_nodes, raw_to_arch)
                 if subject:
-                    candidate_index[subject].append(candidate.id)
-                    scores[subject] += 2.0
+                    # Detection is valuable traceability, but a candidate is a
+                    # structural hypothesis and is not a high-level promotion.
                     refs[subject].update(candidate_refs)
-                    reasons[subject].append("component detection evidence")
-                    if candidate.roles:
-                        scores[subject] += 1.0
-                        reasons[subject].append("semantic component role")
+                    reasons[subject].append("component detection evidence (structural, not sufficient alone)")
 
-        framework_subjects: set[str] = set()
+        semantic_subjects: set[str] = set()
+        principal_framework_packages: set[str] = set()
         for fact in ir.framework_facts:
             fact_refs = set(fact.evidence_refs) & evidence_ids
             for value in (fact.subject, fact.target, fact.attributes.get("endpoint"), fact.attributes.get("module")):
                 subject = self._resolve(value, arch_nodes, raw_to_arch)
                 if not subject:
                     continue
-                framework_subjects.add(subject)
-                scores[subject] += 3.0
+                # A short module-name fallback must not attach an application fact to an external aggregate.
+                if arch_nodes.get(subject) and arch_nodes[subject].type == NodeType.EXTERNAL_DEPENDENCY:
+                    continue
+                semantic_subjects.add(subject)
                 refs[subject].update(fact_refs)
-                reasons[subject].append(f"framework fact: {fact.kind}")
-                if fact.kind in {"APPLICATION", "HTTP_ENDPOINT", "CONTROLLER_LIKE"}:
-                    scores[subject] += 1.0
-                    reasons[subject].append("entrypoint or boundary fact")
+                if fact.kind in self._STRONG_FRAMEWORK_FACTS:
+                    add_signal(subject, "strong", 0.55, f"strong framework fact: {fact.kind}", fact_refs)
+                elif fact.kind in self._MEDIUM_FRAMEWORK_FACTS:
+                    add_signal(subject, "medium", 0.22, f"semantic framework fact: {fact.kind}", fact_refs)
+            if fact.kind in {"APPLICATION", "ROUTER"}:
+                symbol = fact.attributes.get("symbol")
+                if symbol:
+                    principal_framework_packages.add(str(symbol).split(".", 1)[0].lower())
 
         for edge in ir.architectural_graph.edges:
-            weight = self._EDGE_WEIGHTS.get(edge.type, 0.0)
-            if not weight or not edge.evidence_refs:
+            if not edge.evidence_refs:
                 continue
+            if edge.type in self._STRONG_EDGE_TYPES:
+                category, weight = "strong", 0.40
+            elif edge.type in self._MEDIUM_EDGE_TYPES:
+                category, weight = "medium", 0.20
+            else:
+                # DEPENDS_ON normally represents imports after aggregation.
+                # Keep it for traceability and context, never promotion alone.
+                category, weight = "weak", 0.04
             for subject in (edge.source, edge.target):
                 if subject in arch_nodes:
-                    scores[subject] += min(weight, 1.0)
-                    refs[subject].update(set(edge.evidence_refs) & evidence_ids)
-                    reasons[subject].append(f"evidence-backed architectural relation: {edge.type.value}")
+                    add_signal(subject, category, weight, f"evidence-backed architectural relation: {edge.type.value}", edge.evidence_refs)
 
         for relation in ir.infrastructure_relations:
             for subject in (relation.source, relation.target):
                 resolved = self._resolve(subject, arch_nodes, raw_to_arch)
                 if resolved:
-                    scores[resolved] += 1.5
-                    refs[resolved].update(set(relation.evidence_refs) & evidence_ids)
-                    reasons[resolved].append("explicit infrastructure relation")
+                    add_signal(resolved, "strong", 0.45, "explicit infrastructure relation", relation.evidence_refs)
 
         hypothesis_refs = {
             ref
             for hypothesis in ir.architecture.hypotheses
             for ref in hypothesis.evidence_refs
         }
-        for subject in list(scores):
+        for subject in set(strong) | set(medium) | set(weak):
             if refs[subject] & hypothesis_refs:
-                scores[subject] += 0.5
-                reasons[subject].append("participates in an architecture hypothesis")
+                add_signal(subject, "medium", 0.15, "participates in an architecture hypothesis", refs[subject] & hypothesis_refs)
+
+        external_by_package = {
+            str(node.metadata.get("external_package", "")).lower(): node.id
+            for node in arch_nodes.values()
+            if node.type == NodeType.EXTERNAL_DEPENDENCY and node.metadata.get("external_package")
+        }
+        for package, subject in sorted(external_by_package.items()):
+            package_tokens = self._tokens(package)
+            if package in principal_framework_packages or package_tokens & principal_framework_packages:
+                add_signal(subject, "strong", 0.55, "principal framework used by an application or router", refs[subject])
+            if self._matches_stack_technology(package, ir.stack.frameworks) and semantic_subjects:
+                add_signal(subject, "medium", 0.22, "framework technology associated with semantic application facts", refs[subject])
+            if self._matches_stack_technology(package, ir.stack.databases):
+                add_signal(subject, "medium", 0.30, "dependency matches an observed persistence technology", refs[subject])
+
+        # One bounded contextual pass.  Only component-level relations can
+        # support another component; module degree and raw imports do not.
+        direct_significant = set(strong)
+        for edge in ir.architectural_graph.edges:
+            if edge.type not in self._STRONG_EDGE_TYPES | self._MEDIUM_EDGE_TYPES | {EdgeType.DEPENDS_ON}:
+                continue
+            if edge.type == EdgeType.DEPENDS_ON and not any(
+                raw_edges.get(raw_id) and raw_edges[raw_id].type in {EdgeType.CALLS, EdgeType.INSTANTIATES, EdgeType.EXTENDS}
+                for raw_id in edge.raw_edge_ids
+            ):
+                continue
+            source = arch_nodes.get(edge.source)
+            target = arch_nodes.get(edge.target)
+            if not source or not target or source.type != NodeType.COMPONENT or target.type != NodeType.COMPONENT:
+                continue
+            if source.id in direct_significant and target.id not in direct_significant:
+                add_signal(target.id, "medium", 0.18, "bounded support from a significant component relation", edge.evidence_refs)
+            if target.id in direct_significant and source.id not in direct_significant:
+                add_signal(source.id, "medium", 0.18, "bounded support from a significant component relation", edge.evidence_refs)
 
         significances: list[ArchitecturalSignificance] = []
-        for subject in sorted(set(arch_nodes) | set(resource.id for resource in ir.infrastructure_resources)):
+        for subject in sorted(set(arch_nodes) | resource_ids):
             node = arch_nodes.get(subject)
-            score = min(scores.get(subject, 0.0) / 10.0, 1.0)
+            score = min(
+                sum(weight for weight, _ in strong.get(subject, []))
+                + sum(weight for weight, _ in medium.get(subject, []))
+                + sum(weight for weight, _ in weak.get(subject, [])),
+                1.0,
+            )
             has_refs = bool(refs.get(subject))
-            anchored = subject in framework_subjects or subject in candidate_index or (node and node.type in {
-                NodeType.REPOSITORY, NodeType.APPLICATION, NodeType.API, NodeType.ENDPOINT,
-                NodeType.DATABASE, NodeType.CACHE, NodeType.QUEUE, NodeType.MESSAGE_BROKER,
-                NodeType.CONTAINER, NodeType.EXTERNAL_SERVICE, NodeType.EXTERNAL_DEPENDENCY, NodeType.INFRASTRUCTURE,
-            }) or subject in {item.id for item in ir.infrastructure_resources}
-            if anchored and has_refs and score >= 0.30:
+            strong_support = bool(strong.get(subject))
+            medium_support = bool(medium.get(subject))
+            if strong_support and has_refs and score >= 0.55:
                 level = SignificanceLevel.HIGH
-            elif anchored and has_refs and score >= 0.15:
+            elif (strong_support or medium_support) and has_refs and score >= 0.15:
                 level = SignificanceLevel.MEDIUM
-            elif score > 0.0 and has_refs:
+            elif has_refs:
                 level = SignificanceLevel.LOW
             else:
                 level = SignificanceLevel.UNKNOWN
@@ -216,7 +298,7 @@ class ArchitecturalProjectionBuilder:
         }
         repository_ids = {node.id for node in arch_nodes.values() if node.type == NodeType.REPOSITORY}
         selected.update(repository_ids)
-        selected &= set(arch_nodes) | set(resource.id for resource in ir.infrastructure_resources)
+        selected &= set(arch_nodes) | resource_ids
         projected_edges = self._project_edges(ir, selected, arch_nodes, raw_to_arch)
         low_refs = sorted({ref for item in significances if item.significance == SignificanceLevel.LOW for ref in item.contains_refs or [item.subject]})
         unknown_refs = sorted({ref for item in significances if item.significance == SignificanceLevel.UNKNOWN for ref in item.contains_refs or [item.subject]})
@@ -229,6 +311,15 @@ class ArchitecturalProjectionBuilder:
             low_significance_refs=low_refs,
             unknown_refs=unknown_refs,
         )
+
+    @classmethod
+    def _tokens(cls, value: str) -> set[str]:
+        return set(cls._PACKAGE_TOKEN_RE.findall(value.lower()))
+
+    @classmethod
+    def _matches_stack_technology(cls, package: str, technologies: list[Any]) -> bool:
+        package_tokens = cls._tokens(package)
+        return any(package_tokens & cls._tokens(item.name) for item in technologies)
 
     def _project_edges(self, ir: ArchitectureIR, selected: set[str], arch_nodes: dict[str, Node], raw_to_arch: dict[str, str]) -> list[ProjectedEdge]:
         grouped: dict[tuple[str, str, str], dict[str, Any]] = {}

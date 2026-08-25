@@ -1,0 +1,66 @@
+{
+  "hypotheses": {
+    "required": [],
+    "forbidden": []
+  },
+  "read_model": {
+    "require_all_edges_valid": true,
+    "require_traceability": true,
+    "require_determinism": true,
+    "projection": {
+      "required_significant": [
+        "repository:significance_calibration",
+        "application:significance_calibration",
+        "component:app.py",
+        "component:docker-compose.yml",
+        "component:domain.py",
+        "component:persistence.py",
+        "external.fastapi",
+        "external.redis",
+        "infrastructure:compose:docker-compose.yml:api",
+        "infrastructure:compose:docker-compose.yml:postgres",
+        "infrastructure:compose:docker-compose.yml:redis"
+      ],
+      "required_low_or_unknown": [
+        "component:benchmarks",
+        "component:tests",
+        "component:tools",
+        "external.PIL",
+        "external.anyio",
+        "external.dateutil",
+        "external.psycopg",
+        "external.pytest",
+        "external.requests",
+        "external.yaml"
+      ],
+      "forbid_projected": [
+        "component:benchmarks",
+        "component:tests",
+        "component:tools",
+        "external.PIL",
+        "external.anyio",
+        "external.dateutil",
+        "external.psycopg",
+        "external.pytest",
+        "external.requests",
+        "external.yaml"
+      ],
+      "expected_external_promoted": [
+        "external.fastapi",
+        "external.redis"
+      ],
+      "expected_significance": {
+        "application:significance_calibration": "high",
+        "component:app.py": "high",
+        "component:docker-compose.yml": "medium",
+        "component:domain.py": "medium",
+        "component:persistence.py": "medium",
+        "external.fastapi": "high",
+        "external.redis": "medium",
+        "repository:significance_calibration": "medium"
+      },
+      "require_projected_edges_valid": true,
+      "require_projection_traceability": true
+    }
+  }
+}

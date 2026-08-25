@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from .evidence import EvidenceGroup, EvidencePayloadIndex
-from .projection import ArchitecturalProjectionBuilder, ArchitecturalSignificance, HighLevelArchitectureProjection
+from .projection import ArchitecturalProjectionBuilder, ArchitecturalSignificance, HighLevelArchitectureProjection, SignificanceLevel
 from architecture_recovery.profiling import AnalysisProfile, profile_stage
 
 from architecture_recovery.ir import (
@@ -396,6 +396,15 @@ class VisualizationReadModelBuilder:
         projected_edge_validity = all(
             edge.source in nodes and edge.target in nodes for edge in projection.projected_edges
         )
+        significance_counts = {
+            level.value: sum(1 for item in projection.significances if item.significance.value == level.value)
+            for level in SignificanceLevel
+        }
+        external_ids = {
+            node.id for node in ir.architectural_graph.nodes
+            if node.type.value == "external_dependency"
+        }
+        projected_external_count = len(external_ids & selected_ids)
         result = VisualizationReadModel(
             repository=ir.repository,
             nodes=list(nodes.values()),
@@ -411,6 +420,9 @@ class VisualizationReadModelBuilder:
                 "detailed_node_count": projection.detailed_node_count,
                 "high_level_node_count": projection.high_level_node_count,
                 "projection_reduction_ratio": projection.reduction_ratio,
+                "significance_counts": significance_counts,
+                "external_dependency_detailed_count": len(external_ids),
+                "external_dependency_projected_count": projected_external_count,
                 "projected_edge_validity": projected_edge_validity,
                 "projection_traceability": projection_traceability,
                 "low_significance_preservation": bool(projection.low_significance_refs),

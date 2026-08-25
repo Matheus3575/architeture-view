@@ -215,4 +215,28 @@ The separate scale benchmark exercises 50/200/400 Python modules with imports, a
 growth_200_to_400: {input_ratio: 2.0, runtime_ratio: 2.012}
 profile_enabled_semantic_equivalence: true
 
-The comparable analysis-only measurement was 2.761 seconds before the measured Raw Graph optimizations and 1.949 seconds after; Raw Graph changed from 1.315 to 0.393 seconds in those observed runs. Timing is operational data, not a CI threshold. The regular benchmark runner remains separate.
+The comparable analysis-only measurement was 2.761 seconds before the measured Raw Graph optimizations and 1.949 seconds after; Raw Graph changed from 1.315 to 0.393 seconds in those observed runs. Timing is operational data, not a CI threshold. The regular benchmark runner remains separate.'
+
+## M8.1.3 status
+
+The benchmark suite adds `significance_calibration`, a controlled real-world-like fixture with a FastAPI application, domain and persistence flow, Compose database/cache resources, auxiliary tests/tooling/benchmarks and multiple external libraries. It validates detailed-model preservation, high-level selection, external dependency levels, LOW/UNKNOWN preservation, edge validity, projection traceability and deterministic repeated analysis.
+
+Observed fixture metrics:
+
+```yaml
+detailed_node_count: 24
+high_level_node_count: 11
+projection_reduction_ratio: 0.541667
+external_dependency_detailed_count: 9
+external_dependency_projected_count: 2
+significance_precision: 1.0
+significance_recall: 1.0
+external_dependency_promotion_precision: 1.0
+false_architectural_promotion_count: 0
+projected_edge_validity: true
+projection_traceability: true
+deterministic: true
+```
+
+`fastapi` is HIGH and `redis` is MEDIUM. `PIL`, `anyio`, `dateutil`, `psycopg`, `pytest`, `requests` and `yaml` remain LOW. Auxiliary components remain LOW. The complete benchmark runner passed, including the pre-existing projection, visualization, architecture-pattern, evidence and renderer cases. Timing remains diagnostic and is not a quality threshold.
+'
