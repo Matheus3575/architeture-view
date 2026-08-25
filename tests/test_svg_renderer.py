@@ -53,8 +53,11 @@ def test_svg_renderer_preserves_traceability_and_status_attributes():
     assert 'data-status="inferred"' in svg or 'data-status="observed"' in svg
     assert 'data-evidence-refs="' in svg
     assert 'data-origin-ref="' in svg
-    assert "ROUTER_INCLUSION" in svg
-    assert "ROUTES_TO" in svg
+    assert not any(
+        element.attrib.get("data-kind") in {"ROUTER_INCLUSION", "ROUTES_TO"}
+        for element in ElementTree.fromstring(svg).iter()
+    )
+    assert any(detail.kind == "framework_fact" and detail.subject == "router" for detail in model.semantic_details)
 
 
 def test_svg_renderer_is_deterministic():
@@ -88,14 +91,7 @@ def test_svg_renderer_uses_semantic_group_order_and_explicit_layers():
         if element.attrib.get("data-layout-group")
     ]
 
-    assert groups[:6] == [
-        "presentation",
-        "application",
-        "domain",
-        "persistence",
-        "infrastructure",
-        "external",
-    ]
+    assert groups == ["application", "domain", "persistence", "external"]
 
 
 def test_svg_renderer_distinguishes_relation_classes_and_routes():
@@ -106,11 +102,11 @@ def test_svg_renderer_distinguishes_relation_classes_and_routes():
     relation_classes = {
         element.attrib["data-kind"]: element.attrib["data-relation-class"]
         for element in root.iter()
-        if element.attrib.get("data-kind") in {"CONTAINS", "ROUTES_TO", "DEPLOYS"}
+        if element.attrib.get("data-kind") in {"CONTAINS", "DEPENDS_ON", "DEPLOYS"}
     }
 
     assert relation_classes["CONTAINS"] == "structural"
-    assert relation_classes["ROUTES_TO"] == "architectural"
+    assert relation_classes["DEPENDS_ON"] == "architectural"
     assert relation_classes["DEPLOYS"] == "architectural"
     assert all(
         element.find("{http://www.w3.org/2000/svg}path") is not None
@@ -168,7 +164,10 @@ def test_svg_renderer_keeps_unknown_nodes_identifiable():
             "confidence": 0.0,
         }
     )
-    model = model.model_copy(update={"nodes": [*model.nodes, unknown]})
+    metadata = dict(model.metadata)
+    metadata["projection_node_ids"] = [*metadata["projection_node_ids"], unknown.id]
+    metadata["read_model_high_level_node_count"] = len(model.nodes) + 1
+    model = model.model_copy(update={"nodes": [*model.nodes, unknown], "metadata": metadata})
     svg = render_svg(model)
 
     assert 'data-kind="unknown"' in svg

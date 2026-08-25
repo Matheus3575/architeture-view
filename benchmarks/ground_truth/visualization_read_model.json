@@ -1,12 +1,12 @@
 {
   "read_model": {
     "required_node_kinds": [
-      "endpoint",
+      "application",
       "database"
     ],
     "required_edge_kinds": [
-      "ROUTES_TO",
-      "ROUTER_INCLUSION"
+      "CONTAINS",
+      "DEPLOYS"
     ],
     "require_hypotheses": true,
     "require_all_edges_valid": true,
@@ -22,11 +22,9 @@
         "structural"
       ],
       "required_layout_groups": [
-        "presentation",
         "application",
         "domain",
         "persistence",
-        "infrastructure",
         "external"
       ]
     },

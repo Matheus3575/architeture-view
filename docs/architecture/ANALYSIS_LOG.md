@@ -852,3 +852,87 @@ The score is capped and deterministic. HIGH requires evidence-backed strong supp
 Contextual support is one pass only. A generic component relation can support another component only when its raw edge evidence includes a resolved call, instantiation or inheritance observation. Generic imports, degree and component detection alone do not propagate significance. Projected edges still aggregate evidence refs, raw edge IDs, support counts and observations, and only selected endpoints are emitted.
 
 The synthetic real-world-like fixture reports 24 detailed elements, 11 projected elements and reduction ratio 0.541667. Significance precision and recall are both 1.0; external dependency promotion precision is 1.0; forbidden architectural promotions are 0. The local repository after calibration retained one external dependency in the high-level view (`fastapi`), with 61 detailed elements and 25 projected elements (ratio 0.590164). Prefect was not available locally, so no real-world run was performed and no network access was used.
+## M8.1.4 — Projection closure and semantic expansion control
+
+The observed failure mode was a projection/read-model boundary violation: framework
+facts, infrastructure facts and endpoint/router materialization were added after
+the high-level projection. The resulting SVG could contain more high-level nodes
+than the projection authorized. The fix keeps the projection authoritative.
+
+VisualizationReadModel now has a deterministic semantic_details collection. Omitted
+architectural nodes, HTTP endpoints, routers, framework facts, UNKNOWN references
+and omitted infrastructure resources remain available there with owner/target,
+status, confidence, evidence refs and origin refs. They are not visual peers.
+ReadModel nodes are restricted to projection_node_ids plus an explicitly justified
+boundary_node_ids set. Edges are emitted only when both endpoints survive this
+closure; an edge never promotes its endpoint.
+
+Endpoints and routers are detail-only by default. APPLICATION nodes remain
+eligible when their existing semantic evidence supports an execution boundary.
+Infrastructure resources require an explicit relation to a significant application
+or component. Containers have no type-only promotion. A framework fact is not an
+architectural boundary and strong evidence in an auxiliary context does not
+promote that context without a bounded cross-component flow.
+
+The only boundary exception is an explicit architectural_boundary attribute or
+metadata flag already present on a semantic fact. Such nodes receive a stable
+boundary justification and remain evidence-linked. No project/library blacklist
+was introduced. ArchitectureIR, HighLevelArchitectureProjection semantics,
+EvidenceGroups and the renderer contract remain unchanged.
+
+Controlled neutral Alpha has 6 detailed elements, 5 projected/read-model
+high-level nodes, 18 semantic details, 12 endpoint details and 3 router details.
+Neutral Beta has 6 detailed elements, 4 projected/read-model high-level nodes,
+5 semantic details, 2 connected infrastructure nodes and 1 isolated container
+detail. Both have valid projected edges, traceability and deterministic output.
+
+## M8.1.5 — Architectural dependency significance and context calibration
+
+The measured residual promotion problem was not generic LOW dependency visibility:
+LOW dependencies were already omitted by the projection. The remaining false
+architectural signals came from indirect promotion paths: stack technology
+matching promoted a dependency without a semantic persistence relation, and
+hypothesis evidence could add medium support to a structurally connected
+dependency. Generic DEPENDS_ON also supplied refs and weak score to external
+nodes, making frequency look like architectural participation.
+
+External dependencies now receive an internal bounded role classification:
+APPLICATION_FRAMEWORK, PERSISTENCE_TECHNOLOGY, DATABASE_ACCESS,
+MESSAGE_TRANSPORT, CACHE_TECHNOLOGY, DEPLOYMENT_RUNTIME,
+EXTERNAL_SERVICE_CLIENT or GENERAL_LIBRARY. Roles come from explicit semantic
+metadata or strong relation kinds. Package names are not sufficient evidence.
+A principal framework package is accepted only when an APPLICATION/ROUTER fact
+is linked to the main application context; framework internals do not inherit
+that role.
+
+External dependency edges are indexed during the existing architectural-edge
+pass. DEPENDS_ON remains weak and never promotes an external dependency.
+QUERIES/READS/WRITES, PUBLISHES/CONSUMES, CONNECTS_TO and DEPLOYS can support a
+dependency only in one bounded pass after the opposite application/component
+already has independent significance. Hypothesis participation now complements
+existing strong/medium support and cannot create it alone.
+
+Framework facts on components require main-application context. An auxiliary
+component with a local APPLICATION/HTTP fact remains LOW unless existing
+application connectivity or semantic flow supplies the context. No package
+whitelist, blacklist, project name, path rule or renderer rule was added.
+
+Observed local workspace comparison:
+
+before M8.1.5:
+- detailed nodes: 73
+- projected nodes: 18
+- detailed external dependencies: 24
+- projected external dependencies: 3 (fastapi, redis, yaml)
+
+after M8.1.5:
+- detailed nodes: 73
+- projected nodes: 16
+- detailed external dependencies: 24
+- projected external dependencies: 1 (fastapi)
+- generic dependency promotions: 0
+- projected edge validity: true
+- projection traceability: true
+
+The real-world-like controlled fixture now reports one projected external
+dependency, precision 1.0, recall 1.0 and zero false dependency promotions.

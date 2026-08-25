@@ -185,3 +185,51 @@ Component detection remains structural evidence. Component candidates do not aut
 
 The deterministic capped formula uses strong weights 0.55 for primary semantic anchors, 0.45 for explicit roles/infrastructure relations and 0.40 for strong architectural relations; medium weights range from 0.15 to 0.30; generic aggregated relations contribute 0.04 only. HIGH requires strong support with score >= 0.55; MEDIUM requires strong or medium support with score >= 0.15. ArchitectureIR and renderer responsibilities are unchanged.
 '
+## M8.1.4 status
+
+High-Level Architecture Projection is authoritative for high-level visualization.
+The ReadModel performs closure, not semantic expansion: a visual node must be in
+the projection or have an explicit boundary justification. Semantic facts remain
+in the ReadModel detail channel for future drill-down.
+
+The bounded rules are:
+- HTTP_ENDPOINT and ROUTER facts are detail-only unless an existing fact explicitly
+  carries architectural_boundary evidence.
+- APPLICATION may remain high-level when its application/boundary evidence is
+  selected by significance.
+- DATABASE, CACHE and MESSAGE_BROKER resources need an evidence-backed relation to
+  a selected application/component; CONTAINER needs an equivalent explicit relation.
+- framework fact strength does not override weak architectural context.
+- projected edges are closed over selected endpoints and cannot promote LOW/UNKNOWN
+  nodes.
+
+The implementation uses set membership and deterministic dictionaries, with one
+bounded contextual pass already used by significance. No renderer filtering,
+blacklist, iterative convergence, graph ranking or ArchitectureIR semantic change
+was added. The ReadModel records projection/read-model counts, semantic details,
+boundary exceptions, endpoint/router/application/framework/infrastructure/container
+high/detail counts, projected edge validity and projection traceability.
+
+## M8.1.5 status
+
+Architectural dependency significance is now context-calibrated. Observed
+dependency, dependency frequency and framework usage remain structural facts
+unless a role and architectural context are both supported.
+
+The score rules are:
+- principal APPLICATION_FRAMEWORK evidence can provide strong support;
+- persistence, messaging, cache, deployment and external-service roles require
+  an existing strong relation to a significant endpoint;
+- generic DEPENDS_ON contributes weak traceability only and cannot promote an
+  external dependency;
+- framework internals and auxiliary framework facts do not inherit significance;
+- hypothesis evidence complements existing strong/medium support but cannot
+  create significance on its own.
+
+The dependency role is additive to ArchitecturalSignificance and is exposed in
+the deterministic result for auditability. ReadModel metadata reports role
+counts, generic DEPENDS_ON promotion count, external dependency cardinalities,
+precision/recall placeholders for benchmark evaluation, projected-edge validity
+and traceability. The implementation remains bounded and uses one contextual
+pass with set membership; no filesystem rescan, reparse, resolver rerun,
+ranking or propagation to convergence was added.

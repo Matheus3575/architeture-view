@@ -16,22 +16,26 @@ INFRA_FIXTURE = ROOT / "benchmarks" / "fixtures" / "infrastructure_semantics"
 HYPOTHESIS_FIXTURE = ROOT / "benchmarks" / "fixtures" / "hypothesis_engine"
 
 
-def test_read_model_preserves_endpoints_unknowns_and_framework_relations():
+def test_read_model_preserves_framework_facts_as_details_and_closes_projection():
     ir = analyze_repository(FASTAPI_FIXTURE)
     read_model = VisualizationReadModelBuilder().build(ir)
 
     node_ids = {node.id for node in read_model.nodes}
     assert all(edge.source in node_ids and edge.target in node_ids for edge in read_model.edges)
-    assert any(node.kind == "endpoint" for node in read_model.nodes)
-    assert any(node.kind == "unknown" for node in read_model.nodes)
-    assert any(edge.kind == "ROUTER_INCLUSION" for edge in read_model.edges)
-    assert any(edge.kind == "FRAMEWORK_DEPENDENCY" and edge.status.value == "unknown" for edge in read_model.edges)
+    assert not any(node.kind in {"endpoint", "router", "unknown"} for node in read_model.nodes)
+    assert any(detail.kind == "framework_fact" and detail.attributes.get("path") for detail in read_model.semantic_details)
+    assert any(detail.kind == "framework_fact" and detail.subject == "users_router" for detail in read_model.semantic_details)
+    assert read_model.unknowns == []
+    assert read_model.metadata["projection_node_count"] == read_model.metadata["read_model_high_level_node_count"]
+    assert read_model.metadata["boundary_exception_count"] == 0
+    assert read_model.metadata["projected_edge_validity"] is True
+    assert read_model.metadata["projection_traceability"] is True
     assert read_model.hypotheses
     assert all(hypothesis.evidence_refs for hypothesis in read_model.hypotheses if hypothesis.evidence_refs)
     evidence_ids = {item.id for item in read_model.evidence}
     assert all(
         ref in evidence_ids
-        for item in [*read_model.nodes, *read_model.edges, *read_model.hypotheses]
+        for item in [*read_model.nodes, *read_model.edges, *read_model.semantic_details, *read_model.hypotheses]
         for ref in item.evidence_refs
     )
 

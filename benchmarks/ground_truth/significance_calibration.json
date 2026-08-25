@@ -14,49 +14,48 @@
         "component:app.py",
         "component:docker-compose.yml",
         "component:domain.py",
-        "component:persistence.py",
         "external.fastapi",
-        "external.redis",
         "infrastructure:compose:docker-compose.yml:api",
         "infrastructure:compose:docker-compose.yml:postgres",
         "infrastructure:compose:docker-compose.yml:redis"
       ],
       "required_low_or_unknown": [
         "component:benchmarks",
+        "component:persistence.py",
         "component:tests",
         "component:tools",
-        "external.PIL",
         "external.anyio",
         "external.dateutil",
+        "external.PIL",
         "external.psycopg",
         "external.pytest",
+        "external.redis",
         "external.requests",
         "external.yaml"
       ],
       "forbid_projected": [
         "component:benchmarks",
+        "component:persistence.py",
         "component:tests",
         "component:tools",
-        "external.PIL",
         "external.anyio",
         "external.dateutil",
+        "external.PIL",
         "external.psycopg",
         "external.pytest",
+        "external.redis",
         "external.requests",
         "external.yaml"
       ],
       "expected_external_promoted": [
-        "external.fastapi",
-        "external.redis"
+        "external.fastapi"
       ],
       "expected_significance": {
         "application:significance_calibration": "high",
         "component:app.py": "high",
         "component:docker-compose.yml": "medium",
         "component:domain.py": "medium",
-        "component:persistence.py": "medium",
         "external.fastapi": "high",
-        "external.redis": "medium",
         "repository:significance_calibration": "medium"
       },
       "require_projected_edges_valid": true,

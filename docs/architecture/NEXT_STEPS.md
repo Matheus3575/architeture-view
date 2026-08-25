@@ -131,3 +131,32 @@ The next recommended step is a focused measurement/design pass for duplicate sou
 
 M8.1.3 is complete as a bounded evidence calibration. The next recommended milestone is a manual run against a locally available large repository, preferably Prefect if present, to validate framework/persistence role coverage without adding repository-specific rules. Remaining work should focus on evidence coverage for semantically critical external drivers and bounded drill-down consumption of preserved LOW/UNKNOWN records; do not move filtering into the renderer or add global graph ranking.
 '
+## M8.1.4 result
+
+M8.1.4 is complete as projection closure and semantic expansion control. The
+high-level projection is now authoritative for ReadModel/SVG nodes. Endpoints,
+routers, framework facts and auxiliary infrastructure remain traceable semantic
+details unless explicit boundary evidence exists. HIGH→LOW edges are omitted from
+the high-level view rather than promoting LOW nodes. Neutral Alpha/Beta fixtures
+cover application, worker, scheduler, persistence, broker/cache, tooling and
+container context.
+
+The next recommended milestone is a manual profile/read-model comparison on a
+locally available large repository, preferably Prefect when present, followed by
+bounded drill-down consumption of semantic_details and contains_refs. Do not
+move filtering into the renderer or introduce project-specific rules.
+
+## M8.1.5 result
+
+M8.1.5 is complete as architectural dependency role and context calibration.
+External dependencies are promoted by semantic role plus bounded main-system
+context, not by import frequency, package presence, generic DEPENDS_ON or
+isolated hypothesis/framework evidence. LOW/UNKNOWN dependencies remain
+traceable in the detailed model, and projected edges remain closed and
+deterministic.
+
+The next recommended milestone is a manual large-repository comparison of
+dependency roles and projected edge composition, followed by a bounded
+consumer for dependency/detail inspection. Remaining generic DEPENDS_ON edges
+may need a separate evidence-quality milestone; they must not be reinterpreted
+as strong architecture relations here.

@@ -72,7 +72,7 @@ def _calibration_ir():
         Edge(id="arch-tests-entry", source="component:tests", target="component:entry", type=EdgeType.DEPENDS_ON, evidence_refs=["tests"], raw_edge_ids=["raw-test-import"]),
         Edge(id="arch-entry-framework", source="component:entry", target="external.mainframework", type=EdgeType.DEPENDS_ON, evidence_refs=["framework"]),
         Edge(id="arch-core-helper", source="component:core", target="external.helperlib", type=EdgeType.DEPENDS_ON, evidence_refs=["helper"]),
-        Edge(id="arch-core-driver", source="component:core", target="external.dbdriver", type=EdgeType.DEPENDS_ON, evidence_refs=["driver"]),
+        Edge(id="arch-core-driver", source="component:core", target="external.dbdriver", type=EdgeType.QUERIES, evidence_refs=["driver"]),
     ]
     facts = [
         FrameworkFact(kind="APPLICATION", subject="application", attributes={"symbol": "mainframework.App", "module": "entry"}, evidence_refs=["app"]),
@@ -100,7 +100,7 @@ def test_significance_uses_semantic_evidence_not_degree_or_structural_presence()
     assert levels["component:core"] == SignificanceLevel.HIGH
     assert levels["database:primary"] == SignificanceLevel.HIGH
     assert levels["external.mainframework"] == SignificanceLevel.HIGH
-    assert levels["external.dbdriver"] == SignificanceLevel.MEDIUM
+    assert levels["external.dbdriver"] == SignificanceLevel.HIGH
     assert levels["external.helperlib"] == SignificanceLevel.LOW
     assert levels["module:utility"] == SignificanceLevel.LOW
     assert levels["component:tests"] == SignificanceLevel.LOW
@@ -126,7 +126,7 @@ def test_external_dependency_precision_and_projection_traceability():
     assert all(ref in {item.id for item in ir.evidence} for item in projection.significances for ref in item.evidence_refs)
     ext = {item.subject: item.significance for item in projection.significances if item.subject.startswith("external.")}
     assert ext == {
-        "external.dbdriver": SignificanceLevel.MEDIUM,
+        "external.dbdriver": SignificanceLevel.HIGH,
         "external.helperlib": SignificanceLevel.LOW,
         "external.mainframework": SignificanceLevel.HIGH,
     }

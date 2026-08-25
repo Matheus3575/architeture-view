@@ -172,6 +172,27 @@ def _evaluate_read_model(first, second, ground_truth, failures):
         "architectural_significance_recall": None,
         "architectural_significance_precision": None,
         "high_level_node_count": None,
+        "projection_node_count": None,
+        "read_model_high_level_node_count": None,
+        "semantic_detail_node_count": None,
+        "boundary_exception_count": None,
+        "framework_high_level_count": None,
+        "framework_detail_count": None,
+        "endpoint_high_level_count": None,
+        "endpoint_detail_count": None,
+        "router_high_level_count": None,
+        "router_detail_count": None,
+        "infrastructure_high_level_count": None,
+        "infrastructure_detail_count": None,
+        "container_high_level_count": None,
+        "container_detail_count": None,
+        "projection_closure_valid": None,
+        "architectural_dependency_precision": None,
+        "architectural_dependency_recall": None,
+        "false_dependency_promotion_count": None,
+        "generic_depends_on_promotion_count": None,
+        "dependency_role_counts": None,
+        "component_false_promotion_count": None,
         "detailed_node_count": None,
         "projection_reduction_ratio": None,
         "projected_edge_validity": None,
@@ -233,6 +254,30 @@ def _evaluate_read_model(first, second, ground_truth, failures):
     if projection_spec.get("forbid_projected", []):
         forbidden_projected = set(projection_spec["forbid_projected"]) & set(node_ids)
         failures.extend(f"forbidden high-level projection node: {item}" for item in sorted(forbidden_projected))
+    expected_external_promoted = set(projection_spec.get("expected_external_promoted", []))
+    actual_external_promoted = {
+        node.id for node in first_model.nodes
+        if node.kind == "external_dependency"
+    }
+    false_dependency_promotions = len(actual_external_promoted - expected_external_promoted) if expected_external_promoted else None
+    if expected_external_promoted and false_dependency_promotions:
+        failures.extend(
+            f"unexpected architectural dependency promotion: {item}"
+            for item in sorted(actual_external_promoted - expected_external_promoted)
+        )
+    expected_forbidden_components = set(projection_spec.get("forbid_components", []))
+    if not expected_forbidden_components:
+        expected_forbidden_components = {
+            item
+            for item in projection_spec.get("forbid_projected", [])
+            if any(node.id == item and node.type.value == "component" for node in first.architectural_graph.nodes)
+        }
+    actual_forbidden_components = {
+        node.id for node in first_model.nodes
+        if node.kind == "component" and node.id in expected_forbidden_components
+    }
+    if projection_spec.get("require_no_generic_dependency_promotions") and first_model.metadata.get("generic_depends_on_promotion_count", 0):
+        failures.append("generic DEPENDS_ON promoted an external dependency")
     if expected_low and not expected_low <= set(actual_significance):
         failures.append("low/unknown significance was not preserved")
     expected_levels = projection_spec.get("expected_significance", {})
@@ -240,6 +285,10 @@ def _evaluate_read_model(first, second, ground_truth, failures):
         if actual_significance.get(subject) != expected_level:
             failures.append(f"wrong significance for {subject}: expected {expected_level} got {actual_significance.get(subject)}")
     projection_metadata = first_model.metadata
+    closure_allowed = set(projection_metadata.get("projection_node_ids", [])) | set(projection_metadata.get("boundary_node_ids", []))
+    projection_closure_valid = node_ids <= closure_allowed if closure_allowed else True
+    if not projection_closure_valid:
+        failures.append("visualization read model escaped projection closure")
     if projection_spec.get("require_projected_edges_valid") and not projection_metadata.get("projected_edge_validity"):
         failures.append("projected edges are invalid")
     if projection_spec.get("require_projection_traceability") and not projection_metadata.get("projection_traceability"):
@@ -262,7 +311,7 @@ def _evaluate_read_model(first, second, ground_truth, failures):
     traceable = (
         all(
             ref in evidence_ids
-            for item in [*first_model.nodes, *first_model.edges, *first_model.hypotheses, *first_model.architectural_significance]
+            for item in [*first_model.nodes, *first_model.edges, *first_model.semantic_details, *first_model.hypotheses, *first_model.architectural_significance]
             for ref in item.evidence_refs
         )
         and all(
@@ -474,6 +523,21 @@ def _evaluate_read_model(first, second, ground_truth, failures):
         "architectural_significance_recall": _ratio(matched_significant, len(expected_significant)),
         "architectural_significance_precision": _ratio(len(expected_significant & set(node_ids)), projection_metadata.get("high_level_node_count") or 0),
         "high_level_node_count": projection_metadata.get("high_level_node_count"),
+        "projection_node_count": projection_metadata.get("projection_node_count"),
+        "read_model_high_level_node_count": projection_metadata.get("read_model_high_level_node_count"),
+        "semantic_detail_node_count": projection_metadata.get("semantic_detail_node_count"),
+        "boundary_exception_count": projection_metadata.get("boundary_exception_count"),
+        "framework_high_level_count": projection_metadata.get("framework_high_level_count"),
+        "framework_detail_count": projection_metadata.get("framework_detail_count"),
+        "endpoint_high_level_count": projection_metadata.get("endpoint_high_level_count"),
+        "endpoint_detail_count": projection_metadata.get("endpoint_detail_count"),
+        "router_high_level_count": projection_metadata.get("router_high_level_count"),
+        "router_detail_count": projection_metadata.get("router_detail_count"),
+        "infrastructure_high_level_count": projection_metadata.get("infrastructure_high_level_count"),
+        "infrastructure_detail_count": projection_metadata.get("infrastructure_detail_count"),
+        "container_high_level_count": projection_metadata.get("container_high_level_count"),
+        "container_detail_count": projection_metadata.get("container_detail_count"),
+        "projection_closure_valid": projection_closure_valid,
         "detailed_node_count": projection_metadata.get("detailed_node_count"),
         "projection_reduction_ratio": projection_metadata.get("projection_reduction_ratio"),
         "projected_edge_validity": projection_metadata.get("projected_edge_validity"),
@@ -481,7 +545,13 @@ def _evaluate_read_model(first, second, ground_truth, failures):
         "low_significance_preservation": bool(expected_low <= set(actual_significance)) if expected_low else projection_metadata.get("low_significance_preservation"),
         "false_architectural_promotion_count": len(set(projection_spec.get("forbid_projected", [])) & set(node_ids)),
         "external_dependency_detailed_count": sum(1 for node in first.architectural_graph.nodes if node.type.value == "external_dependency"),
-        "external_dependency_projected_count": sum(1 for node in first.architectural_graph.nodes if node.type.value == "external_dependency" and node.id in node_ids),
+        "external_dependency_projected_count": len(actual_external_promoted),
+        "architectural_dependency_precision": _ratio(len(expected_external_promoted & actual_external_promoted), len(actual_external_promoted)) if expected_external_promoted else None,
+        "architectural_dependency_recall": _ratio(len(expected_external_promoted & actual_external_promoted), len(expected_external_promoted)) if expected_external_promoted else None,
+        "false_dependency_promotion_count": false_dependency_promotions,
+        "generic_depends_on_promotion_count": projection_metadata.get("generic_depends_on_promotion_count"),
+        "dependency_role_counts": projection_metadata.get("dependency_role_counts", {}),
+        "component_false_promotion_count": len(actual_forbidden_components),
         "external_dependency_promotion_precision": _ratio(
             len(set(projection_spec.get("expected_external_promoted", [])) & set(node_ids)),
             sum(1 for node in first.architectural_graph.nodes if node.type.value == "external_dependency" and node.id in node_ids),
@@ -567,6 +637,7 @@ def _inline_evidence_model(model):
 
     nodes = [expand(item, "evidence_refs", "evidence_group_ref", "evidence_count") for item in model.nodes]
     edges = [expand(item, "evidence_refs", "evidence_group_ref", "evidence_count") for item in model.edges]
+    semantic_details = [expand(item, "evidence_refs", "evidence_group_ref", "evidence_count") for item in model.semantic_details]
     hypotheses = []
     for item in model.hypotheses:
         expanded = expand(item, "evidence_refs", "evidence_group_ref", "evidence_count")
@@ -576,6 +647,7 @@ def _inline_evidence_model(model):
     return model.model_copy(update={
         "nodes": nodes,
         "edges": edges,
+        "semantic_details": semantic_details,
         "hypotheses": hypotheses,
         "evidence_groups": [],
     })

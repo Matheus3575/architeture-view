@@ -240,3 +240,65 @@ deterministic: true
 
 `fastapi` is HIGH and `redis` is MEDIUM. `PIL`, `anyio`, `dateutil`, `psycopg`, `pytest`, `requests` and `yaml` remain LOW. Auxiliary components remain LOW. The complete benchmark runner passed, including the pre-existing projection, visualization, architecture-pattern, evidence and renderer cases. Timing remains diagnostic and is not a quality threshold.
 '
+## M8.1.4 status
+
+The regression benchmark now reports projection closure and semantic-detail
+cardinalities in addition to existing significance, evidence and SVG metrics.
+The neutral controlled closure fixtures are covered by
+tests/test_projection_closure.py.
+
+Observed controlled fixture metrics:
+
+yaml
+alpha:
+  detailed_node_count: 6
+  projection_node_count: 5
+  read_model_high_level_node_count: 5
+  semantic_detail_node_count: 18
+  endpoint_detail_count: 12
+  router_detail_count: 3
+  projected_edge_validity: true
+  projection_traceability: true
+beta:
+  detailed_node_count: 6
+  projection_node_count: 4
+  read_model_high_level_node_count: 4
+  semantic_detail_node_count: 5
+  infrastructure_high_level_count: 2
+  container_detail_count: 1
+  projected_edge_validity: true
+  projection_traceability: true
+
+The full benchmark runner remains the regression gate; timing is diagnostic only.
+Real repositories are used for symptom discovery, not for project-specific
+heuristics.
+
+## M8.1.5 status
+
+The dependency calibration tests add neutral Alpha and Beta scenarios covering
+general libraries, principal framework technology, framework internals,
+persistence technology, database drivers without context, message transport,
+external-service clients, generic high-degree dependencies, auxiliary framework
+components, UNKNOWN and deterministic traceability.
+
+The existing real-world-like fixture was recalibrated so persistence component
+and redis remain LOW when only generic imports/technology matching are present.
+Observed benchmark metrics:
+
+```yaml
+significance_calibration:
+  detailed_node_count: 24
+  projection_node_count: 9
+  external_dependency_detailed_count: 9
+  external_dependency_projected_count: 1
+  architectural_dependency_precision: 1.0
+  architectural_dependency_recall: 1.0
+  false_dependency_promotion_count: 0
+  generic_depends_on_promotion_count: 0
+  component_false_promotion_count: 0
+  projected_edge_validity: true
+  projection_traceability: true
+```
+
+The complete benchmark runner remains the regression gate. Timing remains
+diagnostic; no absolute performance threshold was added.

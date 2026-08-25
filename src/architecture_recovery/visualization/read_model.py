@@ -84,6 +84,25 @@ class VisualizationEvidence(BaseModel):
     weight: float = Field(default=1.0, ge=0.0, le=1.0)
 
 
+
+class VisualizationSemanticDetail(BaseModel):
+    """Traceable semantic fact kept outside the high-level node universe."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    kind: str
+    subject: str
+    target: str | None = None
+    owner: str | None = None
+    label: str | None = None
+    status: EvidenceStatus = EvidenceStatus.OBSERVED
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    evidence_refs: list[str] = Field(default_factory=list)
+    evidence_group_ref: str | None = None
+    evidence_count: int = Field(default=0, ge=0)
+    origin_ref: str | None = None
+    attributes: dict[str, Any] = Field(default_factory=dict)
 class VisualizationReadModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -95,6 +114,7 @@ class VisualizationReadModel(BaseModel):
     evidence: list[VisualizationEvidence] = Field(default_factory=list)
     evidence_groups: list[EvidenceGroup] = Field(default_factory=list)
     architectural_significance: list[ArchitecturalSignificance] = Field(default_factory=list)
+    semantic_details: list[VisualizationSemanticDetail] = Field(default_factory=list)
     unknowns: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -107,6 +127,7 @@ class VisualizationReadModel(BaseModel):
         )
         data["hypotheses"] = sorted(data["hypotheses"], key=lambda item: item["pattern"])
         data["architectural_significance"] = sorted(data["architectural_significance"], key=lambda item: item["subject"])
+        data["semantic_details"] = sorted(data["semantic_details"], key=lambda item: item["id"])
         data["evidence"] = sorted(data["evidence"], key=lambda item: item["id"])
         data["evidence_groups"] = sorted(data["evidence_groups"], key=lambda item: item["id"])
         data["unknowns"] = sorted(set(data["unknowns"]))
@@ -122,7 +143,9 @@ class VisualizationReadModelBuilder:
             if timer:
                 timer.set_counts(
                     detailed_nodes=int(result.metadata.get("detailed_node_count", len(result.nodes))),
-                    projected_nodes=int(result.metadata.get("high_level_node_count", len(result.nodes))),
+                    projected_nodes=int(result.metadata.get("read_model_high_level_node_count", len(result.nodes))),
+                    projection_nodes=int(result.metadata.get("projection_node_count", len(result.nodes))),
+                    semantic_details=int(result.metadata.get("semantic_detail_node_count", len(result.semantic_details))),
                     projected_edges=len(result.edges), projected_edge_count=len(result.edges),
                     evidence_groups=len(result.evidence_groups),
                 )
@@ -134,6 +157,8 @@ class VisualizationReadModelBuilder:
         raw_to_arch = self._raw_to_arch(ir)
         nodes: dict[str, VisualizationNode] = {}
         edges: dict[str, VisualizationEdge] = {}
+        semantic_details: dict[str, VisualizationSemanticDetail] = {}
+        boundary_ids: set[str] = set()
         unknowns: set[str] = set()
 
         for node in sorted(arch_nodes.values(), key=lambda item: item.id):
@@ -154,23 +179,48 @@ class VisualizationReadModelBuilder:
                     },
                 })
 
-        def ensure_unknown(label: str, refs: Iterable[str], origin_ref: str) -> str:
-            node_id = _stable_id("unknown", origin_ref, label)
-            if node_id not in nodes:
-                nodes[node_id] = VisualizationNode(
-                    id=node_id,
-                    kind="unknown",
-                    label=label,
-                    status=EvidenceStatus.UNKNOWN,
-                    confidence=0.0,
-                    evidence_refs=sorted(set(refs)),
-                    origin_ref=origin_ref,
-                    layout_hints={"semantic_kind": "unknown"},
-                )
-            unknowns.add(origin_ref)
-            return node_id
+        def add_semantic_detail(
+            *,
+            detail_id: str,
+            kind: str,
+            subject: str,
+            target: str | None = None,
+            owner: str | None = None,
+            label: str | None = None,
+            status: EvidenceStatus = EvidenceStatus.OBSERVED,
+            confidence: float = 1.0,
+            refs: Iterable[str] = (),
+            origin_ref: str | None = None,
+            attributes: dict[str, Any] | None = None,
+        ) -> None:
+            semantic_details[detail_id] = VisualizationSemanticDetail(
+                id=detail_id,
+                kind=kind,
+                subject=subject,
+                target=target,
+                owner=owner,
+                label=label,
+                status=status,
+                confidence=confidence,
+                evidence_refs=sorted(set(refs)),
+                origin_ref=origin_ref,
+                attributes=dict(attributes or {}),
+            )
 
-        def resolve(value: str | None, fact: Any | None = None, role: str | None = None) -> str:
+        def ensure_unknown(label: str, refs: Iterable[str], origin_ref: str) -> None:
+            add_semantic_detail(
+                detail_id=_stable_id("semantic-detail", "unknown", origin_ref, label),
+                kind="unknown",
+                subject=label,
+                label=label,
+                status=EvidenceStatus.UNKNOWN,
+                confidence=0.0,
+                refs=refs,
+                origin_ref=origin_ref,
+            )
+            unknowns.add(origin_ref)
+
+        def resolve(value: str | None, fact: Any | None = None, role: str | None = None) -> str | None:
             if value and value in nodes:
                 return value
             if value and value in arch_nodes:
@@ -178,29 +228,63 @@ class VisualizationReadModelBuilder:
             if value and value in raw_to_arch:
                 return raw_to_arch[value]
             if value and value in raw_nodes:
-                return raw_to_arch.get(value) or ensure_unknown(value, raw_nodes[value].evidence_refs, value)
+                return raw_to_arch.get(value)
             module = (fact.attributes.get("module") if fact is not None else None) if fact else None
             if module:
                 module_id = f"module:{module}"
                 if module_id in raw_to_arch:
                     return raw_to_arch[module_id]
             if value and value != "UNKNOWN":
-                refs = fact.evidence_refs if fact is not None else []
-                node_id = _stable_id("semantic", role or "reference", value)
-                if node_id not in nodes:
-                    nodes[node_id] = VisualizationNode(
-                        id=node_id,
-                        kind=role or "external_reference",
-                        label=value,
-                        status=fact.status if fact is not None else EvidenceStatus.UNKNOWN,
-                        confidence=fact.confidence if fact is not None else 0.0,
-                        evidence_refs=sorted(set(refs)),
-                        origin_ref=f"framework:{getattr(fact, 'kind', 'reference')}:{value}",
-                        layout_hints={"semantic_kind": role or "external_reference"},
-                    )
-                return node_id
-            return ensure_unknown("UNKNOWN", fact.evidence_refs if fact is not None else [], f"framework:{getattr(fact, 'kind', 'unknown')}:{value or 'UNKNOWN'}")
+                add_semantic_detail(
+                    detail_id=_stable_id("semantic-detail", role or "reference", value),
+                    kind=role or "external_reference",
+                    subject=value,
+                    label=value,
+                    status=fact.status if fact is not None else EvidenceStatus.UNKNOWN,
+                    confidence=fact.confidence if fact is not None else 0.0,
+                    refs=fact.evidence_refs if fact is not None else (),
+                    origin_ref=f"framework:{getattr(fact, 'kind', 'reference')}:{value}",
+                )
+            else:
+                ensure_unknown(
+                    "UNKNOWN",
+                    fact.evidence_refs if fact is not None else (),
+                    f"framework:{getattr(fact, 'kind', 'unknown')}:{value or 'UNKNOWN'}",
+                )
+            return None
 
+        def explicit_boundary(fact: Any) -> bool:
+            return bool(
+                fact.attributes.get("architectural_boundary")
+                or fact.metadata.get("architectural_boundary")
+            )
+
+        def ensure_boundary(fact: Any) -> str | None:
+            if not explicit_boundary(fact):
+                return None
+            subject = fact.subject or fact.target or "UNKNOWN"
+            boundary_id = _stable_id("semantic-boundary", fact.kind, subject, fact.target or "")
+            if boundary_id not in nodes:
+                nodes[boundary_id] = VisualizationNode(
+                    id=boundary_id,
+                    kind={
+                        "HTTP_ENDPOINT": "endpoint",
+                        "ROUTER": "router",
+                        "APPLICATION": "application",
+                    }.get(fact.kind, "boundary"),
+                    label=fact.attributes.get("path", subject),
+                    status=fact.status,
+                    confidence=fact.confidence,
+                    evidence_refs=sorted(set(fact.evidence_refs)),
+                    origin_ref=f"boundary:{fact.kind}:{subject}",
+                    layout_hints={
+                        "semantic_kind": fact.kind.lower(),
+                        "projection_boundary": True,
+                        "boundary_justification": "explicit framework boundary evidence",
+                    },
+                )
+            boundary_ids.add(boundary_id)
+            return boundary_id
         def add_edge(
             source: str,
             target: str,
@@ -252,73 +336,43 @@ class VisualizationReadModelBuilder:
                 f"infrastructure_relation:{relation.id}",
             )
 
-        endpoint_nodes: dict[str, str] = {}
         for fact in sorted(ir.framework_facts, key=_fact_key):
-            if fact.kind == "HTTP_ENDPOINT":
-                endpoint_id = _stable_id("endpoint", fact.subject or fact.target or "UNKNOWN")
-                endpoint_nodes[fact.subject or fact.target or "UNKNOWN"] = endpoint_id
-                if endpoint_id not in nodes:
-                    nodes[endpoint_id] = VisualizationNode(
-                        id=endpoint_id,
-                        kind="endpoint",
-                        label=fact.attributes.get("path", fact.subject or "UNKNOWN"),
-                        role="http_endpoint",
-                        status=fact.status,
-                        confidence=fact.confidence,
-                        evidence_refs=sorted(set(fact.evidence_refs)),
-                        origin_ref=f"framework_fact:HTTP_ENDPOINT:{fact.subject}",
-                        layout_hints={
-                            "semantic_kind": "endpoint",
-                            "entrypoint": True,
-                            "preferred_layer": "presentation",
-                        },
-                    )
-                owner = fact.attributes.get("router") or fact.attributes.get("owner")
-                if owner:
+            subject = fact.subject or fact.target or "UNKNOWN"
+            owner_hint = fact.attributes.get("owner") or fact.metadata.get("owner")
+            owner = resolve(owner_hint, fact, fact.kind.lower()) if owner_hint else None
+            owner = owner or resolve(subject, fact, fact.kind.lower())
+            boundary_id = ensure_boundary(fact)
+            if boundary_id:
+                owner = owner or resolve(fact.attributes.get("module"), fact, "application")
+                if fact.kind == "HTTP_ENDPOINT" and owner:
                     add_edge(
-                        resolve(owner, fact, "router"),
-                        endpoint_id,
+                        owner,
+                        boundary_id,
                         "ROUTES_TO",
                         fact.status,
                         fact.confidence,
                         fact.evidence_refs,
-                        f"framework_fact:HTTP_ENDPOINT:{fact.subject}",
+                        f"boundary_fact:HTTP_ENDPOINT:{subject}",
                     )
-            elif fact.kind == "FRAMEWORK_DEPENDENCY":
-                source = endpoint_nodes.get(fact.subject or "") or resolve(fact.subject, fact, "endpoint")
-                target = resolve(fact.target, fact, "dependency")
-                add_edge(
-                    source,
-                    target,
-                    "FRAMEWORK_DEPENDENCY",
-                    fact.status,
-                    fact.confidence,
-                    fact.evidence_refs,
-                    f"framework_fact:FRAMEWORK_DEPENDENCY:{fact.subject}:{fact.target}",
-                )
-            elif fact.kind == "RESPONSE_SCHEMA":
-                source = endpoint_nodes.get(fact.subject or "") or resolve(fact.subject, fact, "endpoint")
-                target = resolve(fact.target, fact, "schema")
-                add_edge(
-                    source,
-                    target,
-                    "RESPONSE_SCHEMA",
-                    fact.status,
-                    fact.confidence,
-                    fact.evidence_refs,
-                    f"framework_fact:RESPONSE_SCHEMA:{fact.subject}:{fact.target}",
-                )
-            elif fact.kind == "ROUTER_INCLUSION":
-                add_edge(
-                    resolve(fact.subject, fact, "application"),
-                    resolve(fact.target, fact, "router"),
-                    "ROUTER_INCLUSION",
-                    fact.status,
-                    fact.confidence,
-                    fact.evidence_refs,
-                    f"framework_fact:ROUTER_INCLUSION:{fact.subject}:{fact.target}",
-                )
-
+            add_semantic_detail(
+                detail_id=_stable_id(
+                    "semantic-detail",
+                    "framework-fact",
+                    fact.kind,
+                    subject,
+                    fact.target or "",
+                ),
+                kind="framework_fact",
+                subject=subject,
+                target=fact.target,
+                owner=owner,
+                label=fact.attributes.get("path", subject),
+                status=fact.status,
+                confidence=fact.confidence,
+                refs=fact.evidence_refs,
+                origin_ref=f"framework_fact:{fact.kind}:{subject}",
+                attributes=fact.attributes,
+            )
         hypotheses = [
             VisualizationHypothesis(
                 pattern=item.pattern,
@@ -351,20 +405,55 @@ class VisualizationReadModelBuilder:
                 )
         significance_by_subject = {item.subject: item for item in projection.significances}
         selected_ids = set(projection.projected_node_ids)
-        semantic_ids = {
-            item.id for item in nodes.values()
-            if item.origin_ref and (item.origin_ref.startswith("framework_") or item.origin_ref.startswith("framework:") or item.kind == "unknown")
-        }
-        retained_ids = selected_ids | semantic_ids
+        retained_ids = selected_ids | boundary_ids
+
+        # Every omitted architectural node/resource remains available as a
+        # detail record, never as a high-level visual node.
+        for node in sorted(arch_nodes.values(), key=lambda item: item.id):
+            if node.id not in selected_ids:
+                significance = significance_by_subject.get(node.id)
+                add_semantic_detail(
+                    detail_id=_stable_id("semantic-detail", "projection", node.id),
+                    kind="projection_detail",
+                    subject=node.id,
+                    label=node.name,
+                    status=node.status,
+                    confidence=node.confidence,
+                    refs=node.evidence_refs,
+                    origin_ref=f"projection_detail:{node.id}",
+                    attributes={
+                        "node_type": node.type.value,
+                        "significance": significance.significance.value if significance else "unknown",
+                        "score": significance.score if significance else 0.0,
+                        "contains_refs": significance.contains_refs if significance else [],
+                    },
+                )
+        resource_ids = {resource.id for resource in ir.infrastructure_resources}
+        for resource in sorted(ir.infrastructure_resources, key=lambda item: item.id):
+            if resource.id not in selected_ids:
+                add_semantic_detail(
+                    detail_id=_stable_id("semantic-detail", "infrastructure", resource.id),
+                    kind="infrastructure_detail",
+                    subject=resource.id,
+                    label=resource.name,
+                    status=resource.status,
+                    confidence=resource.confidence,
+                    refs=resource.evidence_refs,
+                    origin_ref=f"infrastructure_detail:{resource.id}",
+                    attributes={"resource_kind": resource.kind, **resource.metadata},
+                )
+
         nodes = {
-            node_id: node.model_copy(update={"layout_hints": {
-                **node.layout_hints,
-                **({
-                    "architectural_significance": significance_by_subject[node_id].significance.value,
-                    "significance_score": significance_by_subject[node_id].score,
-                    "contains_refs": significance_by_subject[node_id].contains_refs,
-                } if node_id in significance_by_subject else {}),
-            }})
+            node_id: node.model_copy(update={
+                "layout_hints": {
+                    **node.layout_hints,
+                    **({
+                        "architectural_significance": significance_by_subject[node_id].significance.value,
+                        "significance_score": significance_by_subject[node_id].score,
+                        "contains_refs": significance_by_subject[node_id].contains_refs,
+                    } if node_id in significance_by_subject else {}),
+                },
+            })
             for node_id, node in nodes.items()
             if node_id in retained_ids
         }
@@ -379,38 +468,90 @@ class VisualizationReadModelBuilder:
             if item.source in nodes and item.target in nodes
         }
         projected_keys = {(item.source, item.target, item.kind) for item in projected_edges.values()}
+        # Only an explicitly justified boundary may add a semantic edge after
+        # projection. Framework/infrastructure facts otherwise remain details.
         for edge in edges.values():
             key = (edge.source, edge.target, edge.kind)
-            if edge.source in nodes and edge.target in nodes and edge.origin_ref and (
-                edge.origin_ref.startswith("framework_fact:") or edge.origin_ref.startswith("infrastructure_relation:")
-            ) and key not in projected_keys:
+            if (
+                edge.source in nodes
+                and edge.target in nodes
+                and edge.origin_ref
+                and edge.origin_ref.startswith("boundary_fact:")
+                and key not in projected_keys
+            ):
                 projected_edges[edge.id] = edge
         edges = projected_edges
         unknowns.update(projection.unknown_refs)
         evidence_ids = {item.id for item in ir.evidence}
         projection_traceability = all(
             ref in evidence_ids
-            for item in [*projection.significances, *projection.projected_edges]
+            for item in [*projection.significances, *projection.projected_edges, *semantic_details.values()]
             for ref in item.evidence_refs
         )
         projected_edge_validity = all(
-            edge.source in nodes and edge.target in nodes for edge in projection.projected_edges
+            edge.source in nodes and edge.target in nodes for edge in edges.values()
         )
-        significance_counts = {
-            level.value: sum(1 for item in projection.significances if item.significance.value == level.value)
-            for level in SignificanceLevel
-        }
         external_ids = {
             node.id for node in ir.architectural_graph.nodes
             if node.type.value == "external_dependency"
         }
+        significance_counts = {
+            level.value: sum(1 for item in projection.significances if item.significance.value == level.value)
+            for level in SignificanceLevel
+        }
+        dependency_role_counts = {
+            role: sum(1 for item in projection.significances if item.role == role)
+            for role in sorted({item.role for item in projection.significances if item.role})
+        }
+        generic_depends_on_promotion_count = sum(
+            1
+            for item in projection.significances
+            if item.subject in selected_ids
+            and item.subject in external_ids
+            and item.significance in {SignificanceLevel.HIGH, SignificanceLevel.MEDIUM}
+            and any("DEPENDS_ON" in reason for reason in item.reasons)
+            and not any(
+                "principal framework" in reason
+                or "relation to a significant component" in reason
+                for reason in item.reasons
+            )
+        )
         projected_external_count = len(external_ids & selected_ids)
+        framework_kinds = {"application", "router", "endpoint"}
+        infrastructure_kinds = {
+            "database", "cache", "queue", "message_broker", "container",
+            "infrastructure", "external_service",
+        }
+        high_level_node_count = len(nodes)
+        framework_high_level_count = sum(1 for node in nodes.values() if node.kind in framework_kinds)
+        framework_detail_count = sum(1 for detail in semantic_details.values() if detail.kind == "framework_fact")
+        endpoint_detail_count = sum(1 for fact in ir.framework_facts if fact.kind == "HTTP_ENDPOINT")
+        router_detail_count = sum(1 for fact in ir.framework_facts if fact.kind == "ROUTER")
+        application_detail_count = sum(1 for fact in ir.framework_facts if fact.kind == "APPLICATION")
+        infrastructure_ids = {
+            node.id for node in ir.architectural_graph.nodes
+            if node.type.value in infrastructure_kinds
+        } | resource_ids
+        infrastructure_high_level_count = sum(1 for node in nodes.values() if node.id in infrastructure_ids)
+        infrastructure_detail_count = sum(
+            1 for detail in semantic_details.values()
+            if detail.subject in infrastructure_ids
+        )
+        container_ids = {
+            node.id for node in ir.architectural_graph.nodes
+            if node.type.value == "container"
+        } | {
+            resource.id for resource in ir.infrastructure_resources if resource.kind.upper() == "CONTAINER"
+        }
+        container_high_level_count = sum(1 for node in nodes.values() if node.id in container_ids)
+        container_detail_count = sum(1 for detail in semantic_details.values() if detail.subject in container_ids)
         result = VisualizationReadModel(
             repository=ir.repository,
             nodes=list(nodes.values()),
             edges=list(edges.values()),
             hypotheses=hypotheses,
             evidence=evidence,
+            semantic_details=list(semantic_details.values()),
             architectural_significance=projection.significances,
             unknowns=sorted(unknowns),
             metadata={
@@ -419,6 +560,31 @@ class VisualizationReadModelBuilder:
                 "architectural_graph_edge_count": len(ir.architectural_graph.edges),
                 "detailed_node_count": projection.detailed_node_count,
                 "high_level_node_count": projection.high_level_node_count,
+                "projection_node_count": projection.high_level_node_count,
+                "projection_node_ids": sorted(selected_ids),
+                "boundary_node_ids": sorted(boundary_ids),
+                "read_model_high_level_node_count": high_level_node_count,
+                "visual_node_count": high_level_node_count,
+                "semantic_detail_node_count": len(semantic_details),
+                "boundary_exception_count": len(boundary_ids),
+                "framework_high_level_count": framework_high_level_count,
+                "framework_detail_count": framework_detail_count,
+                "endpoint_high_level_count": sum(1 for node in nodes.values() if node.kind == "endpoint"),
+                "endpoint_detail_count": endpoint_detail_count,
+                "router_high_level_count": sum(1 for node in nodes.values() if node.kind == "router"),
+                "router_detail_count": router_detail_count,
+                "application_high_level_count": sum(1 for node in nodes.values() if node.kind == "application"),
+                "application_detail_count": application_detail_count,
+                "infrastructure_high_level_count": infrastructure_high_level_count,
+                "infrastructure_detail_count": infrastructure_detail_count,
+                "container_high_level_count": container_high_level_count,
+                "container_detail_count": container_detail_count,
+                "false_high_level_promotion_count": None,
+                "component_false_promotion_count": None,
+                "generic_depends_on_promotion_count": generic_depends_on_promotion_count,
+                "dependency_role_counts": dependency_role_counts,
+                "architectural_dependency_precision": None,
+                "architectural_dependency_recall": None,
                 "projection_reduction_ratio": projection.reduction_ratio,
                 "significance_counts": significance_counts,
                 "external_dependency_detailed_count": len(external_ids),
@@ -426,7 +592,7 @@ class VisualizationReadModelBuilder:
                 "projected_edge_validity": projected_edge_validity,
                 "projection_traceability": projection_traceability,
                 "low_significance_preservation": bool(projection.low_significance_refs),
-                "projection_mode": "evidence_based_high_level_v1",
+                "projection_mode": "projection_closure_high_level_v1",
                 "transformation": "architecture-ir-to-visualization-read-model-v2",
             },
         ).canonicalize()
@@ -450,6 +616,7 @@ class VisualizationReadModelBuilder:
 
         nodes = [bind(item, "evidence_refs", "evidence_group_ref", "evidence_count") for item in model.nodes]
         edges = [bind(item, "evidence_refs", "evidence_group_ref", "evidence_count") for item in model.edges]
+        semantic_details = [bind(item, "evidence_refs", "evidence_group_ref", "evidence_count") for item in model.semantic_details]
         hypotheses = []
         for item in model.hypotheses:
             compacted = bind(item, "evidence_refs", "evidence_group_ref", "evidence_count")
@@ -468,6 +635,7 @@ class VisualizationReadModelBuilder:
             "nodes": nodes,
             "edges": edges,
             "hypotheses": hypotheses,
+            "semantic_details": semantic_details,
             "evidence_groups": sorted(index.groups.values(), key=lambda item: item.id),
             "metadata": metadata,
         }).canonicalize()
@@ -549,7 +717,12 @@ def validate_visualization_read_model(
         if group.evidence_count != len(set(group.evidence_refs)):
             errors.append(f"Evidence group count does not match refs: {group.id}")
 
-    grouped_items = [*model.nodes, *model.edges, *model.hypotheses]
+    allowed_high_level_ids = set(model.metadata.get("projection_node_ids", [])) | set(model.metadata.get("boundary_node_ids", []))
+    if allowed_high_level_ids and not node_id_set <= allowed_high_level_ids:
+        errors.append("Visualization read model contains a node outside projection closure")
+    if model.metadata.get("read_model_high_level_node_count") not in {None, len(node_ids)}:
+        errors.append("Visualization read model high-level count does not match node count")
+    grouped_items = [*model.nodes, *model.edges, *model.semantic_details, *model.hypotheses]
     for item in grouped_items:
         refs = list(item.evidence_refs)
         group_ref = item.evidence_group_ref
