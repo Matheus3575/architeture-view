@@ -26,6 +26,9 @@ class SemanticSvgRenderer:
     RIGHT = 320
     HYPOTHESIS_HEIGHT = 92
     INSPECTION_MIN_HEIGHT = 740
+    MAX_COLUMNS_PER_BAND = 4
+    BAND_HEADER_HEIGHT = 38
+    BAND_ROW_HEIGHT = 80
     IMPORTANT_RELATIONS = {
         "ROUTES_TO", "DEPENDS_ON", "QUERIES", "CONNECTS_TO", "DEPLOYS",
         "PUBLISHES", "CONSUMES", "FRAMEWORK_DEPENDENCY", "RESPONSE_SCHEMA",
@@ -105,14 +108,14 @@ class SemanticSvgRenderer:
             '<g id="layout-bands" aria-label="semantic groups">',
         ]
 
-        for group_key, y, group_nodes in bands:
+        for group_key, y, group_nodes, band_height in bands:
             group_id = f"group-{_safe_id(group_key)}"
             label = _escape(self._group_label(group_key))
             band_width = width - self.LEFT - self.RIGHT
             svg.append(
                 f'<g id="{group_id}" data-layout-group="{_escape(group_key)}">'
                 f'<rect x="{self.LEFT - 20}" y="{y - 30}" width="{band_width + 40}" '
-                f'height="{self.BAND_HEIGHT - 10}" rx="12" fill="#f8fafc" '
+                f'height="{band_height - 10}" rx="12" fill="#f8fafc" '
                 f'stroke="#cbd5e1"/>'
                 f'<text x="{self.LEFT - 5}" y="{y - 8}" font-family="sans-serif" '
                 f'font-size="13" font-weight="bold" fill="#334155">{label}</text></g>'
@@ -148,19 +151,31 @@ class SemanticSvgRenderer:
 
     def _layout(self, groups, hypotheses):
         positions: dict[str, tuple[int, int]] = {}
-        bands: list[tuple[str, int, list[VisualizationNode]]] = []
+        bands: list[tuple[str, int, list[VisualizationNode], int]] = []
         max_count = max((len(items) for items in groups.values()), default=1)
+        columns = min(self.MAX_COLUMNS_PER_BAND, max_count)
         content_width = max(
             760,
-            self.LEFT + max_count * (self.NODE_WIDTH + self.X_GAP) + self.RIGHT,
+            self.LEFT
+            + columns * self.NODE_WIDTH
+            + max(columns - 1, 0) * self.X_GAP
+            + self.RIGHT,
         )
-        for band_index, (group_key, items) in enumerate(groups.items()):
-            y = self.TOP + band_index * self.BAND_HEIGHT
-            bands.append((group_key, y, items))
+        y = self.TOP
+        for group_key, items in groups.items():
+            rows = max(1, (len(items) + self.MAX_COLUMNS_PER_BAND - 1) // self.MAX_COLUMNS_PER_BAND)
+            band_height = max(
+                self.BAND_HEIGHT,
+                self.BAND_HEADER_HEIGHT + rows * self.BAND_ROW_HEIGHT,
+            )
+            bands.append((group_key, y, items, band_height))
             for index, node in enumerate(items):
-                x = self.LEFT + index * (self.NODE_WIDTH + self.X_GAP)
-                positions[node.id] = (x, y + 8)
-        base_height = self.TOP + max(len(groups), 1) * self.BAND_HEIGHT + 25
+                row, column = divmod(index, self.MAX_COLUMNS_PER_BAND)
+                x = self.LEFT + column * (self.NODE_WIDTH + self.X_GAP)
+                node_y = y + self.BAND_HEADER_HEIGHT + row * self.BAND_ROW_HEIGHT
+                positions[node.id] = (x, node_y)
+            y += band_height
+        base_height = y + 25
         height = max(base_height + (self.HYPOTHESIS_HEIGHT if hypotheses else 0), self.INSPECTION_MIN_HEIGHT)
         return positions, bands, content_width, height
 

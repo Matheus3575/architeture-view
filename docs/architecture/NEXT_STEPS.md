@@ -178,3 +178,33 @@ The investigation harness and report are available at
 `docs/architecture/ALGORITHM_REFINEMENT_INVESTIGATION.md`. A real large
 repository remains optional and was not available locally; the workspace is
 not a substitute because it contains benchmark fixtures and examples.
+
+## After context/relation/layout refinement
+
+Completed:
+
+- bounded architectural context roots prevent isolated local framework facts
+  from promoting auxiliary components;
+- canonical relation identity is established at the IR boundary while source
+  spelling remains traceable;
+- relation composition and hypothesis-context diagnostics are reproducible;
+- deterministic multi-row semantic SVG packing reduces fixed-band width without
+  changing the VisualizationReadModel.
+
+Recommended next milestones:
+
+1. Run the profile/read-model comparison against a locally available large
+   repository, if one becomes available, without adding repository-specific
+   rules.
+2. Define a bounded hypothesis-context evidence contract if measurements show
+   auxiliary evidence materially affecting global hypotheses. Preserve all
+   detailed evidence and avoid a subsystem-level hypothesis engine.
+3. Improve orthogonal edge routing and label handling for crossing-heavy graphs
+   using the unchanged ReadModel. Keep layout metrics diagnostic and avoid
+   force-directed or probabilistic layout.
+4. Revisit remaining generic `DEPENDS_ON` relations only in a separate evidence
+   quality milestone; do not reinterpret them as strong architecture relations
+   without existing semantic evidence.
+
+The raw-graph performance hotspot recorded by M8.1.2 remains separate and is
+not reopened by this refinement.

@@ -563,6 +563,8 @@ class VisualizationReadModelBuilder:
                 "projection_node_count": projection.high_level_node_count,
                 "projection_node_ids": sorted(selected_ids),
                 "boundary_node_ids": sorted(boundary_ids),
+                "context_root_ids": sorted(projection.context_root_ids),
+                "context_root_count": len(projection.context_root_ids),
                 "read_model_high_level_node_count": high_level_node_count,
                 "visual_node_count": high_level_node_count,
                 "semantic_detail_node_count": len(semantic_details),

@@ -290,3 +290,54 @@ def test_svg_renderer_rejects_unknown_animation_mode():
         assert "animated" in str(exc).lower()
     else:
         raise AssertionError("renderer accepted an unknown animation mode")
+from pathlib import Path
+from architecture_recovery.pipeline import analyze_repository
+from architecture_recovery.rendering.svg import SemanticSvgRenderer
+from architecture_recovery.visualization import VisualizationReadModelBuilder
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_svg_layout_packs_large_bands_without_read_model_changes():
+    model = VisualizationReadModelBuilder().build(
+        analyze_repository(ROOT / "benchmarks" / "fixtures" / "infrastructure_semantics")
+    )
+    renderer = SemanticSvgRenderer()
+    before = model.model_dump_json()
+    groups = renderer._groups(model.nodes)
+    positions, bands, width, height = renderer._layout(groups, model.hypotheses)
+
+    assert len(groups["infrastructure"]) > renderer.MAX_COLUMNS_PER_BAND
+    assert len(set(positions.values())) == len(positions)
+    assert width < 1670
+    assert height >= renderer.INSPECTION_MIN_HEIGHT
+    assert model.model_dump_json() == before
+    assert renderer.render(model) == renderer.render(model)
+
+
+def test_svg_layout_preserves_long_labels_and_cross_group_edges():
+    model = _read_model()
+    long_label = "primary application boundary with a deliberately long neutral label"
+    expanded = model.model_copy(update={
+        "nodes": [
+            node.model_copy(update={"label": long_label}) if index == 0 else node
+            for index, node in enumerate(model.nodes)
+        ]
+    })
+    before = expanded.model_dump_json()
+    renderer = SemanticSvgRenderer()
+    groups = renderer._groups(expanded.nodes)
+    positions, _, width, height = renderer._layout(groups, expanded.hypotheses)
+    svg = renderer.render(expanded)
+    root = ElementTree.fromstring(svg)
+
+    assert len(set(positions.values())) == len(positions)
+    assert width >= 760
+    assert height >= renderer.INSPECTION_MIN_HEIGHT
+    assert expanded.model_dump_json() == before
+    assert long_label in svg
+    assert {
+        element.attrib["data-read-model-id"]
+        for element in root.iter()
+        if element.attrib.get("data-selection-kind") == "edge"
+    } == {edge.id for edge in expanded.edges}

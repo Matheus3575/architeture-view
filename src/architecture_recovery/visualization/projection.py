@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from architecture_recovery.ir import ArchitectureIR, Edge, EdgeType, EvidenceStatus, Node, NodeType
+from architecture_recovery.ir import ArchitectureIR, Edge, EdgeType, EvidenceStatus, Node, NodeType, relation_strength
 
 
 class SignificanceLevel(StrEnum):
@@ -55,6 +55,7 @@ class HighLevelArchitectureProjection(BaseModel):
     significances: list[ArchitecturalSignificance] = Field(default_factory=list)
     low_significance_refs: list[str] = Field(default_factory=list)
     unknown_refs: list[str] = Field(default_factory=list)
+    context_root_ids: list[str] = Field(default_factory=list)
 
     @property
     def reduction_ratio(self) -> float:
@@ -124,6 +125,14 @@ class ArchitecturalProjectionBuilder:
             if node.type == NodeType.EXTERNAL_DEPENDENCY
         }
         dependency_edges: list[Edge] = []
+
+        def explicit_framework_boundary(fact: Any) -> bool:
+            return bool(
+                fact.attributes.get("architectural_boundary")
+                or fact.metadata.get("architectural_boundary")
+                or fact.attributes.get("entrypoint")
+                or fact.metadata.get("entrypoint")
+            )
 
         def explicitly_boundary_node(node: Node) -> bool:
             role = str(node.metadata.get("architectural_role", node.metadata.get("role", ""))).lower()
@@ -228,6 +237,13 @@ class ArchitecturalProjectionBuilder:
                     reasons[subject].append("component detection evidence (structural, not sufficient alone)")
 
         application_ids = {node.id for node in arch_nodes.values() if node.type == NodeType.APPLICATION}
+        context_root_ids: set[str] = {
+            node.id
+            for node in arch_nodes.values()
+            if node.type == NodeType.APPLICATION and bool(node.evidence_refs)
+        }
+        for root_id in sorted(context_root_ids):
+            reasons[root_id].append("architectural context root: observed application boundary")
         component_main_context: set[str] = set()
         component_semantic_flow: set[str] = set()
         for edge in ir.architectural_graph.edges:
@@ -236,10 +252,10 @@ class ArchitecturalProjectionBuilder:
             if not source or not target:
                 continue
             if source.type == NodeType.APPLICATION and target.type == NodeType.COMPONENT:
-                if edge.type in {EdgeType.CONTAINS, EdgeType.ROUTES_TO, EdgeType.DEPLOYS, EdgeType.CALLS, EdgeType.INSTANTIATES, EdgeType.DEPENDS_ON}:
+                if edge.type in {EdgeType.ROUTES_TO, EdgeType.DEPLOYS, EdgeType.CALLS, EdgeType.INSTANTIATES}:
                     component_main_context.add(target.id)
             elif target.type == NodeType.APPLICATION and source.type == NodeType.COMPONENT:
-                if edge.type in {EdgeType.CONTAINS, EdgeType.ROUTES_TO, EdgeType.DEPLOYS, EdgeType.CALLS, EdgeType.INSTANTIATES, EdgeType.DEPENDS_ON}:
+                if edge.type in {EdgeType.ROUTES_TO, EdgeType.DEPLOYS, EdgeType.CALLS, EdgeType.INSTANTIATES}:
                     component_main_context.add(source.id)
             if source.type == NodeType.COMPONENT and target.type == NodeType.COMPONENT:
                 if edge.type in self._STRONG_EDGE_TYPES or any(
@@ -248,6 +264,45 @@ class ArchitecturalProjectionBuilder:
                 ):
                     component_semantic_flow.update({source.id, target.id})
 
+        framework_boundary_subjects = {
+            resolved
+            for fact in ir.framework_facts
+            if fact.kind in self._STRONG_FRAMEWORK_FACTS
+            for value in (fact.subject, fact.target, fact.attributes.get("endpoint"), fact.attributes.get("module"))
+            for resolved in [self._resolve(value, arch_nodes, raw_to_arch)]
+            if resolved
+        }
+        for edge in ir.architectural_graph.edges:
+            if edge.type not in {EdgeType.ROUTES_TO, EdgeType.CALLS, EdgeType.INSTANTIATES}:
+                continue
+            source = arch_nodes.get(edge.source)
+            target = arch_nodes.get(edge.target)
+            if not source or not target:
+                continue
+            if edge.source in framework_boundary_subjects and target.type == NodeType.COMPONENT:
+                component_main_context.add(target.id)
+            if edge.target in framework_boundary_subjects and source.type == NodeType.COMPONENT:
+                component_main_context.add(source.id)
+        context_component_ids = set(component_main_context) | set(component_semantic_flow)
+        framework_application_components = {
+            resolved
+            for fact in ir.framework_facts
+            if fact.kind == "APPLICATION"
+            for value in (fact.subject, fact.target, fact.attributes.get("module"))
+            for resolved in [self._resolve(value, arch_nodes, raw_to_arch)]
+            if resolved and arch_nodes.get(resolved) and arch_nodes[resolved].type == NodeType.COMPONENT
+        }
+        application_root_fact = any(
+            fact.kind == "APPLICATION"
+            and any(
+                resolved in context_root_ids
+                for value in (fact.subject, fact.target, fact.attributes.get("module"))
+                for resolved in [self._resolve(value, arch_nodes, raw_to_arch)]
+                if resolved
+            )
+            for fact in ir.framework_facts
+        )
+        single_application_component = len(framework_application_components) == 1 and not application_root_fact
         semantic_subjects: set[str] = set()
         framework_boundary_candidates: set[str] = set()
         framework_context_components: set[str] = set()
@@ -264,18 +319,21 @@ class ArchitecturalProjectionBuilder:
                 for value in (fact.subject, fact.target, fact.attributes.get("endpoint"), fact.attributes.get("module"))
             ]
             fact_context = any(
-                subject in application_ids
-                or (subject in component_main_context)
-                or (subject in component_semantic_flow and fact.kind == "APPLICATION")
+                subject in context_root_ids
+                or subject in context_component_ids
+                or (single_application_component and subject in framework_application_components)
                 for subject in resolved_values
                 if subject
-            )
+            ) or explicit_framework_boundary(fact)
             if fact.kind == "ROUTER" and fact.subject in router_context_subjects:
                 fact_context = True
             for value in (fact.subject, fact.target, fact.attributes.get("endpoint"), fact.attributes.get("module")):
                 subject = self._resolve(value, arch_nodes, raw_to_arch)
                 if not subject:
                     continue
+                if explicit_framework_boundary(fact) and subject in arch_nodes:
+                    context_root_ids.add(subject)
+                    reasons[subject].append("architectural context root: explicit framework boundary")
                 # A short module-name fallback must not attach an application fact to an external aggregate.
                 if arch_nodes.get(subject) and arch_nodes[subject].type == NodeType.EXTERNAL_DEPENDENCY:
                     continue
@@ -309,9 +367,10 @@ class ArchitecturalProjectionBuilder:
                 continue
             if edge.source in external_dependency_ids or edge.target in external_dependency_ids:
                 dependency_edges.append(edge)
-            if edge.type in self._STRONG_EDGE_TYPES:
+            strength = relation_strength(edge.type)
+            if strength == "strong":
                 category, weight = "strong", 0.40
-            elif edge.type in self._MEDIUM_EDGE_TYPES:
+            elif strength == "medium":
                 category, weight = "medium", 0.20
             else:
                 # DEPENDS_ON normally represents imports after aggregation.
@@ -358,7 +417,10 @@ class ArchitecturalProjectionBuilder:
                     NodeType.API,
                     NodeType.MODULE,
                 }:
-                    add_signal(subject, "strong", 0.45, "component owns an explicitly related infrastructure resource", relation.evidence_refs)
+                    if subject in context_root_ids or subject in context_component_ids or explicitly_boundary_node(arch_nodes[subject]):
+                        add_signal(subject, "strong", 0.45, "component owns an explicitly related infrastructure resource", relation.evidence_refs)
+                    else:
+                        reasons[subject].append("infrastructure relation observed outside justified architectural context")
         hypothesis_refs = {
             ref
             for hypothesis in ir.architecture.hypotheses
@@ -487,6 +549,7 @@ class ArchitecturalProjectionBuilder:
             significances=significances,
             low_significance_refs=low_refs,
             unknown_refs=unknown_refs,
+            context_root_ids=sorted(context_root_ids),
         )
 
     @classmethod

@@ -2,9 +2,10 @@
 
 ## Scope
 
-This investigation is diagnostic only. It observes the existing ArchitectureIR,
-ArchitecturalProjection, VisualizationReadModel and SVG renderer without
-changing their semantics. Timing is operational data; structural metrics are
+The initial baseline portion of this investigation was diagnostic-only. The
+follow-up phases implement the smallest bounded changes identified by that
+baseline while preserving the ArchitectureIR, ReadModel and evidence contracts.
+Timing is operational data; structural metrics are
 the reproducible evidence.
 
 The baseline revision is `b38c3f8` (M8.1.5). No repository-specific rule,
@@ -119,10 +120,9 @@ Architectural decisions affected: none.
 
 Unresolved questions:
 
-- Whether canonical relation normalization belongs in `InfrastructureRelation`,
-  ArchitectureIR construction, or only the renderer-neutral ReadModel.
-- What existing evidence is sufficient to distinguish an isolated application
-  boundary from an auxiliary framework usage.
+- Whether a future bounded hypothesis-context model is needed after a real
+  large-repository run; no subsystem-level hypothesis engine is part of this
+  goal.
 ## Quality metrics
 
 The controlled `significance_calibration` ground truth reports:
@@ -132,8 +132,123 @@ The controlled `significance_calibration` ground truth reports:
 - false architectural promotions: 0;
 - projected external dependencies: 1 of 9 detailed dependencies.
 
-The generated neutral context intentionally has no persisted ground truth; its
-observed auxiliary framework promotion is recorded as a diagnostic negative:
-`component:support.py` is MEDIUM/projected despite having no observed flow to the
-primary application. This is the principal candidate for the next semantic
-refinement.
+Historical baseline note: the generated neutral context intentionally has no
+persisted ground truth; before Phase 1, `component:support.py` was MEDIUM/
+projected despite having no observed flow to the primary application. Phase 1
+removes that promotion and records the negative as a regression fixture.
+
+## Final refinement result — context, relations and layout
+
+The refinement plan was executed in four bounded phases. The former baseline is
+preserved under `previous_baseline` in
+`benchmarks/refinement_investigation_baseline.json`; the file now records the
+validated post-change structural baseline and an explicit change log.
+
+### Phase 1 — architectural context boundaries
+
+The measured negative case was the generated neutral repository: an isolated
+local framework application in `component:support.py` was previously
+`MEDIUM` and projected. The cause was local framework evidence being treated as
+system context without an independent architectural boundary.
+
+The projection now builds a deterministic set of justified context roots from
+observed application boundaries and bounded semantic flow. Infrastructure and
+framework facts outside those roots do not provide contextual promotion. A
+single application-fact fallback is retained only for the unambiguous one-app
+case, preserving existing standalone application behavior. No directory, name,
+package or repository rule was added.
+
+Measured result:
+
+- generated neutral context: projected nodes `6 -> 5`;
+- isolated auxiliary framework promotion: `component:support.py -> none`;
+- context roots: `1`, the observed application boundary;
+- significance calibration: precision `1.0`, recall `1.0`, false promotions `0`;
+- controlled projected-edge evidence coverage: `1.0`;
+- all repeated IR, ReadModel and SVG outputs remained deterministic.
+
+The implementation is set-based and bounded: context-root discovery and
+context checks are linear in architectural nodes, facts and relations.
+
+### Phase 2 — canonical relation vocabulary
+
+Known infrastructure relation values are canonicalized at the IR semantic
+boundary. `DEPENDS_ON`, `CONNECTS_TO` and other existing `EdgeType` values have
+one downstream identity. If an upstream producer supplied lowercase spelling,
+`source_relation_type` is retained in relation metadata. Unknown relation names
+remain unchanged rather than being guessed.
+
+The infrastructure fixture changed from `20` projected edges with mixed
+`DEPENDS_ON/depends_on` and `CONNECTS_TO/connects_to` groups to `13` projected
+edges with no mixed-case groups. The reduction is deterministic semantic
+aggregation of equivalent relations, not filtering. Evidence, raw edge IDs,
+support counts and observations remain attached. Relation strength is now
+reported by one central helper; weights and significance semantics were not
+changed by canonicalization.
+
+The implementation is linear in relation count and does not rescan source or
+rerun resolution.
+
+### Phase 3 — relation composition diagnostics
+
+The harness now reports relation kind and strength, degree extrema, neutral top
+hubs, parallel semantic aggregation, cross-group relation count and effective
+evidence coverage including EvidenceGroups. It also reports hypothesis evidence
+refs classified by significant versus auxiliary/unknown significance context.
+
+Current representative measurements:
+
+- significance fixture: `11` projected edges; `10` weak and `1` medium;
+  `8` cross-group relations;
+- infrastructure fixture: `13` projected edges; `9` weak and `4` medium;
+  maximum out-degree `6`;
+- workspace: `19` projected edges; `16` weak and `3` medium; maximum out-degree
+  `4`, maximum in-degree `3`, `9` cross-group relations;
+- workspace hypothesis refs were predominantly linked to significant context;
+  the microservices result had `20` significant refs and `1` unclassified ref.
+
+These metrics remain diagnostic. No generic `DEPENDS_ON` edge was hidden and no
+new relation kind was invented. No hypothesis detector was changed because the
+controlled measurements did not establish a broad detector regression.
+
+### Phase 4 — deterministic SVG layout density
+
+The renderer still consumes the same immutable VisualizationReadModel. The
+layout now packs at most four nodes per semantic band row, preserving semantic
+groups and deterministic ID ordering. It does not change node/edge selection,
+evidence, significance, projection, or ArchitectureIR.
+
+Representative layout comparison:
+
+| scenario | before | after | semantic node/edge change |
+| --- | --- | --- | --- |
+| infrastructure | `1670 x 740`, `10/20` | `1080 x 740`, `9/13` | context calibration plus canonical relation aggregation |
+| significance | `1115 x 784`, `9/11` | `1080 x 784`, `9/11` | none |
+| workspace | `2040 x 784`, `16/19` | `1080 x 937`, `16/19` | none |
+
+The final harness records content width, inspection-panel width, rows per
+semantic group, route-length proxy, crossing proxy, approximate whitespace,
+label-overflow proxy and overlap count. The current representative workspace
+has `2` route-crossing proxy hits, `6100` route-length proxy units, zero node
+overlap and `0.754114` approximate whitespace ratio. These are diagnostics,
+not quality gates.
+
+The renderer test uses a long neutral label and verifies the same ReadModel,
+node IDs and edge IDs before and after rendering. No adaptive semantic
+filtering, force-directed layout or external dependency was introduced.
+
+### Stop-condition review
+
+- Existing controlled precision/recall: preserved at `1.0/1.0`.
+- UNKNOWN behavior: no speculative resolver or promotion was introduced.
+- Evidence traceability: projected controlled-edge coverage remains `1.0`.
+- Canonical provenance: lowercase source relation metadata is preserved.
+- ReadModel immutability: validated by renderer tests.
+- Project-specific heuristics: none.
+- Real-world manual run: not performed; no large repository was available
+  locally and no network access was used.
+
+The remaining visual limitation is edge routing/readability in crossing-heavy
+large graphs. The remaining semantic limitation is that hypothesis evidence is
+measured by context but not yet represented by a subsystem-level hypothesis
+model. Both are candidates for later milestones.

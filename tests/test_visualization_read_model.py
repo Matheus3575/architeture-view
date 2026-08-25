@@ -46,7 +46,7 @@ def test_read_model_preserves_infrastructure_as_distinct_nodes():
 
     assert any(node.layout_hints.get("semantic_kind") == "infrastructure" or node.kind == "infrastructure" for node in read_model.nodes)
     assert any(node.kind == "database" for node in read_model.nodes)
-    assert any(edge.kind == "depends_on" for edge in read_model.edges)
+    assert any(edge.kind == "DEPENDS_ON" for edge in read_model.edges)
     assert all(node.origin_ref for node in read_model.nodes)
 
 

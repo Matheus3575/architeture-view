@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class EvidenceStatus(StrEnum):
@@ -277,6 +277,25 @@ class InfrastructureResource(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+def canonical_relation_type(value: str | EdgeType) -> str:
+    """Return the single IR identity for a known relation vocabulary item."""
+
+    raw = value.value if isinstance(value, EdgeType) else str(value)
+    canonical = raw.upper()
+    return canonical if canonical in {item.value for item in EdgeType} else raw
+
+
+def relation_strength(value: str | EdgeType) -> str:
+    """Classify a canonical relation without changing its semantic identity."""
+
+    canonical = canonical_relation_type(value)
+    if canonical in {"ROUTES_TO", "QUERIES", "PUBLISHES", "CONSUMES"}:
+        return "strong"
+    if canonical in {"CONNECTS_TO", "DEPLOYS"}:
+        return "medium"
+    return "weak"
+
+
 class InfrastructureRelation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -288,6 +307,19 @@ class InfrastructureRelation(BaseModel):
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     evidence_refs: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def canonicalize_relation_identity(cls, value: Any) -> Any:
+        if not isinstance(value, dict) or "type" not in value:
+            return value
+        raw_type = value["type"].value if isinstance(value["type"], EdgeType) else str(value["type"])
+        canonical = canonical_relation_type(raw_type)
+        if canonical == raw_type:
+            return value
+        metadata = dict(value.get("metadata") or {})
+        metadata.setdefault("source_relation_type", raw_type)
+        return {**value, "type": canonical, "metadata": metadata}
 
 
 class ArchitectureIR(BaseModel):

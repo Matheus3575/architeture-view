@@ -323,3 +323,49 @@ The investigation harness also evaluates existing ground truths when available.
 `significance_calibration` reports significance precision 1.0, recall 1.0 and
 zero false architectural promotions. Generated scenarios intentionally report
 observations without being CI ground truths.
+
+## Algorithm refinement benchmark status
+
+The reproducible harness `benchmarks/refinement_investigation.py` now records
+context roots, significance quality, canonical relation kinds and strengths,
+degree/hub metrics, parallel aggregation, cross-group relations, effective
+evidence coverage, hypothesis context, SVG dimensions, rows per group, route
+proxies, label-overflow proxy, whitespace proxy, overlap and determinism.
+Timing remains diagnostic and is not a CI threshold.
+
+Validated representative results:
+
+```yaml
+significance_calibration:
+  projected_nodes: 9
+  projected_edges: 11
+  significance_precision: 1.0
+  significance_recall: 1.0
+  false_architectural_promotions: 0
+  svg: 1080x784
+
+infrastructure_semantics:
+  projected_nodes: 9
+  projected_edges: 13
+  mixed_relation_groups: {}
+  max_out_degree: 6
+  svg: 1080x740
+
+workspace:
+  architectural_nodes: 52
+  projected_nodes: 16
+  projected_edges: 19
+  external_detailed: 24
+  external_projected: 1
+  route_crossing_proxy_count: 2
+  node_overlap_count: 0
+  svg: 1080x937
+```
+
+The baseline file preserves the previous revision and explicitly explains the
+intentional differences: context contamination removal, relation identity
+aggregation, deterministic band packing and current working-tree cardinality.
+All controlled projected edges retain effective evidence coverage of 1.0.
+
+The complete benchmark runner and full pytest suite remain the regression gate.
+No Prefect or other network-dependent manual run was available locally.

@@ -959,3 +959,35 @@ edges render at 2,040 pixels wide because of fixed node/gap/panel dimensions.
 
 The detailed report is `ALGORITHM_REFINEMENT_INVESTIGATION.md`; the structural
 baseline is `benchmarks/refinement_investigation_baseline.json`.
+
+## Algorithm refinement plan — final measured result
+
+The context/relations/layout refinement plan was completed without changing
+accepted architecture decisions.
+
+Phase 1 found a structural context contamination: an isolated local framework
+fact could promote an auxiliary component. Justified application context roots
+and bounded semantic-flow membership now gate contextual significance. The
+neutral generated negative changed from 6 to 5 projected nodes and removed the
+isolated support promotion; the controlled significance fixture stayed at
+precision 1.0, recall 1.0 and zero false promotions.
+
+Phase 2 canonicalized known relation identities at the IR boundary. Lowercase
+source spelling is retained as `source_relation_type` metadata. The
+infrastructure fixture has no mixed relation groups after canonicalization;
+its projected edges changed from 20 to 13 through deterministic equivalent-edge
+aggregation with evidence preserved.
+
+Phase 3 added diagnostic relation composition and context-aware hypothesis
+coverage. It records kind/strength counts, degree extrema, hubs, parallel
+aggregation, cross-group relations and effective EvidenceGroup coverage. It
+does not hide generic relations or invent semantic ones.
+
+Phase 4 changed only deterministic SVG packing: semantic bands use bounded
+multiple rows. The workspace remains 16 nodes and 19 edges while width changed
+from 2040 to 1080 pixels; height changed from 784 to 937 pixels. The renderer
+receives the same ReadModel and preserves all node/edge/evidence IDs.
+
+No real-world repository was available locally. The workspace measurements are
+not treated as a real-repository quality claim. No project-specific heuristic,
+network access, heavy dependency or commit was used.

@@ -66,35 +66,35 @@ def test_infrastructure_semantics_resolves_relations_and_connections():
     assert any(
         r.source == "infrastructure:compose:docker-compose.yml:api"
         and r.target == "infrastructure:compose:docker-compose.yml:postgres"
-        and r.type == "depends_on"
+        and r.type == "DEPENDS_ON"
         for r in relations
     )
 
     assert any(
         r.source == "infrastructure:compose:docker-compose.yml:api"
         and r.target == "infrastructure:compose:docker-compose.yml:redis"
-        and r.type == "depends_on"
+        and r.type == "DEPENDS_ON"
         for r in relations
     )
 
     assert any(
         r.source == "module:main"
         and r.target == "configuration:DATABASE_URL"
-        and r.type == "depends_on"
+        and r.type == "DEPENDS_ON"
         for r in relations
     )
 
     assert any(
         r.source == "configuration:DATABASE_URL"
         and r.target == "infrastructure:compose:docker-compose.yml:postgres"
-        and r.type == "connects_to"
+        and r.type == "CONNECTS_TO"
         for r in relations
     )
 
     assert any(
         r.source == "component:main.py"
         and r.target == "infrastructure:compose:docker-compose.yml:postgres"
-        and r.type == "depends_on"
+        and r.type == "DEPENDS_ON"
         for r in relations
     )
 
@@ -109,7 +109,7 @@ def test_fake_database_and_unresolved_env_vars_remain_unknown():
 
     # 2. UNKNOWN_URL is configured in Compose, but not referenced by target services in Compose.
     # So configuration:UNKNOWN_URL connects_to some target is NOT created.
-    assert not any(r.source == "configuration:UNKNOWN_URL" and r.type == "connects_to" for r in relations)
+    assert not any(r.source == "configuration:UNKNOWN_URL" and r.type == "CONNECTS_TO" for r in relations)
 
     # 3. database (alpine) does NOT get related to main since no env var points to it.
     assert not any(

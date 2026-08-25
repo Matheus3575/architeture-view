@@ -8,6 +8,7 @@ from xml.etree import ElementTree
 from typing import Any
 
 from architecture_recovery.pipeline import analyze_repository
+from architecture_recovery.ir import canonical_relation_type
 from architecture_recovery.rendering import render_svg
 from architecture_recovery.visualization import VisualizationEvidence, VisualizationReadModelBuilder
 from architecture_recovery.web import create_visualization_server
@@ -1034,9 +1035,11 @@ def _evaluate_infrastructure(ir, ground_truth, failures):
         for actual in actual_relations:
             if actual.source == expected["source"] and actual.target == expected["target"]:
                 found = True
-                if expected.get("type") and actual.type != expected["type"]:
+                expected_type = canonical_relation_type(expected["type"]) if expected.get("type") else None
+                actual_type = canonical_relation_type(actual.type)
+                if expected_type and actual_type != expected_type:
                     failures.append(
-                        f"wrong infrastructure relation type for {actual.source}->{actual.target}: expected {expected['type']} got {actual.type}"
+                        f"wrong infrastructure relation type for {actual.source}->{actual.target}: expected {expected_type} got {actual_type}"
                     )
                 break
         if found:

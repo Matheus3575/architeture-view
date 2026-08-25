@@ -250,3 +250,28 @@ Observed priority order:
 3. measure and improve SVG layout density after semantic inputs are corrected.
 
 No ArchitectureIR, projection, ReadModel or renderer semantics were changed.
+
+## Algorithm refinement status
+
+The context-boundary, canonical-relation and semantic-layout refinement is
+complete.
+
+Architectural context is represented internally by deterministic justified
+context-root IDs. Application boundaries and bounded semantic flow can support
+context; isolated framework facts, infrastructure facts and generic dependency
+relations cannot manufacture system context. Multiple independent application
+roots remain supported.
+
+Known relation spellings are canonicalized at the InfrastructureRelation/IR
+boundary through shared helpers. Source spelling remains in metadata when it
+differs. Relation strength is centralized for diagnostics and does not change
+significance weights by itself.
+
+The SVG renderer now packs large semantic groups into bounded rows. The
+ReadModel remains the authority for node and edge identity, significance,
+evidence and detail preservation. Layout metrics are diagnostic only.
+
+No ADR was created: the existing ADR-001/002/003 contracts remain sufficient.
+The next semantic opportunity is a bounded model for hypothesis evidence by
+architectural context; the next visual opportunity is more readable routing
+for crossing-heavy graphs without altering the ReadModel.
