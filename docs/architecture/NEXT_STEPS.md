@@ -160,3 +160,21 @@ dependency roles and projected edge composition, followed by a bounded
 consumer for dependency/detail inspection. Remaining generic DEPENDS_ON edges
 may need a separate evidence-quality milestone; they must not be reinterpreted
 as strong architecture relations here.
+
+## Next steps after algorithm refinement investigation
+
+The next implementation milestone should address the residual contextual
+promotion of auxiliary framework components using an evidence chain to the
+primary application or an explicit independent boundary. Add neutral positive
+and negative fixtures before changing weights or propagation.
+
+After that, define canonical relation identity across InfrastructureRelation,
+ArchitectureIR and the renderer-neutral ReadModel, preserving evidence and
+compatibility. Only then start a renderer-only layout-density milestone for
+fixed-band width, labels and edge routing.
+
+The investigation harness and report are available at
+`benchmarks/refinement_investigation.py` and
+`docs/architecture/ALGORITHM_REFINEMENT_INVESTIGATION.md`. A real large
+repository remains optional and was not available locally; the workspace is
+not a substitute because it contains benchmark fixtures and examples.

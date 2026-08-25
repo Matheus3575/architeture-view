@@ -10,6 +10,7 @@ decisions; consult accepted ADRs first when interpreting conflicts.
 - [Raw Graph Semantic Status](RAW_GRAPH_STATUS.md)
 - [Benchmark and Quality Status](BENCHMARK_STATUS.md)
 - [Algorithm Next Steps](NEXT_STEPS.md)
+- [Algorithm Refinement Investigation](ALGORITHM_REFINEMENT_INVESTIGATION.md)
 
 ## Purpose
 

@@ -1,0 +1,130 @@
+{
+  "algorithm_changes_applied": false,
+  "invariants": {
+    "animated_svg_valid": true,
+    "deterministic": true,
+    "projection_closure_valid": true,
+    "projection_traceability": true,
+    "static_svg_valid": true
+  },
+  "scenarios": {
+    "infrastructure_semantics": {
+      "architectural_nodes": 13,
+      "mixed_relation_groups": {
+        "CONNECTS_TO": [
+          "CONNECTS_TO",
+          "connects_to"
+        ],
+        "DEPENDS_ON": [
+          "DEPENDS_ON",
+          "depends_on"
+        ]
+      },
+      "projected_edge_evidence_coverage": 1.0,
+      "projected_edges": 20,
+      "projected_nodes": 10,
+      "raw_edges": 24,
+      "raw_nodes": 17,
+      "semantic_details": 6,
+      "svg_bytes": 93144,
+      "svg_height": 740,
+      "svg_width": 1670
+    },
+    "neutral_context_generated": {
+      "architectural_nodes": 7,
+      "external_detailed": 1,
+      "external_projected": 1,
+      "projected_edge_evidence_coverage": 1.0,
+      "projected_edges": 8,
+      "projected_nodes": 6,
+      "quality": {
+        "auxiliary_framework_promotions_observed": [
+          "component:support.py"
+        ],
+        "ground_truth_available": false
+      },
+      "raw_edges": 21,
+      "raw_nodes": 15,
+      "semantic_details": 9,
+      "svg_bytes": 58235,
+      "svg_height": 740,
+      "svg_width": 930
+    },
+    "projection_many_modules": {
+      "architectural_nodes": 6,
+      "projected_edge_evidence_coverage": 1.0,
+      "projected_edges": 5,
+      "projected_nodes": 5,
+      "raw_edges": 101,
+      "raw_nodes": 99,
+      "semantic_details": 5,
+      "svg_bytes": 55691,
+      "svg_height": 740,
+      "svg_width": 760
+    },
+    "significance_calibration": {
+      "architectural_nodes": 21,
+      "external_detailed": 9,
+      "external_projected": 1,
+      "mixed_relation_groups": {
+        "DEPENDS_ON": [
+          "DEPENDS_ON",
+          "depends_on"
+        ]
+      },
+      "projected_edge_evidence_coverage": 1.0,
+      "projected_edges": 11,
+      "projected_nodes": 9,
+      "quality": {
+        "false_architectural_promotions": 0,
+        "ground_truth_available": true,
+        "significance_precision": 1.0,
+        "significance_recall": 1.0
+      },
+      "raw_edges": 42,
+      "raw_nodes": 35,
+      "semantic_details": 16,
+      "svg_bytes": 72717,
+      "svg_height": 784,
+      "svg_width": 1115
+    },
+    "visualization_read_model": {
+      "architectural_nodes": 6,
+      "external_detailed": 1,
+      "external_projected": 1,
+      "projected_edge_evidence_coverage": 1.0,
+      "projected_edges": 5,
+      "projected_nodes": 5,
+      "raw_edges": 10,
+      "raw_nodes": 8,
+      "semantic_details": 9,
+      "svg_bytes": 47019,
+      "svg_height": 740,
+      "svg_width": 760
+    },
+    "workspace": {
+      "architectural_nodes": 52,
+      "evidence_group_edge_bindings": 4,
+      "external_detailed": 24,
+      "external_projected": 1,
+      "mixed_relation_groups": {
+        "DEPENDS_ON": [
+          "DEPENDS_ON",
+          "depends_on"
+        ]
+      },
+      "projected_edge_evidence_coverage": 1.0,
+      "projected_edges": 19,
+      "projected_nodes": 16,
+      "raw_edges": 3391,
+      "raw_nodes": 1436,
+      "semantic_details": 131,
+      "svg_bytes": 322733,
+      "svg_height": 784,
+      "svg_width": 2040
+    }
+  },
+  "schema_version": "0.1",
+  "source_revision": "b38c3f8",
+  "timing_is_diagnostic": true
+}

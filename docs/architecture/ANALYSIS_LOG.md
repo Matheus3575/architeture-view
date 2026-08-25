@@ -936,3 +936,26 @@ after M8.1.5:
 
 The real-world-like controlled fixture now reports one projected external
 dependency, precision 1.0, recall 1.0 and zero false dependency promotions.
+
+## Algorithm refinement investigation
+
+The diagnostic investigation at baseline revision `b38c3f8` measured quality,
+semantic context, relation vocabulary and SVG composition without changing the
+analysis algorithm. Controlled fixtures and a generated neutral context were
+deterministic, projection closure remained valid and effective projected-edge
+evidence coverage was 1.0 when inline refs and EvidenceGroups were counted.
+
+The main residual semantic finding is contextual promotion of an isolated local
+framework application: the neutral `component:support.py` became MEDIUM and was
+projected without an observed flow to the primary application. The workspace
+shows the analogous boundary-contamination symptom in `component:benchmarks`
+(HIGH) and `component:examples` (MEDIUM), but the workspace contains fixtures and
+multiple Compose stacks and is not ground truth for a product repository.
+
+A second finding is relation vocabulary drift: infrastructure relations emit
+`depends_on`/`connects_to` while ArchitectureIR edges use `DEPENDS_ON`/
+`CONNECTS_TO`. The SVG density finding is downstream: 16 workspace nodes and 19
+edges render at 2,040 pixels wide because of fixed node/gap/panel dimensions.
+
+The detailed report is `ALGORITHM_REFINEMENT_INVESTIGATION.md`; the structural
+baseline is `benchmarks/refinement_investigation_baseline.json`.

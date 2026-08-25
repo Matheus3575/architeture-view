@@ -233,3 +233,20 @@ precision/recall placeholders for benchmark evaluation, projected-edge validity
 and traceability. The implementation remains bounded and uses one contextual
 pass with set membership; no filesystem rescan, reparse, resolver rerun,
 ranking or propagation to convergence was added.
+
+## Algorithm refinement investigation status
+
+The investigation harness is complete and diagnostic-only. It measures
+significance levels, component/dependency cardinalities, relation vocabulary,
+evidence coverage including EvidenceGroups, projection closure, SVG dimensions,
+layout groups and deterministic repeated output.
+
+Observed priority order:
+
+1. calibrate application/framework context so isolated auxiliary components do
+   not inherit significance from local framework facts;
+2. define a canonical relation vocabulary across infrastructure and architectural
+   consumers without losing source semantics;
+3. measure and improve SVG layout density after semantic inputs are corrected.
+
+No ArchitectureIR, projection, ReadModel or renderer semantics were changed.

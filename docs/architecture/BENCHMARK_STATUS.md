@@ -302,3 +302,24 @@ significance_calibration:
 
 The complete benchmark runner remains the regression gate. Timing remains
 diagnostic; no absolute performance threshold was added.
+
+## Algorithm refinement investigation benchmark
+
+`benchmarks/refinement_investigation.py` provides a reproducible diagnostic
+matrix for significance calibration, ReadModel closure, infrastructure
+semantics, many-module projection, the workspace and a generated neutral
+context. It records structural cardinalities, significance distribution,
+relation vocabulary, effective evidence coverage, SVG dimensions/bytes and
+repeatability. Timing is reported only for diagnosis.
+
+The baseline revision produced deterministic results in every scenario. The
+workspace had 52 architectural nodes, 16 projected nodes, 131 semantic details,
+19 projected edges, 24 detailed external dependencies with 1 projected, and a
+2,040 x 784 static SVG. The neutral context exposed one residual isolated
+framework-component promotion. The infrastructure fixture exposed both
+lowercase and uppercase relation forms.
+
+The investigation harness also evaluates existing ground truths when available.
+`significance_calibration` reports significance precision 1.0, recall 1.0 and
+zero false architectural promotions. Generated scenarios intentionally report
+observations without being CI ground truths.
