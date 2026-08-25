@@ -54,6 +54,10 @@ class PythonRepositoryClassifier:
     def __init__(self, snapshot: RepositorySnapshot, parsed_files: list[ParseFacts]) -> None:
         self.snapshot = snapshot
         self.parsed_files = parsed_files
+        self._classify_path_cache: dict[str, tuple[SourceOrigin, str]] = {}
+        self._local_resolution_cache: dict[
+            str, tuple[str | None, str, SourceOrigin | None]
+        ] = {}
         self.local_modules = frozenset(
             facts.module_name
             for facts in parsed_files
@@ -71,18 +75,26 @@ class PythonRepositoryClassifier:
         }
 
     def classify_path(self, path: str) -> tuple[SourceOrigin, str]:
+        cache_key = str(path)
+        cached = self._classify_path_cache.get(cache_key)
+        if cached is not None:
+            return cached
         absolute = (self.snapshot.root / path).resolve()
         try:
             parts = {part.lower() for part in absolute.relative_to(self.snapshot.root).parts}
         except ValueError:
-            return SourceOrigin.UNKNOWN, "Path is outside the repository boundary"
-        if parts & self.generated_markers or absolute.name.lower().endswith("_generated.py"):
-            return SourceOrigin.GENERATED, "Path uses a generated-code marker"
-        if parts & (self.third_party_markers | self.snapshot.boundary.dependency_markers):
-            return SourceOrigin.THIRD_PARTY, "Path is inside a dependency or vendor boundary"
-        if self.snapshot.boundary.is_first_party_path(absolute):
-            return SourceOrigin.FIRST_PARTY, "Path is inside the repository boundary"
-        return SourceOrigin.UNKNOWN, "Path is outside the repository boundary"
+            result = (SourceOrigin.UNKNOWN, "Path is outside the repository boundary")
+        else:
+            if parts & self.generated_markers or absolute.name.lower().endswith("_generated.py"):
+                result = (SourceOrigin.GENERATED, "Path uses a generated-code marker")
+            elif parts & (self.third_party_markers | self.snapshot.boundary.dependency_markers):
+                result = (SourceOrigin.THIRD_PARTY, "Path is inside a dependency or vendor boundary")
+            elif self.snapshot.boundary.is_first_party_path(absolute):
+                result = (SourceOrigin.FIRST_PARTY, "Path is inside the repository boundary")
+            else:
+                result = (SourceOrigin.UNKNOWN, "Path is outside the repository boundary")
+        self._classify_path_cache[cache_key] = result
+        return result
 
     def resolve_import(self, item: ImportFact) -> ImportResolution:
         canonical = self.canonical_import(item)
@@ -187,13 +199,7 @@ class PythonRepositoryClassifier:
         resolution = self.resolve_import(item)
         if resolution.origin != SourceOrigin.FIRST_PARTY:
             return None
-        matches = [
-            module
-            for module in self.local_modules
-            if resolution.canonical_name == module
-            or resolution.canonical_name.startswith(f"{module}.")
-        ]
-        return max(matches, key=len) if matches else None
+        return self._longest_local_module(resolution.canonical_name)
 
     @staticmethod
     def canonical_import(item: ImportFact) -> str:
@@ -229,32 +235,44 @@ class PythonRepositoryClassifier:
     def _local_resolution(
         self, canonical: str
     ) -> tuple[str | None, str, SourceOrigin | None]:
-        module_matches = [
-            module
-            for module in self.local_modules
-            if canonical == module or canonical.startswith(f"{module}.")
-        ]
-        module_name = max(module_matches, key=len) if module_matches else canonical
+        cached = self._local_resolution_cache.get(canonical)
+        if cached is not None:
+            return cached
+        module_name = self._longest_local_module(canonical)
+        module_matches = module_name != canonical or canonical in self.local_modules
         candidates = self.snapshot.boundary.module_candidates(module_name)
         if len(candidates) > 1:
-            return (
+            result = (
                 "ambiguous",
                 f"Multiple repository package roots provide module {module_name}",
                 SourceOrigin.UNKNOWN,
             )
-        if len(candidates) == 1:
+        elif len(candidates) == 1:
             path = candidates[0]
             relative = path.relative_to(self.snapshot.root).as_posix()
             origin, reason = self.classify_path(relative)
             if origin in {SourceOrigin.FIRST_PARTY, SourceOrigin.GENERATED}:
-                return "local", reason, origin
-        if module_matches:
-            return (
+                result = ("local", reason, origin)
+            else:
+                result = (None, "", None)
+        elif module_matches:
+            result = (
                 "local",
                 "Import matches a parsed module inside the repository boundary",
                 SourceOrigin.FIRST_PARTY,
             )
-        return None, "", None
+        else:
+            result = (None, "", None)
+        self._local_resolution_cache[canonical] = result
+        return result
+
+    def _longest_local_module(self, canonical: str) -> str:
+        parts = canonical.split(".")
+        for end in range(len(parts), 0, -1):
+            candidate = ".".join(parts[:end])
+            if candidate in self.local_modules:
+                return candidate
+        return canonical
 
     def _installed_origin(self, package: str) -> tuple[SourceOrigin, str] | None:
         try:

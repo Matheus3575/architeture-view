@@ -28,6 +28,11 @@ class PropertyGraph:
     edges: list[Edge] = field(default_factory=list)
     evidence: dict[str, Evidence] = field(default_factory=dict)
     unresolved_calls: list[UnresolvedCall] = field(default_factory=list)
+    _edge_index: dict[tuple[str, str, EdgeType], int] = field(default_factory=dict, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        for index, edge in enumerate(self.edges):
+            self._edge_index.setdefault((edge.source, edge.target, edge.type), index)
 
     def add_evidence(self, evidence: Evidence) -> str:
         self.evidence[evidence.id] = evidence
@@ -38,17 +43,9 @@ class PropertyGraph:
 
     def add_edge(self, edge: Edge) -> None:
         if edge.source in self.nodes and edge.target in self.nodes:
-            existing = next(
-                (
-                    existing
-                    for existing in self.edges
-                    if existing.source == edge.source
-                    and existing.target == edge.target
-                    and existing.type == edge.type
-                ),
-                None,
-            )
-            if existing is None:
+            key = (edge.source, edge.target, edge.type)
+            existing_index = self._edge_index.get(key)
+            if existing_index is None:
                 if edge.id is None:
                     token = f"{edge.source}:{edge.target}:{edge.type.value}".encode()
                     edge = edge.model_copy(update={"id": f"edge:{hashlib.sha1(token).hexdigest()[:16]}"})
@@ -57,8 +54,10 @@ class PropertyGraph:
                         update={"metadata": {**edge.metadata, "support_count": 1}}
                     )
                 self.edges.append(edge)
+                self._edge_index[key] = len(self.edges) - 1
                 return
 
+            existing = self.edges[existing_index]
             merged_evidence = sorted(set(existing.evidence_refs + edge.evidence_refs))
             merged_raw_edges = sorted(set(existing.raw_edge_ids + edge.raw_edge_ids))
             merged_metadata = {**existing.metadata}
@@ -70,7 +69,7 @@ class PropertyGraph:
                 observations = list(existing.metadata.get("supporting_observations", []))
                 observations.append(dict(edge.metadata))
                 merged_metadata["supporting_observations"] = observations
-            self.edges[self.edges.index(existing)] = existing.model_copy(
+            self.edges[existing_index] = existing.model_copy(
                 update={
                     "evidence_refs": merged_evidence,
                     "raw_edge_ids": merged_raw_edges,

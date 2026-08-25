@@ -11,6 +11,7 @@ from architecture_recovery.parsing import (
     ReturnFact,
     TypeHintFact,
 )
+from architecture_recovery.profiling import AnalysisProfile, profile_stage
 
 
 @dataclass(frozen=True)
@@ -157,7 +158,11 @@ class SymbolIndex:
 
 
 class SymbolResolver:
-    def resolve(self, parsed_files: list[ParseFacts]) -> SymbolIndex:
+    def resolve(
+        self,
+        parsed_files: list[ParseFacts],
+        profile: AnalysisProfile | None = None,
+    ) -> SymbolIndex:
         index = SymbolIndex()
         for facts in parsed_files:
             for definition in facts.definitions:
@@ -182,8 +187,16 @@ class SymbolResolver:
             for hint in facts.type_hints:
                 index.type_hints_by_scope.setdefault(hint.scope, {})[hint.name] = hint.annotation
 
-        self._collect_return_targets(index, parsed_files)
-        self._collect_local_flow(index, parsed_files)
+        with profile_stage(profile, "basic_data_flow") as timer:
+            self._collect_return_targets(index, parsed_files)
+            self._collect_local_flow(index, parsed_files)
+            if timer:
+                timer.set_counts(
+                    assignments=sum(len(facts.assignments) for facts in parsed_files),
+                    returns=sum(len(facts.returns) for facts in parsed_files),
+                    scopes=len(index.instances_by_scope),
+                    flow_entries=len(index.flow_evidence),
+                )
 
         index.flow_stats["scope_count"] = len(index.instances_by_scope)
         index.flow_stats["assignment_count"] = sum(len(facts.assignments) for facts in parsed_files)

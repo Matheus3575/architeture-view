@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .evidence import EvidenceGroup, EvidencePayloadIndex
 from .projection import ArchitecturalProjectionBuilder, ArchitecturalSignificance, HighLevelArchitectureProjection
+from architecture_recovery.profiling import AnalysisProfile, profile_stage
 
 from architecture_recovery.ir import (
     ArchitectureIR,
@@ -115,7 +116,19 @@ class VisualizationReadModel(BaseModel):
 class VisualizationReadModelBuilder:
     """Project existing ArchitectureIR facts into a renderer-neutral read model."""
 
-    def build(self, ir: ArchitectureIR) -> VisualizationReadModel:
+    def build(self, ir: ArchitectureIR, profile: AnalysisProfile | None = None) -> VisualizationReadModel:
+        with profile_stage(profile, "visualization_read_model") as timer:
+            result = self._build(ir, profile)
+            if timer:
+                timer.set_counts(
+                    detailed_nodes=int(result.metadata.get("detailed_node_count", len(result.nodes))),
+                    projected_nodes=int(result.metadata.get("high_level_node_count", len(result.nodes))),
+                    projected_edges=len(result.edges), projected_edge_count=len(result.edges),
+                    evidence_groups=len(result.evidence_groups),
+                )
+            return result
+
+    def _build(self, ir: ArchitectureIR, profile: AnalysisProfile | None = None) -> VisualizationReadModel:
         arch_nodes = {node.id: node for node in ir.architectural_graph.nodes}
         raw_nodes = {node.id: node for node in ir.raw_graph.nodes}
         raw_to_arch = self._raw_to_arch(ir)
@@ -328,7 +341,14 @@ class VisualizationReadModelBuilder:
             )
             for item in ir.evidence
         ]
-        projection = ArchitecturalProjectionBuilder().build(ir)
+        with profile_stage(profile, "architectural_significance_projection") as timer:
+            projection = ArchitecturalProjectionBuilder().build(ir)
+            if timer:
+                timer.set_counts(
+                    detailed_nodes=projection.detailed_node_count,
+                    projected_nodes=projection.high_level_node_count,
+                    projected_edges=len(projection.projected_edges),
+                )
         significance_by_subject = {item.subject: item for item in projection.significances}
         selected_ids = set(projection.projected_node_ids)
         semantic_ids = {

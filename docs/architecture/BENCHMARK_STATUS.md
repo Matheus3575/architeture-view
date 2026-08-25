@@ -204,3 +204,15 @@ evidence_payload_reduction_ratio: 0.693306
 ```
 
 The complete collection remains recoverable through the Read Model groups, duplicate associations are deterministic, and SVG/inspection output remains valid. The reduction is a representation metric, not an architectural quality metric.
+
+## M8.1.2 status
+
+The separate scale benchmark exercises 50/200/400 Python modules with imports, aliases, functions, classes and calls, then builds the VisualizationReadModel. One observed final run reported:
+
+50_modules: {files: 51, symbols: 150, raw_nodes: 254, raw_edges: 352, evidence: 356, architectural_nodes: 3, architectural_edges: 2, projected_nodes: 2, projected_edges: 1, evidence_groups: 1, total_seconds: 0.403}
+200_modules: {files: 201, symbols: 600, raw_nodes: 1004, raw_edges: 1402, evidence: 1406, architectural_nodes: 3, architectural_edges: 2, projected_nodes: 2, projected_edges: 1, evidence_groups: 1, total_seconds: 1.083}
+400_modules: {files: 401, symbols: 1200, raw_nodes: 2004, raw_edges: 2802, evidence: 2806, architectural_nodes: 3, architectural_edges: 2, projected_nodes: 2, projected_edges: 1, evidence_groups: 1, total_seconds: 2.180}
+growth_200_to_400: {input_ratio: 2.0, runtime_ratio: 2.012}
+profile_enabled_semantic_equivalence: true
+
+The comparable analysis-only measurement was 2.761 seconds before the measured Raw Graph optimizations and 1.949 seconds after; Raw Graph changed from 1.315 to 0.393 seconds in those observed runs. Timing is operational data, not a CI threshold. The regular benchmark runner remains separate.

@@ -822,3 +822,22 @@ M8.1.1 hardens only the representation boundary between `VisualizationReadModel`
 The SVG interaction payload carries each large reference collection once through the shared group index and includes evidence details only for the bounded first inspection window. Inspection reports the total count and the first 20 observations. The complete evidence collection remains available in the Read Model and the group's complete reference list. Duplicate associations are removed per element and equal sets share the same group ID.
 
 The change does not alter ArchitectureIR, Architectural Significance, High-Level Architecture Projection, nodes, edges, hypotheses or architectural relations. It is a serialization/performance refinement only. No ADR was created because the existing evidence and renderer-boundary decisions remain sufficient.
+
+## M8.1.2 — Scale profiling and measured hotspot reduction
+
+The milestone instrumentation is opt-in and external to ArchitectureIR. It records macro timings and bounded cardinalities for acquisition (remote repositories), scanner, stack detection, parser, Basic Data Flow, Symbol Resolution, Raw Graph, Source Origin, framework adapters, infrastructure semantics, component detection, ArchitectureIR, hypotheses, validation, architectural significance/projection, VisualizationReadModel and SVG rendering. Profiling is printed after CLI execution and does not serialize into ArchitectureIR.
+
+The baseline pending implementation measured a 400-module analysis at 2.761 seconds, with Raw Graph at 1.315 seconds. The same analysis after optimization measured 1.949 seconds, with Raw Graph at 0.393 seconds. These are observed runs on the local synthetic fixture, not timing gates. The final scale run including VisualizationReadModel measured 2.180 seconds at 400 modules.
+
+The confirmed Raw Graph hotspot was repeated edge deduplication/search plus repeated local-import boundary resolution. PropertyGraph.add_edge now indexes (source, target, relation_type) and keeps the existing evidence/raw-edge/support merge semantics. Python import boundary resolution caches the deterministic result per canonical import. Existing path-classification caching and longest-local-module lookup remain in place.
+
+The expected insertion lookup complexity is now O(1) for edge identity, with merge work proportional to the evidence payload being merged, instead of scanning all existing edges. Local resolution is amortized per canonical import; ambiguous candidates remain UNKNOWN and no global unsafe fallback was introduced.
+
+The final isolated cProfile run on 400 modules measured 2.731 seconds. Its largest remaining cumulative stage was StackDetector source reading at approximately 0.504 seconds, followed by source-origin preparation and Raw Graph construction. StackDetector was not changed because safe reuse of parser source text requires a separate design measurement.
+
+The 50/200/400 scale run recorded linear cardinalities:
+- 50 modules: 51 files, 150 symbols, 254 raw nodes, 352 raw edges, 356 evidence.
+- 200 modules: 201 files, 600 symbols, 1004 raw nodes, 1402 raw edges, 1406 evidence.
+- 400 modules: 401 files, 1200 symbols, 2004 raw nodes, 2802 raw edges, 2806 evidence.
+
+Profile-enabled and disabled ArchitectureIR JSON remains identical. The scale harness also records architectural nodes/edges, components, projected nodes/edges, EvidenceGroups and runtime ratios without imposing fragile timing thresholds.

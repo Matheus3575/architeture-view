@@ -166,3 +166,13 @@ Evidence payload serialization is now shared and bounded. `EvidenceGroup` is the
 The builder performs one indexed pass over visual evidence associations. Large node, edge and hypothesis associations are represented by group references and counts, while small lists remain inline. SVG elements expose stable IDs, status, confidence, origin, count and group reference. The inspection panel resolves the shared index and displays at most the first 20 evidence items. Read Model validation checks group identity, counts and all group references against the complete evidence set.
 
 This milestone preserves the distinction: traceability is provided by references and indexes, not by duplicating the complete evidence set inside every visual element. ArchitectureIR and HighLevelArchitectureProjection are unchanged semantically.
+
+## M8.1.2 status
+
+Macro profiling is opt-in through AnalysisProfile and the CLI --profile option on analyze, visualize and serve. It reports stage elapsed time and bounded cardinalities without changing analysis inputs, ordering, IDs, evidence refs, confidence, UNKNOWN results, hypotheses or projection.
+
+The measured optimization covers two proven Raw Graph costs: edge deduplication now uses a deterministic identity index, and repeated local import boundary resolution uses a canonical-import cache. Existing origin path caching and longest-local-module matching remain unchanged. Edge evidence refs, raw edge IDs, supporting observations and support counts are merged exactly as before.
+
+The synthetic scale harness lives in benchmarks/scale_profile.py and uses temporary repositories at 50, 200 and 400 modules. It records raw and architectural cardinalities, projection/read-model cardinalities and growth ratios. The profile remains a diagnostic boundary; ArchitectureIR and the high-level projection contracts are unchanged semantically.
+
+The remaining measured hotspot is source text reading in StackDetector; it is intentionally deferred until source-content reuse can be designed and measured without changing stack evidence.

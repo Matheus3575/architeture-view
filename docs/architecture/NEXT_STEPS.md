@@ -120,3 +120,9 @@ M8.1 is complete. High-level projection now decides architectural visibility bef
 M8.1.1 is complete. Large evidence associations now use shared deterministic groups at the VisualizationReadModel/SVG boundary. Full traceability remains available through the Read Model; visual attributes contain stable group references and counts, and inspection is bounded to the first 20 observations. ArchitectureIR, Architectural Significance and High-Level Architecture Projection are unchanged.
 
 The next recommended milestone is Architectural Decision Recovery over materialized evidence, with explicit separation between observed technical facts and inferred human intent. A future navigation milestone may consume `contains_refs` and evidence groups for drill-down without reintroducing duplicated SVG payloads.
+
+## M8.1.2 result
+
+M8.1.2 is complete as measured profiling and limited hotspot reduction. The CLI prints macro timings and cardinalities after execution, the synthetic harness covers small/medium/large inputs, and profile-enabled output is semantically identical to the unprofiled result.
+
+The next recommended step is a focused measurement/design pass for duplicate source reads in StackDetector. If a representative local large repository is available, run it manually with --profile; PrefectHQ/prefect remains optional and is not a suite dependency. Do not introduce parallelism or change evidence semantics to hide the remaining hotspot.

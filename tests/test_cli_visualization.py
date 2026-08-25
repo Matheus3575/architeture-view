@@ -129,3 +129,23 @@ def test_visualize_output_is_svg_not_architecture_json(monkeypatch, tmp_path):
     text = output.read_text(encoding="utf-8")
     assert text.startswith('<?xml version="1.0"')
     assert "<svg " in text
+
+def test_visualize_profile_prints_macro_report(monkeypatch, tmp_path, capsys):
+    analyzed = analyze_repository(FIXTURE)
+    captured = {}
+
+    def fake_analyze(repository, **kwargs):
+        captured["profile"] = kwargs["profile"]
+        assert captured["profile"] is not None
+        return analyzed
+
+    monkeypatch.setattr(cli, "analyze_repository", fake_analyze)
+    output = tmp_path / "profile.svg"
+
+    assert cli.main(["visualize", str(FIXTURE), "--output", str(output), "--profile"]) == 0
+    assert "Architecture Recovery Profile" in capsys.readouterr().out
+    assert set(captured["profile"].stages) >= {
+        "architectural_significance_projection",
+        "visualization_read_model",
+        "svg_rendering",
+    }

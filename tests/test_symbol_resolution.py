@@ -170,6 +170,7 @@ def test_duplicate_edges_merge_evidence_without_creating_duplicate_edges():
             target="b",
             type=EdgeType.CALLS,
             evidence_refs=["evidence:1"],
+            raw_edge_ids=["raw:1"],
             metadata={"call_line": 1},
         )
     )
@@ -179,12 +180,15 @@ def test_duplicate_edges_merge_evidence_without_creating_duplicate_edges():
             target="b",
             type=EdgeType.CALLS,
             evidence_refs=["evidence:2"],
+            raw_edge_ids=["raw:2"],
             metadata={"call_line": 2},
         )
     )
 
     assert len(graph.edges) == 1
     assert graph.edges[0].evidence_refs == ["evidence:1", "evidence:2"]
+    assert graph.edges[0].raw_edge_ids == ["raw:1", "raw:2"]
+    assert graph._edge_index[("a", "b", EdgeType.CALLS)] == 0
     assert graph.edges[0].metadata["support_count"] == 2
     assert graph.edges[0].metadata["supporting_observations"] == [{"call_line": 2}]
 

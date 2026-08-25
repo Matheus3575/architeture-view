@@ -7,6 +7,7 @@ from pathlib import Path
 from .graph import GraphAggregationConfig
 from .ir.schema import json_schema
 from .pipeline import analyze_repository
+from .profiling import AnalysisProfile, profile_stage
 from .rendering import render_graphml, render_mermaid, render_svg
 from .visualization import VisualizationReadModelBuilder
 from .web import serve_visualization
@@ -34,6 +35,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="json",
     )
     analyze.add_argument("--strict", action="store_true")
+    analyze.add_argument("--profile", action="store_true", help="Print macro stage timings and cardinalities")
 
     visualize = subparsers.add_parser(
         "visualize",
@@ -74,6 +76,7 @@ def _add_visualization_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", default=8000, type=int)
+    parser.add_argument("--profile", action="store_true", help="Print macro stage timings and cardinalities")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -95,10 +98,14 @@ def main(argv: list[str] | None = None) -> int:
             serve=args.command == "serve" or args.serve,
             host=args.host,
             port=args.port,
+            profile=AnalysisProfile() if args.profile else None,
         )
         return 0
 
+    profile = AnalysisProfile() if args.profile else None
     analysis_kwargs = {"ref": args.ref}
+    if profile:
+        analysis_kwargs["profile"] = profile
     if args.include_standard_library or args.exclude_unknown or args.exclude_generated:
         analysis_kwargs["aggregation_config"] = GraphAggregationConfig(
             include_standard_library=args.include_standard_library,
@@ -113,6 +120,8 @@ def main(argv: list[str] | None = None) -> int:
         args.format,
         args.classification_report,
     )
+    if profile:
+        print(profile.render_text())
     return 1 if args.strict and not ir.validation.valid else 0
 
 
@@ -124,21 +133,31 @@ def _run_visualization(
     serve: bool,
     host: str,
     port: int,
+    profile: AnalysisProfile | None = None,
 ) -> None:
-    ir = analyze_repository(repository)
-    read_model = VisualizationReadModelBuilder().build(ir)
+    ir = analyze_repository(repository, **({"profile": profile} if profile else {}))
+    read_model = VisualizationReadModelBuilder().build(ir, profile=profile)
 
     static_path = Path(output)
-    static_svg = render_svg(read_model, mode="static")
+    with profile_stage(profile, "svg_rendering") as timer:
+        static_svg = render_svg(read_model, mode="static")
+        if timer:
+            timer.set_counts(bytes=len(static_svg.encode("utf-8")), mode="static")
     static_path.write_text(static_svg, encoding="utf-8")
     print(f"Static SVG: {static_path}")
 
     animated_path: Path | None = None
     if animated:
         animated_path = _animated_path(static_path)
-        animated_svg = render_svg(read_model, mode="animated")
+        with profile_stage(profile, "svg_rendering_animated") as timer:
+            animated_svg = render_svg(read_model, mode="animated")
+            if timer:
+                timer.set_counts(bytes=len(animated_svg.encode("utf-8")), mode="animated")
         animated_path.write_text(animated_svg, encoding="utf-8")
         print(f"Animated SVG: {animated_path}")
+
+    if profile:
+        print(profile.render_text())
 
     if serve:
         serve_visualization(
