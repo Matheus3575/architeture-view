@@ -991,3 +991,54 @@ receives the same ReadModel and preserves all node/edge/evidence IDs.
 No real-world repository was available locally. The workspace measurements are
 not treated as a real-repository quality claim. No project-specific heuristic,
 network access, heavy dependency or commit was used.
+
+## M8.1.6 — projection explainability and relation audit
+
+The projection now has a read-only audit layer. It does not replace
+ArchitecturalSignificance, mutate ArchitectureIR, alter ReadModel/SVG output or
+change EvidenceGroups. `ProjectionExplanation` records significance, score,
+role, projection eligibility, boundary justification, context roots, bounded
+context chain, local/global classification, framework-fact count, reasons,
+evidence refs and semantic relation refs. `ProjectedRelationExplanation`
+records canonical kind/strength, endpoint significance and context, evidence
+and support counts, raw IDs, stronger same-pair relations and the projection
+reason. Hypothesis evidence is summarized by root-context, local-only and
+cross-context coverage.
+
+The audit command is:
+
+    python -m benchmarks.projection_audit
+    python -m benchmarks.projection_audit --json
+
+The command is compact by default; JSON retains complete structural evidence
+references.
+
+The audit exposed and covered a general failure mode: strong local framework
+facts plus component-to-component flow must not be treated as global context
+without a root chain. A neutral fixture with an independent application root,
+an isolated framework component and local flow now remains LOW/detail-only.
+The correction is bounded and general: framework context requires a root-
+anchored component, an explicit observed boundary, or the existing
+unambiguous single-application fallback. Application ownership plus semantic
+flow is explainable as a root chain; isolated framework facts are not.
+
+No generic DEPENDS_ON edge was removed. The real controlled scenarios contained
+no proven same-endpoint semantic redundancy. A neutral audit fixture proves
+that same-direction DEPENDS_ON plus QUERIES/CONNECTS_TO is classified as
+shadowed, while a generic-only pair is ONLY_RELATION and multiple structural
+supports are AGGREGATED_STRUCTURAL_SUPPORT.
+
+Representative audit counters:
+
+- significance calibration: 9 projected nodes, 1 root, 11 edges, 6
+  DEPENDS_ON (`3` only, `3` aggregated), traceability/evidence coverage 1.0;
+- workspace: 16 projected nodes, 1 root, 19 edges, 11 DEPENDS_ON (`6` only,
+  `5` aggregated), zero local-only framework promotions, traceability/evidence
+  coverage 1.0;
+- generated neutral context: 5 projected nodes, 1 root, one projected node
+  without context (repository navigation), zero local-only framework
+  promotions, traceability/evidence coverage 1.0.
+
+No renderer/layout code was changed in M8.1.6. Complexity remains bounded by
+architectural nodes, relations, framework facts and hypotheses; the audit uses
+indexes and one bounded context hop.

@@ -1,5 +1,6 @@
 from .evidence import EvidenceGroup, INLINE_EVIDENCE_REF_LIMIT
 from .projection import ArchitecturalSignificance, ArchitecturalProjectionBuilder, HighLevelArchitectureProjection, ProjectedEdge, SignificanceLevel
+from .projection_audit import (HypothesisContextExplanation, ProjectedRelationExplanation, ProjectionAudit, ProjectionContextLink, ProjectionExplanation, audit_projection)
 from .read_model import (
     VisualizationEdge,
     VisualizationEvidence,
@@ -19,6 +20,12 @@ __all__ = [
     "HighLevelArchitectureProjection",
     "ProjectedEdge",
     "SignificanceLevel",
+    "HypothesisContextExplanation",
+    "ProjectedRelationExplanation",
+    "ProjectionAudit",
+    "ProjectionContextLink",
+    "ProjectionExplanation",
+    "audit_projection",
     "VisualizationEdge",
     "VisualizationEvidence",
     "VisualizationHypothesis",

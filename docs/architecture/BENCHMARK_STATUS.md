@@ -369,3 +369,47 @@ All controlled projected edges retain effective evidence coverage of 1.0.
 
 The complete benchmark runner and full pytest suite remain the regression gate.
 No Prefect or other network-dependent manual run was available locally.
+
+## M8.1.6 audit benchmark status
+
+`python -m benchmarks.projection_audit` and `--json` provide compact and
+machine-readable projection audits. The audit reports projected node counts,
+roots, contextualized nodes, independent boundaries, nodes without context,
+local-only framework promotions, relation kinds/strengths, DEPENDS_ON
+composition, hypothesis context and traceability.
+
+Representative final counters:
+
+```yaml
+significance_calibration:
+  projected_nodes: 9
+  context_roots: 1
+  contextualized_projected: 7
+  independent_boundaries: 4
+  projected_without_context: 2
+  local_only_framework_promotions: 0
+  projected_edges: 11
+  depends_on: {total: 6, only: 3, shadowed: 0, aggregated: 3}
+  evidence_coverage: 1.0
+
+workspace:
+  projected_nodes: 16
+  context_roots: 1
+  contextualized_projected: 15
+  independent_boundaries: 10
+  projected_without_context: 1
+  local_only_framework_promotions: 0
+  projected_edges: 19
+  depends_on: {total: 11, only: 6, shadowed: 0, aggregated: 5}
+  evidence_coverage: 1.0
+
+neutral_context_generated:
+  projected_nodes: 5
+  local_only_framework_promotions: 0
+  projected_without_context: 1
+  evidence_coverage: 1.0
+```
+
+A dedicated neutral audit fixture covers root chains, independent roots,
+local framework flow, same/cross context, only/shadowed/aggregated generic
+relations and hypothesis evidence. Timing is not used as a quality threshold.

@@ -71,6 +71,59 @@ def _independent_app_ir():
     )
 
 
+def _isolated_framework_flow_ir():
+    evidence = [
+        Evidence(
+            id=name,
+            source_type=EvidenceSource.AST,
+            detail=name,
+            source=SourceRef(path="fixture.py", start_line=1),
+        )
+        for name in ("root", "root-boundary", "aux-framework", "aux-flow")
+    ]
+    nodes = [
+        Node(id="application:main", type=NodeType.APPLICATION, name="main", evidence_refs=["root"]),
+        Node(id="component:aux", type=NodeType.COMPONENT, name="aux", evidence_refs=["aux-framework"]),
+        Node(id="component:utility", type=NodeType.COMPONENT, name="utility"),
+    ]
+    raw_edge = Edge(
+        id="raw-aux-utility",
+        source="component:aux",
+        target="component:utility",
+        type=EdgeType.CALLS,
+        evidence_refs=["aux-flow"],
+    )
+    architectural_edge = Edge(
+        id="arch-aux-utility",
+        source="component:aux",
+        target="component:utility",
+        type=EdgeType.DEPENDS_ON,
+        raw_edge_ids=[raw_edge.id],
+        evidence_refs=["aux-flow"],
+    )
+    facts = [
+        FrameworkFact(
+            kind="APPLICATION",
+            subject="application:main",
+            attributes={"architectural_boundary": True, "entrypoint": True},
+            evidence_refs=["root-boundary"],
+        ),
+        FrameworkFact(
+            kind="APPLICATION",
+            subject="component:aux",
+            attributes={"symbol": "neutral.runtime.Application"},
+            evidence_refs=["aux-framework"],
+        ),
+    ]
+    return ArchitectureIR(
+        repository=RepositoryInfo(name="isolated-flow", path="."),
+        raw_graph=RawCodeGraph(nodes=nodes, edges=[raw_edge]),
+        architectural_graph=ArchitecturalGraph(nodes=nodes, edges=[architectural_edge]),
+        framework_facts=facts,
+        evidence=evidence,
+    )
+
+
 def test_isolated_framework_context_is_not_promoted():
     with __import__("tempfile").TemporaryDirectory() as value:
         ir = analyze_repository(generate_context_fixture(Path(value) / "neutral"))
@@ -103,3 +156,12 @@ def test_context_roots_are_traceable_in_read_model_metadata():
     assert model.metadata["context_root_count"] == 2
     assert model.metadata["projection_traceability"] is True
     assert model.metadata["projected_edge_validity"] is True
+
+
+def test_local_framework_flow_without_root_chain_stays_detailed_only():
+    projection = ArchitecturalProjectionBuilder().build(_isolated_framework_flow_ir())
+    levels = {item.subject: item.significance for item in projection.significances}
+
+    assert levels["component:aux"] == SignificanceLevel.LOW
+    assert "component:aux" not in projection.projected_node_ids
+    assert "application:main" in projection.projected_node_ids

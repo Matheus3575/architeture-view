@@ -208,3 +208,19 @@ Recommended next milestones:
 
 The raw-graph performance hotspot recorded by M8.1.2 remains separate and is
 not reopened by this refinement.
+
+## After M8.1.6
+
+M8.1.6 establishes structured answers to “why is this node/edge projected?”
+without moving analysis into the renderer. The next recommended work is:
+
+1. Run `benchmarks.projection_audit --json` against a locally available large
+   repository and review local-only, no-context and generic-relation counts.
+2. If a real repository demonstrates substantial same-endpoint redundancy,
+   implement one narrowly scoped high-level suppression rule only after
+   provenance/direction/evidence equivalence is proven; retain both relations
+   in the Detailed Model.
+3. If hypothesis audits show material local-only support, design a bounded
+   context-aware hypothesis contract before changing detector scoring. Do not
+   introduce a subsystem-level hypothesis engine yet.
+4. Keep renderer/layout unchanged while this semantic audit is evaluated.

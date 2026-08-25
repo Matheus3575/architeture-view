@@ -275,3 +275,30 @@ No ADR was created: the existing ADR-001/002/003 contracts remain sufficient.
 The next semantic opportunity is a bounded model for hypothesis evidence by
 architectural context; the next visual opportunity is more readable routing
 for crossing-heavy graphs without altering the ReadModel.
+
+## M8.1.6 status
+
+High-level projection explainability is implemented as a read-only audit layer
+in `visualization.projection_audit`. It does not duplicate or replace
+`ArchitecturalSignificance`; it derives structured explanations from the
+existing projection and IR contracts.
+
+Each node explanation distinguishes:
+
+- independent/root boundary justification;
+- bounded root chain and supporting relation/evidence;
+- local significance versus global contextualization;
+- projection eligibility and reasons;
+- framework-fact count and semantic relation refs.
+
+Each projected relation explanation records canonical kind, strength, endpoint
+significance/context, evidence count, support count, raw IDs, stronger same-pair
+relations, `DEPENDS_ON` category and projection reason. Categories are
+`ONLY_RELATION`, `SHADOWED_BY_STRONGER_RELATION` and
+`AGGREGATED_STRUCTURAL_SUPPORT`, with same/cross/uncontextualized scope.
+
+M8.1.6 found no general real-fixture evidence that a high-level DEPENDS_ON was
+redundant with a stronger relation, so no edge suppression was implemented.
+The only semantic refinement is the proven context rule preventing isolated
+framework evidence plus local component flow from becoming global context.
+The renderer remains unchanged.

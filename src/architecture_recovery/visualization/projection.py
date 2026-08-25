@@ -252,10 +252,10 @@ class ArchitecturalProjectionBuilder:
             if not source or not target:
                 continue
             if source.type == NodeType.APPLICATION and target.type == NodeType.COMPONENT:
-                if edge.type in {EdgeType.ROUTES_TO, EdgeType.DEPLOYS, EdgeType.CALLS, EdgeType.INSTANTIATES}:
+                if source.id in context_root_ids and edge.type in {EdgeType.ROUTES_TO, EdgeType.DEPLOYS, EdgeType.CALLS, EdgeType.INSTANTIATES}:
                     component_main_context.add(target.id)
             elif target.type == NodeType.APPLICATION and source.type == NodeType.COMPONENT:
-                if edge.type in {EdgeType.ROUTES_TO, EdgeType.DEPLOYS, EdgeType.CALLS, EdgeType.INSTANTIATES}:
+                if target.id in context_root_ids and edge.type in {EdgeType.ROUTES_TO, EdgeType.DEPLOYS, EdgeType.CALLS, EdgeType.INSTANTIATES}:
                     component_main_context.add(source.id)
             if source.type == NodeType.COMPONENT and target.type == NodeType.COMPONENT:
                 if edge.type in self._STRONG_EDGE_TYPES or any(
@@ -279,11 +279,20 @@ class ArchitecturalProjectionBuilder:
             target = arch_nodes.get(edge.target)
             if not source or not target:
                 continue
-            if edge.source in framework_boundary_subjects and target.type == NodeType.COMPONENT:
+            if (
+                edge.source in framework_boundary_subjects
+                and (edge.source in context_root_ids or source.type != NodeType.COMPONENT)
+                and target.type == NodeType.COMPONENT
+            ):
                 component_main_context.add(target.id)
-            if edge.target in framework_boundary_subjects and source.type == NodeType.COMPONENT:
+            if (
+                edge.target in framework_boundary_subjects
+                and (edge.target in context_root_ids or target.type != NodeType.COMPONENT)
+                and source.type == NodeType.COMPONENT
+            ):
                 component_main_context.add(source.id)
-        context_component_ids = set(component_main_context) | set(component_semantic_flow)
+        root_context_component_ids = set(component_main_context)
+        context_component_ids = root_context_component_ids | set(component_semantic_flow)
         framework_application_components = {
             resolved
             for fact in ir.framework_facts
@@ -302,6 +311,19 @@ class ArchitecturalProjectionBuilder:
             )
             for fact in ir.framework_facts
         )
+        # A component explicitly owned by an observed application boundary and
+        # carrying an application fact is context-bound when it also has the
+        # existing semantic flow evidence used by the bounded pass. This keeps
+        # isolated framework components outside the root context.
+        for edge in ir.architectural_graph.edges:
+            if edge.type != EdgeType.CONTAINS:
+                continue
+            if (
+                edge.source in context_root_ids
+                and edge.target in framework_application_components
+                and edge.target in component_semantic_flow
+            ):
+                root_context_component_ids.add(edge.target)
         single_application_component = len(framework_application_components) == 1 and not application_root_fact
         semantic_subjects: set[str] = set()
         framework_boundary_candidates: set[str] = set()
@@ -320,7 +342,7 @@ class ArchitecturalProjectionBuilder:
             ]
             fact_context = any(
                 subject in context_root_ids
-                or subject in context_component_ids
+                or subject in root_context_component_ids
                 or (single_application_component and subject in framework_application_components)
                 for subject in resolved_values
                 if subject
@@ -456,9 +478,9 @@ class ArchitecturalProjectionBuilder:
             )
             if not semantic_flow:
                 continue
-            if source.id in framework_boundary_candidates:
+            if source.id in framework_boundary_candidates and source.id in framework_context_components:
                 add_signal(source.id, "strong", 0.55, "framework boundary has observed cross-component flow", edge.evidence_refs)
-            if target.id in framework_boundary_candidates:
+            if target.id in framework_boundary_candidates and target.id in framework_context_components:
                 add_signal(target.id, "strong", 0.55, "framework boundary has observed cross-component flow", edge.evidence_refs)
 
         # One bounded contextual pass.  Only component-level relations can
