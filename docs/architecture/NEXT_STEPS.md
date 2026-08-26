@@ -224,3 +224,32 @@ without moving analysis into the renderer. The next recommended work is:
    context-aware hypothesis contract before changing detector scoring. Do not
    introduce a subsystem-level hypothesis engine yet.
 4. Keep renderer/layout unchanged while this semantic audit is evaluated.
+
+## After M8.1.7
+
+The operational audit reports now make projection explanations usable on
+arbitrary repositories without copying terminal output. Recommended next
+steps are:
+
+1. Run architecture-recovery audit <large-repository> --profile when a local
+   large repository is available and review persisted diagnostics.
+2. Use report evidence-group IDs to select any future provenance export or
+   drill-down contract; do not duplicate raw evidence in visual elements.
+3. Investigate only failure classes reproducible in neutral fixtures, such as
+   uncontextualized promotions or semantically redundant generic relations.
+4. Keep report generation read-only and preserve the existing ArchitectureIR,
+   projection, ReadModel and renderer contracts.
+
+## After M8.1.8
+
+1. Run `architecture-recovery audit <large-repository> --profile --force` when a
+   local large repository is available and compare strong-root, weak-only and
+   local/global-boundary metrics.
+2. Review hypothesis context contamination reported by the audit before changing
+   Layered/MVC/Hexagonal/Microservices scoring.
+3. Investigate only remaining false promotions reproducible in neutral fixtures;
+   preserve UNKNOWN/detailed-only when semantic context is absent.
+4. Keep generic DEPENDS_ON in the Detailed Model and defer any high-level
+   suppression until provenance/direction/subsumption is proven.
+5. Treat any future repository cardinality anomaly as a profiling/reporting issue
+   first, not as permission to add repository-specific heuristics.

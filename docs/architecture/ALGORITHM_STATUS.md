@@ -302,3 +302,57 @@ redundant with a stronger relation, so no edge suppression was implemented.
 The only semantic refinement is the proven context rule preventing isolated
 framework evidence plus local component flow from becoming global context.
 The renderer remains unchanged.
+
+## M8.1.7 status
+
+Repository projection audit reports are implemented as a read-only operational
+layer. architecture-recovery audit <repository> reuses the existing
+acquisition/analysis pipeline and does not introduce an alternate analyzer.
+
+Supported output modes are both (default), markdown and json (with md as an
+alias). Reports are written to --output-dir, defaulting to the current
+directory. Existing files are protected by default and can only be replaced
+with --force.
+
+The report serializer is deterministic and schema-versioned ("1"). It
+derives Markdown and JSON from one structured payload. Evidence associations
+are compacted with the existing EvidencePayloadIndex: small sets use inline
+refs, while large sets use stable EvidenceGroup IDs, counts, summaries and
+source refs. The raw evidence is not duplicated into every node or edge and
+the audit layer does not change evidence ownership or traceability.
+
+--profile includes the existing macro profile and report cardinalities,
+including files, symbols, raw/architectural/projected nodes and edges,
+components and evidence groups. The command prints only a short terminal
+summary; detailed explanations are persisted in the reports.
+
+No ADR was created. ADR-001/002/003 and the existing read-only explainability
+contracts remain sufficient.
+
+## M8.1.8 status
+
+Context Reachability != Architectural Context Membership. The projection now
+classifies context roots as strong architectural roots or weak/navigation roots
+and applies a bounded propagation policy separate from relation validity or
+visual strength. Generic DEPENDS_ON remains observable, projectable and
+traceable, but cannot establish global context alone. Strong semantic relations
+can establish direct context and one bounded extension.
+
+Independent Boundary != Globally Significant Boundary: infrastructure receives
+global eligibility only from explicit architectural linkage to a significant
+subject or a directly justified execution boundary. Navigation context and
+repository containment are retained for detail and traceability, not promoted
+into application significance. Configuration and other semantic details do not
+become high-level peers merely because a relation exists.
+
+Repeated Weak Evidence != Strong Architectural Evidence. Weak score contribution
+is saturated by reason class, while explicit application/deployment and semantic
+flow evidence retain their existing positive behavior. ReadModel closure remains
+authoritative and does not reintroduce demoted nodes.
+
+The implementation is bounded at O(nodes + architectural edges + infrastructure
+relations + facts) for context membership and uses shared propagation helpers in
+projection and audit. No fixed-point traversal, renderer inference, or
+project-specific library/path rule was added.
+
+No ADR was created; ADR-001/002/003 remain sufficient.

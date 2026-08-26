@@ -1,6 +1,8 @@
 from .evidence import EvidenceGroup, INLINE_EVIDENCE_REF_LIMIT
+from .context import ContextPropagation, ContextStrength, context_propagation_kind, context_strength, is_navigation_root
 from .projection import ArchitecturalSignificance, ArchitecturalProjectionBuilder, HighLevelArchitectureProjection, ProjectedEdge, SignificanceLevel
 from .projection_audit import (HypothesisContextExplanation, ProjectedRelationExplanation, ProjectionAudit, ProjectionContextLink, ProjectionExplanation, audit_projection)
+from .projection_audit_report import (AUDIT_REPORT_SCHEMA_VERSION, build_projection_audit_report, render_projection_audit_json, render_projection_audit_markdown, write_projection_audit_reports)
 from .read_model import (
     VisualizationEdge,
     VisualizationEvidence,
@@ -14,6 +16,11 @@ from .read_model import (
 
 __all__ = [
     "EvidenceGroup",
+    "ContextPropagation",
+    "ContextStrength",
+    "context_propagation_kind",
+    "context_strength",
+    "is_navigation_root",
     "INLINE_EVIDENCE_REF_LIMIT",
     "ArchitecturalSignificance",
     "ArchitecturalProjectionBuilder",
@@ -26,6 +33,11 @@ __all__ = [
     "ProjectionContextLink",
     "ProjectionExplanation",
     "audit_projection",
+    "AUDIT_REPORT_SCHEMA_VERSION",
+    "build_projection_audit_report",
+    "render_projection_audit_json",
+    "render_projection_audit_markdown",
+    "write_projection_audit_reports",
     "VisualizationEdge",
     "VisualizationEvidence",
     "VisualizationHypothesis",

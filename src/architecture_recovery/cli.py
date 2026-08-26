@@ -9,7 +9,13 @@ from .ir.schema import json_schema
 from .pipeline import analyze_repository
 from .profiling import AnalysisProfile, profile_stage
 from .rendering import render_graphml, render_mermaid, render_svg
-from .visualization import VisualizationReadModelBuilder
+from .visualization import (
+    ArchitecturalProjectionBuilder,
+    VisualizationReadModelBuilder,
+    audit_projection,
+    build_projection_audit_report,
+    write_projection_audit_reports,
+)
 from .web import serve_visualization
 
 
@@ -42,6 +48,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Generate visualization SVG files from a repository",
     )
     _add_visualization_arguments(visualize)
+
+    audit = subparsers.add_parser(
+        "audit",
+        help="Generate a persisted high-level projection audit",
+    )
+    audit.add_argument("repository")
+    audit.add_argument(
+        "--output-dir",
+        default=".",
+        help="Directory for architecture-audit.md/json (default: current directory)",
+    )
+    audit.add_argument(
+        "--format",
+        choices=("both", "markdown", "json", "md"),
+        default="both",
+        help="Report format (default: both)",
+    )
+    audit.add_argument("--force", action="store_true", help="Overwrite existing reports")
+    audit.add_argument("--profile", action="store_true", help="Include macro profile in reports")
 
     serve = subparsers.add_parser(
         "serve",
@@ -88,6 +113,16 @@ def main(argv: list[str] | None = None) -> int:
             Path(args.output).write_text(text, encoding="utf-8")
         else:
             print(text, end="")
+        return 0
+
+    if args.command == "audit":
+        _run_audit(
+            args.repository,
+            output_dir=args.output_dir,
+            output_format=args.format,
+            force=args.force,
+            profile=AnalysisProfile() if args.profile else None,
+        )
         return 0
 
     if args.command in {"visualize", "serve"}:
@@ -166,6 +201,65 @@ def _run_visualization(
             host=host,
             port=port,
         )
+
+
+def _run_audit(
+    repository: str,
+    *,
+    output_dir: str | Path,
+    output_format: str,
+    force: bool,
+    profile: AnalysisProfile | None = None,
+) -> list[Path]:
+    """Analyze once, audit once, and derive all selected reports from one payload."""
+    ir = analyze_repository(repository, **({"profile": profile} if profile else {}))
+    with profile_stage(profile, "architectural_significance_projection") as timer:
+        projection = ArchitecturalProjectionBuilder().build(ir)
+        if timer:
+            timer.set_counts(
+                detailed_nodes=projection.detailed_node_count,
+                projected_nodes=projection.high_level_node_count,
+                projected_edges=len(projection.projected_edges),
+            )
+    with profile_stage(profile, "projection_audit") as timer:
+        audit = audit_projection(ir, projection)
+        if timer:
+            timer.set_counts(
+                projected_nodes=audit.projected_node_count,
+                projected_edges=audit.projected_edge_count,
+                evidence_coverage=audit.evidence_coverage,
+            )
+    report = build_projection_audit_report(ir, projection, audit, profile=profile)
+    if profile:
+        profile.record(
+            "projection_audit_report",
+            0.0,
+            {
+                "evidence_groups": report["summary"]["evidence_groups"],
+                "projected_nodes": report["summary"]["projected_nodes"],
+                "projected_edges": report["summary"]["projected_edges"],
+                "components": report["summary"]["components"],
+                "architectural_components": report["summary"]["architectural_components"],
+                "component_candidates": report["summary"]["component_candidates"],
+            },
+        )
+        report["profile"] = profile.as_dict()
+    paths = write_projection_audit_reports(report, output_dir, output_format, force)
+    summary = report["summary"]
+    print("Projection Audit complete.")
+    print(f"Repository: {summary['repository']['path']}")
+    print(f"Projected nodes: {summary['projected_nodes']}")
+    print(f"Projected edges: {summary['projected_edges']}")
+    print(f"Context roots: {summary['context_roots']}")
+    print(f"Without context: {audit.projected_without_context_count}")
+    print(f"Local framework promotions: {audit.local_only_framework_promotion_count}")
+    print(f"DEPENDS_ON: {audit.depends_on_total}")
+    print("Reports:")
+    for path in paths:
+        print(f"  {path}")
+    if profile:
+        print(profile.render_text())
+    return paths
 
 
 def _animated_path(static_path: Path) -> Path:

@@ -413,3 +413,40 @@ neutral_context_generated:
 A dedicated neutral audit fixture covers root chains, independent roots,
 local framework flow, same/cross context, only/shadowed/aggregated generic
 relations and hypothesis evidence. Timing is not used as a quality threshold.
+
+## M8.1.7 report benchmark status
+
+The new regression coverage exercises:
+
+- local repository audit with both, Markdown-only and JSON-only output;
+- output directory creation and safe overwrite/--force;
+- one analysis invocation for the report pair;
+- deterministic Markdown and JSON;
+- schema sections, context/relations/hypothesis diagnostics;
+- profile embedding;
+- compact 10,000-reference evidence associations.
+
+The stress fixture verifies a stable EvidenceGroup reference and correct
+evidence count without serializing the 10,000 IDs inline. Timing is recorded
+by the existing profile when requested but is not a flaky benchmark threshold.
+
+No large real-world repository was available locally. Real-world validation
+remains optional and is not required for the fixture regression suite.
+
+## M8.1.8 benchmark status
+
+Neutral regression coverage now exercises repository envelopes, multiple strong
+application roots, weak DEPENDS_ON chains, bounded ROUTES_TO/QUERIES chains,
+shared cross-root brokers, isolated infrastructure, explicit deployment
+boundaries, weak-evidence volume saturation and deterministic context metadata.
+The report stress case uses 10,000 evidence references and verifies compact
+EvidenceGroup output without inline duplication.
+
+Quality checks focus on context membership, weak-only reachability, root strength,
+local/global boundary classification, projection closure, traceability and
+determinism. Timing remains diagnostic rather than a flaky CI threshold. The
+existing controlled benchmarks and SVG/read-model regressions remain covered;
+layout code was not changed.
+
+No network-dependent large repository was available for a separate real-world
+run in this milestone.

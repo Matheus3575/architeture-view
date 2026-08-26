@@ -1042,3 +1042,68 @@ Representative audit counters:
 No renderer/layout code was changed in M8.1.6. Complexity remains bounded by
 architectural nodes, relations, framework facts and hypotheses; the audit uses
 indexes and one bounded context hop.
+
+## M8.1.7 - repository projection audit reports
+
+M8.1.7 adds an operational, read-only audit command:
+
+    architecture-recovery audit <repository> --output-dir <directory> --profile
+
+The command analyzes the repository once, builds one high-level projection and
+one ProjectionAudit, then derives both Markdown and JSON from the same report
+payload. It does not alter ArchitectureIR, significance, projection, relation
+semantics, hypotheses, ReadModel or SVG output.
+
+Large evidence associations use the existing deterministic
+EvidencePayloadIndex/EvidenceGroup identity. Report elements expose evidence
+counts and group IDs; small associations may remain inline. Group summaries
+contain source/count information without repeating thousands of evidence IDs.
+The full evidence collection remains owned by the source IR/EvidenceGroup
+structure and is not discarded by report serialization.
+
+The default output is the safe pair architecture-audit.md and
+architecture-audit.json in the current directory or --output-dir.
+Existing selected files fail unless --force is provided. --format
+markdown|json|both selects the output set. No timestamp is included in the
+deterministic payload.
+
+The CLI terminal output is intentionally macro-only. The Markdown report
+contains projected node/relation explanations, DEPENDS_ON categories,
+hypothesis context summaries, diagnostics and compact EvidenceGroups. The JSON
+schema is versioned as "1" and contains summary, projection, nodes,
+relations, hypotheses, metrics, diagnostics, evidence groups and optional
+profile data.
+
+No new architectural rule was introduced. The command is a reporting consumer
+of existing analysis results. No large real-world repository was available for
+a network-independent manual run.
+
+## M8.1.8 — Context propagation strength and scope
+
+The projection audit confirmed a general failure mode: reachability through
+valid but weak structural relations was being treated as global architectural
+context membership. M8.1.8 separates those decisions. Repository nodes remain
+navigation envelopes, not strong application roots. Observed applications and
+explicit execution/deployment boundaries are strong roots; roots remain plural.
+
+Context propagation is now bounded and semantic. ROUTES_TO, QUERIES,
+CONNECTS_TO, DEPLOYS and equivalent explicit architectural ownership can
+propagate context. Generic DEPENDS_ON, IMPORTS and CONTAINS do not propagate by
+themselves. DEPENDS_ON with observed CALLS/INSTANTIATES/EXTENDS provenance can
+provide bounded supporting context, while remaining a valid relation for the
+projection. Independent infrastructure is global only when an explicit
+relation connects it to a significant subject; local boundaries remain
+detailed-only.
+
+Repeated weak evidence is capped by reason class contribution at 0.12. This
+is a bounded saturation safeguard, not a replacement for strong evidence and
+not a repository-specific threshold. Strong architectural signals remain
+necessary for HIGH significance.
+
+The audit now reports root strength/kind, propagation classes, strong versus
+weak-only reachability, local/global independent boundaries, weak-evidence
+saturation and corrected component cardinalities. Large context chains, raw edge
+IDs and EvidenceGroup source references are compacted with deterministic counts,
+samples and group references; the underlying IR evidence is retained.
+
+No repository-specific heuristic or new ADR was introduced.

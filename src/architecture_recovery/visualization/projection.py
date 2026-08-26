@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from architecture_recovery.ir import ArchitectureIR, Edge, EdgeType, EvidenceStatus, Node, NodeType, relation_strength
+from .context import ContextPropagation, context_propagation_kind
 
 
 class SignificanceLevel(StrEnum):
@@ -56,6 +57,10 @@ class HighLevelArchitectureProjection(BaseModel):
     low_significance_refs: list[str] = Field(default_factory=list)
     unknown_refs: list[str] = Field(default_factory=list)
     context_root_ids: list[str] = Field(default_factory=list)
+    context_root_strengths: dict[str, str] = Field(default_factory=dict)
+    context_root_kinds: dict[str, str] = Field(default_factory=dict)
+    navigation_root_ids: list[str] = Field(default_factory=list)
+    weak_evidence_saturation_count: int = Field(default=0, ge=0)
 
     @property
     def reduction_ratio(self) -> float:
@@ -125,6 +130,9 @@ class ArchitecturalProjectionBuilder:
             if node.type == NodeType.EXTERNAL_DEPENDENCY
         }
         dependency_edges: list[Edge] = []
+        navigation_root_ids = {
+            node.id for node in arch_nodes.values() if node.type == NodeType.REPOSITORY
+        }
 
         def explicit_framework_boundary(fact: Any) -> bool:
             return bool(
@@ -242,6 +250,12 @@ class ArchitecturalProjectionBuilder:
             for node in arch_nodes.values()
             if node.type == NodeType.APPLICATION and bool(node.evidence_refs)
         }
+        context_root_strengths: dict[str, str] = {
+            root_id: "strong" for root_id in context_root_ids
+        }
+        context_root_kinds: dict[str, str] = {
+            root_id: "APPLICATION_BOUNDARY" for root_id in context_root_ids
+        }
         for root_id in sorted(context_root_ids):
             reasons[root_id].append("architectural context root: observed application boundary")
         component_main_context: set[str] = set()
@@ -355,6 +369,12 @@ class ArchitecturalProjectionBuilder:
                     continue
                 if explicit_framework_boundary(fact) and subject in arch_nodes:
                     context_root_ids.add(subject)
+                    context_root_strengths[subject] = "strong"
+                    context_root_kinds[subject] = (
+                        "EXECUTION_BOUNDARY"
+                        if fact.attributes.get("entrypoint") or fact.metadata.get("entrypoint")
+                        else "EXPLICIT_ARCHITECTURAL_BOUNDARY"
+                    )
                     reasons[subject].append("architectural context root: explicit framework boundary")
                 # A short module-name fallback must not attach an application fact to an external aggregate.
                 if arch_nodes.get(subject) and arch_nodes[subject].type == NodeType.EXTERNAL_DEPENDENCY:
@@ -487,12 +507,16 @@ class ArchitecturalProjectionBuilder:
         # support another component; module degree and raw imports do not.
         direct_significant = set(strong)
         for edge in ir.architectural_graph.edges:
-            if edge.type not in self._STRONG_EDGE_TYPES | self._MEDIUM_EDGE_TYPES | {EdgeType.DEPENDS_ON}:
-                continue
-            if edge.type == EdgeType.DEPENDS_ON and not any(
-                raw_edges.get(raw_id) and raw_edges[raw_id].type in {EdgeType.CALLS, EdgeType.INSTANTIATES, EdgeType.EXTENDS}
+            raw_types = [
+                raw_edges[raw_id].type
                 for raw_id in edge.raw_edge_ids
-            ):
+                if raw_id in raw_edges
+            ]
+            propagation = context_propagation_kind(
+                edge.type,
+                raw_relation_types=raw_types,
+            )
+            if propagation == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
                 continue
             source = arch_nodes.get(edge.source)
             target = arch_nodes.get(edge.target)
@@ -521,13 +545,122 @@ class ArchitecturalProjectionBuilder:
             else:
                 add_signal(dependency_id, "medium", 0.30, f"{role} relation to a significant component: {edge.type.value}", edge.evidence_refs)
 
+        weak_evidence_saturation_count = sum(
+            1
+            for subject in set(strong) | set(medium) | set(weak)
+            if sum(weight for weight, _ in weak.get(subject, [])) > 0.12
+        )
+        # Compute a bounded context membership set independently from raw
+        # significance. Generic relations may remain valid, but only semantic
+        # propagation or observed semantic provenance can establish membership.
+        contextual_subjects = set(context_root_ids) | set(root_context_component_ids) | set(framework_context_components)
+        deployment_boundary_components = {
+            edge.target
+            for edge in ir.architectural_graph.edges
+            if edge.type == EdgeType.DEPLOYS
+            and edge.target in arch_nodes
+            and arch_nodes[edge.target].type in {NodeType.COMPONENT, NodeType.CONTAINER}
+        }
+        context_frontier = set(contextual_subjects)
+        context_candidates: list[tuple[str, str, EdgeType | str, list[EdgeType | str], bool]] = []
+        for edge in ir.architectural_graph.edges:
+            source = self._resolve(edge.source, arch_nodes, raw_to_arch) or edge.source
+            target = self._resolve(edge.target, arch_nodes, raw_to_arch) or edge.target
+            raw_types = [
+                raw_edges[raw_id].type
+                for raw_id in edge.raw_edge_ids
+                if raw_id in raw_edges
+            ]
+            ownership = (
+                edge.type == EdgeType.CONTAINS
+                and source in context_root_ids
+                and (
+                    target in framework_application_components
+                    or target in deployment_boundary_components
+                    or target in component_semantic_flow
+                )
+            )
+            context_candidates.append((source, target, edge.type, raw_types, bool(ownership)))
+        for relation in ir.infrastructure_relations:
+            source = relation.source if relation.source in resource_ids or relation.source in arch_nodes else self._resolve(relation.source, arch_nodes, raw_to_arch)
+            target = relation.target if relation.target in resource_ids or relation.target in arch_nodes else self._resolve(relation.target, arch_nodes, raw_to_arch)
+            if source and target:
+                context_candidates.append((source, target, relation.type, [], False))
+        for _ in range(2):
+            next_frontier: set[str] = set()
+            for source, target, relation_type, raw_types, ownership in context_candidates:
+                propagation = context_propagation_kind(
+                    relation_type,
+                    raw_relation_types=raw_types,
+                    semantic_ownership=ownership,
+                )
+                if propagation == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
+                    continue
+                if source in context_frontier and target not in contextual_subjects:
+                    next_frontier.add(target)
+                if target in context_frontier and source not in contextual_subjects:
+                    next_frontier.add(source)
+            contextual_subjects.update(next_frontier)
+            context_frontier = next_frontier
+            if not context_frontier:
+                break
+
+        independent_global_subjects: set[str] = set()
+        for subject in strong:
+            node = arch_nodes.get(subject)
+            if node and node.type in {
+                NodeType.APPLICATION,
+                NodeType.API,
+                NodeType.EXTERNAL_SERVICE,
+            }:
+                independent_global_subjects.add(subject)
+            if any(
+                token in reason
+                for reason in reasons.get(subject, [])
+                for token in (
+                    "principal framework",
+                    "strong framework fact",
+                    "explicit architectural role",
+                    "observed application boundary",
+                    "explicit architectural boundary",
+                )
+            ):
+                independent_global_subjects.add(subject)
+
+        strong_subjects = set(strong)
+        for source, target, relation_type, raw_types, ownership in context_candidates:
+            propagation = context_propagation_kind(
+                relation_type,
+                raw_relation_types=raw_types,
+                semantic_ownership=ownership,
+            )
+            if propagation == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
+                # A generic infrastructure observation can justify a boundary
+                # only when its opposite endpoint is independently significant;
+                # it still does not propagate context membership.
+                if source in resource_ids and target in strong_subjects | set(medium):
+                    independent_global_subjects.add(source)
+                if target in resource_ids and source in strong_subjects | set(medium):
+                    independent_global_subjects.add(target)
+                continue
+            if source in strong_subjects and target in strong_subjects:
+                independent_global_subjects.update((source, target))
+            if source in strong_subjects and target in medium:
+                independent_global_subjects.add(target)
+            if target in strong_subjects and source in medium:
+                independent_global_subjects.add(source)
+
+        globally_eligible_subjects = contextual_subjects | independent_global_subjects | set(navigation_root_ids)
+
         significances: list[ArchitecturalSignificance] = []
         for subject in sorted(set(arch_nodes) | resource_ids):
             node = arch_nodes.get(subject)
+            weak_total = sum(weight for weight, _ in weak.get(subject, []))
+            weak_contribution = min(weak_total, 0.12)
             score = min(
                 sum(weight for weight, _ in strong.get(subject, []))
                 + sum(weight for weight, _ in medium.get(subject, []))
-                + sum(weight for weight, _ in weak.get(subject, [])),
+                + weak_contribution,
                 1.0,
             )
             has_refs = bool(refs.get(subject))
@@ -556,6 +689,8 @@ class ArchitecturalProjectionBuilder:
             item.subject
             for item in significances
             if item.significance in {SignificanceLevel.HIGH, SignificanceLevel.MEDIUM}
+            and item.subject in globally_eligible_subjects
+            and not (arch_nodes.get(item.subject) and arch_nodes[item.subject].type == NodeType.CONFIGURATION)
         }
         repository_ids = {node.id for node in arch_nodes.values() if node.type == NodeType.REPOSITORY}
         selected.update(repository_ids)
@@ -572,6 +707,16 @@ class ArchitecturalProjectionBuilder:
             low_significance_refs=low_refs,
             unknown_refs=unknown_refs,
             context_root_ids=sorted(context_root_ids),
+            context_root_strengths={
+                root: context_root_strengths.get(root, "strong")
+                for root in sorted(context_root_ids)
+            },
+            context_root_kinds={
+                root: context_root_kinds.get(root, "EXPLICIT_ARCHITECTURAL_BOUNDARY")
+                for root in sorted(context_root_ids)
+            },
+            navigation_root_ids=sorted(navigation_root_ids),
+            weak_evidence_saturation_count=weak_evidence_saturation_count,
         )
 
     @classmethod

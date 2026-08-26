@@ -14,6 +14,7 @@ from architecture_recovery.ir import (
     canonical_relation_type,
     relation_strength,
 )
+from .context import ContextPropagation, context_propagation_kind, context_strength
 from .projection import HighLevelArchitectureProjection, SignificanceLevel
 
 
@@ -26,6 +27,8 @@ class ProjectionContextLink(BaseModel):
     relation_id: str | None = None
     evidence_refs: list[str] = Field(default_factory=list)
     chain: list[str] = Field(default_factory=list)
+    relation_strength: str = "strong"
+    propagation_class: str = "can_propagate_context"
 
 
 class ProjectionExplanation(BaseModel):
@@ -41,6 +44,10 @@ class ProjectionExplanation(BaseModel):
     boundary_justification: list[str] = Field(default_factory=list)
     context_root_ids: list[str] = Field(default_factory=list)
     context_chain: list[ProjectionContextLink] = Field(default_factory=list)
+    context_root_strength: str | None = None
+    context_root_kind: str | None = None
+    context_membership_source: str = "none"
+    context_membership_strength: str = "weak"
     locally_significant: bool = False
     globally_contextualized: bool = False
     local_framework_fact_count: int = Field(default=0, ge=0)
@@ -72,6 +79,7 @@ class ProjectedRelationExplanation(BaseModel):
     stronger_relation_kinds: list[str] = Field(default_factory=list)
     depends_on_category: str | None = None
     projection_reason: str
+    context_propagation: str = "does_not_propagate_context"
 
 
 class HypothesisContextExplanation(BaseModel):
@@ -115,6 +123,18 @@ class ProjectionAudit(BaseModel):
     node_explanations: list[ProjectionExplanation] = Field(default_factory=list)
     relation_explanations: list[ProjectedRelationExplanation] = Field(default_factory=list)
     hypothesis_explanations: list[HypothesisContextExplanation] = Field(default_factory=list)
+    context_root_strength_counts: dict[str, int] = Field(default_factory=dict)
+    strong_context_root_count: int = Field(default=0, ge=0)
+    weak_navigation_root_count: int = Field(default=0, ge=0)
+    propagation_relation_kind_counts: dict[str, int] = Field(default_factory=dict)
+    context_chain_strength_counts: dict[str, int] = Field(default_factory=dict)
+    nodes_contextualized_by_strong_relation: int = Field(default=0, ge=0)
+    nodes_reachable_only_by_weak_relation: int = Field(default=0, ge=0)
+    projected_without_strong_context_count: int = Field(default=0, ge=0)
+    locally_significant_only_count: int = Field(default=0, ge=0)
+    independent_local_boundary_count: int = Field(default=0, ge=0)
+    independent_global_boundary_count: int = Field(default=0, ge=0)
+    weak_evidence_saturation_count: int = Field(default=0, ge=0)
 
 
 _CONTEXT_RELATIONS = {
@@ -218,174 +238,297 @@ def _edge_endpoints(
 def _context_links(
     ir: ArchitectureIR,
     roots: set[str],
+    root_strengths: dict[str, str],
     arch_nodes: dict[str, Any],
     raw_to_arch: dict[str, str],
     raw_edges: dict[str, Any],
 ):
     links: dict[str, list[ProjectionContextLink]] = defaultdict(list)
+    direct_subjects: dict[str, set[str]] = defaultdict(set)
+    resource_ids = {resource.id for resource in ir.infrastructure_resources}
+    subject_ids = set(arch_nodes) | resource_ids
+
+    def add_link(
+        root: str,
+        subject: str,
+        relation_kind: str,
+        relation_id: str | None,
+        evidence_refs: list[str],
+        chain: list[str],
+        propagation: ContextPropagation,
+    ) -> None:
+        if subject == root or subject not in subject_ids:
+            return
+        strength = context_strength(propagation).value
+        links[subject].append(ProjectionContextLink(
+            root_id=root,
+            subject_id=subject,
+            relation_kind=relation_kind,
+            relation_id=relation_id,
+            evidence_refs=sorted(set(evidence_refs)),
+            chain=chain,
+            relation_strength=strength,
+            propagation_class=propagation.value,
+        ))
+        direct_subjects[root].add(subject)
+
     for root in sorted(roots):
         links[root].append(ProjectionContextLink(
             root_id=root,
             subject_id=root,
             relation_kind="CONTEXT_ROOT",
             chain=[root],
+            relation_strength=root_strengths.get(root, "strong"),
+            propagation_class="context_root",
         ))
-    direct_subjects: dict[str, set[str]] = defaultdict(set)
-    for fact in ir.framework_facts:
-        values = [
-            _resolve(value, arch_nodes, raw_to_arch)
-            for value in (fact.subject, fact.target, fact.attributes.get("endpoint"), fact.attributes.get("module"))
-        ]
-        fact_roots = sorted({value for value in values if value in roots})
-        if not fact_roots:
-            continue
-        for root in fact_roots:
-            for subject in sorted({value for value in values if value and value != root and value in arch_nodes}):
-                link = ProjectionContextLink(
-                    root_id=root,
-                    subject_id=subject,
-                    relation_kind="FRAMEWORK_CONTEXT",
-                    relation_id=f"framework:{fact.kind}:{root}:{subject}",
-                    evidence_refs=sorted(set(fact.evidence_refs)),
-                    chain=[root, subject],
-                )
-                links[subject].append(link)
-                direct_subjects[root].add(subject)
-    # Mirror the existing unambiguous single-application fallback used by
-    # projection. It is not a global-primary-root assumption: it applies only
-    # when one observed root and one framework application component exist.
-    if len(roots) == 1:
-        root = next(iter(roots))
-        application_components: list[tuple[str, Any]] = []
-        for fact in ir.framework_facts:
-            if fact.kind != "APPLICATION":
-                continue
-            for value in (fact.subject, fact.target, fact.attributes.get("module")):
-                subject = _resolve(value, arch_nodes, raw_to_arch)
-                if subject and arch_nodes.get(subject) and arch_nodes[subject].type == NodeType.COMPONENT:
-                    application_components.append((subject, fact))
-        unique_components = {subject for subject, _ in application_components}
-        if len(unique_components) == 1:
-            subject = sorted(unique_components)[0]
-            fact = sorted(application_components, key=lambda item: (item[0], item[1].kind, item[1].evidence_refs))[0][1]
-            links[subject].append(ProjectionContextLink(
-                root_id=root,
-                subject_id=subject,
-                relation_kind="FRAMEWORK_CONTEXT_SINGLE_APPLICATION",
-                relation_id=f"framework:{fact.kind}:{root}:{subject}",
-                evidence_refs=sorted(set(fact.evidence_refs)),
-                chain=[root, subject],
-            ))
-            direct_subjects[root].add(subject)
-    application_components = set()
+
+    framework_application_components: set[str] = set()
+    deployment_boundary_components = {
+        edge.target
+        for edge in ir.architectural_graph.edges
+        if edge.type == EdgeType.DEPLOYS
+        and edge.target in arch_nodes
+        and arch_nodes[edge.target].type in {NodeType.COMPONENT, NodeType.CONTAINER}
+    }
     for fact in ir.framework_facts:
         if fact.kind != "APPLICATION":
             continue
         for value in (fact.subject, fact.target, fact.attributes.get("module")):
             subject = _resolve(value, arch_nodes, raw_to_arch)
             if subject and arch_nodes.get(subject) and arch_nodes[subject].type == NodeType.COMPONENT:
-                application_components.add(subject)
-    semantic_flow_subjects = set()
+                framework_application_components.add(subject)
+
+    fact_subjects: dict[str, set[str]] = defaultdict(set)
+    for fact in ir.framework_facts:
+        values = [
+            _resolve(value, arch_nodes, raw_to_arch)
+            for value in (fact.subject, fact.target, fact.attributes.get("endpoint"), fact.attributes.get("module"))
+        ]
+        fact_roots = sorted({value for value in values if value in roots})
+        for root in fact_roots:
+            for subject in sorted({value for value in values if value and value != root and value in arch_nodes}):
+                add_link(
+                    root,
+                    subject,
+                    "FRAMEWORK_CONTEXT",
+                    f"framework:{fact.kind}:{root}:{subject}",
+                    list(fact.evidence_refs),
+                    [root, subject],
+                    ContextPropagation.CAN_PROPAGATE_CONTEXT,
+                )
+                fact_subjects[root].add(subject)
+
+    # Preserve the existing bounded ownership rule for a framework application
+    # component contained by an observed application root and participating in
+    # semantic component flow. Generic repository CONTAINS is not enough.
+    semantic_flow_subjects: set[str] = set()
     for edge in ir.architectural_graph.edges:
-        kind = canonical_relation_type(edge.type)
-        raw_flow = any(
-            raw_edges.get(raw_id) and raw_edges[raw_id].type in {
-                EdgeType.CALLS, EdgeType.INSTANTIATES, EdgeType.EXTENDS,
-            }
+        source = arch_nodes.get(edge.source)
+        target = arch_nodes.get(edge.target)
+        raw_types = [
+            raw_edges[raw_id].type
             for raw_id in edge.raw_edge_ids
-        )
-        source_node = arch_nodes.get(edge.source)
-        target_node = arch_nodes.get(edge.target)
+            if raw_id in raw_edges
+        ]
+        propagation = context_propagation_kind(edge.type, raw_relation_types=raw_types)
         if (
-            source_node and target_node
-            and source_node.type == NodeType.COMPONENT
-            and target_node.type == NodeType.COMPONENT
-            and (kind in _STRONG_FLOW_RELATIONS or raw_flow)
+            source and target
+            and source.type == NodeType.COMPONENT
+            and target.type == NodeType.COMPONENT
+            and propagation != ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT
         ):
-            semantic_flow_subjects.update((edge.source, edge.target))
+            semantic_flow_subjects.update((source.id, target.id))
+
     for edge in ir.architectural_graph.edges:
         if edge.type != EdgeType.CONTAINS or edge.source not in roots:
             continue
         subject = _resolve(edge.target, arch_nodes, raw_to_arch) or edge.target
-        if subject not in application_components or subject not in semantic_flow_subjects:
-            continue
-        links[subject].append(ProjectionContextLink(
-            root_id=edge.source,
-            subject_id=subject,
-            relation_kind="APPLICATION_CONTEXT_OWNERSHIP",
-            relation_id=_relation_id(edge),
-            evidence_refs=sorted(set(edge.evidence_refs)),
-            chain=[edge.source, subject],
-        ))
-        direct_subjects[edge.source].add(subject)
-    for edge in ir.architectural_graph.edges:
-        kind = canonical_relation_type(edge.type)
-        if kind not in _CONTEXT_RELATIONS:
-            continue
-        for root, subject in ((edge.source, edge.target), (edge.target, edge.source)):
-            if root not in roots:
-                continue
-            resolved = _resolve(subject, arch_nodes, raw_to_arch) or subject
-            if resolved == root or resolved not in arch_nodes:
-                continue
-            link = ProjectionContextLink(
-                root_id=root,
-                subject_id=resolved,
-                relation_kind=kind,
-                relation_id=_relation_id(edge),
-                evidence_refs=sorted(set(edge.evidence_refs)),
-                chain=[root, resolved],
+        if (
+            subject in framework_application_components
+            or subject in deployment_boundary_components
+            or subject in semantic_flow_subjects
+        ):
+            add_link(
+                edge.source,
+                subject,
+                "APPLICATION_CONTEXT_OWNERSHIP",
+                _relation_id(edge),
+                list(edge.evidence_refs),
+                [edge.source, subject],
+                ContextPropagation.CAN_PROPAGATE_CONTEXT,
             )
-            links[resolved].append(link)
-            direct_subjects[root].add(resolved)
-    # One bounded semantic-flow hop. This is explanatory only and mirrors the
-    # bounded context used by projection; it does not create significance.
-    for edge in ir.architectural_graph.edges:
-        kind = canonical_relation_type(edge.type)
-        raw_flow = any(
-            raw_edges.get(raw_id) and raw_edges[raw_id].type in {
-                EdgeType.CALLS, EdgeType.INSTANTIATES, EdgeType.EXTENDS,
-            }
-            for raw_id in edge.raw_edge_ids
+
+    application_root_fact = any(
+        fact.kind == "APPLICATION"
+        and any(
+            resolved in roots
+            for value in (fact.subject, fact.target, fact.attributes.get("module"))
+            for resolved in [_resolve(value, arch_nodes, raw_to_arch)]
+            if resolved
         )
-        if kind not in _STRONG_FLOW_RELATIONS and kind != EdgeType.CALLS.value and not raw_flow:
-            continue
+        for fact in ir.framework_facts
+    )
+    if len(roots) == 1 and not application_root_fact and len(framework_application_components) == 1:
+        root = next(iter(roots))
+        subject = sorted(framework_application_components)[0]
+        fact = next(
+            fact for fact in ir.framework_facts
+            if fact.kind == "APPLICATION"
+            and subject in {
+                _resolve(value, arch_nodes, raw_to_arch)
+                for value in (fact.subject, fact.target, fact.attributes.get("module"))
+            }
+        )
+        add_link(
+            root,
+            subject,
+            "FRAMEWORK_CONTEXT_SINGLE_APPLICATION",
+            f"framework:{fact.kind}:{root}:{subject}",
+            list(fact.evidence_refs),
+            [root, subject],
+            ContextPropagation.CAN_PROPAGATE_CONTEXT,
+        )
+
+    candidates: list[tuple[str, str, str, str | None, list[str], ContextPropagation]] = []
+    for edge in ir.architectural_graph.edges:
         source = _resolve(edge.source, arch_nodes, raw_to_arch) or edge.source
         target = _resolve(edge.target, arch_nodes, raw_to_arch) or edge.target
-        for root, subject, via in (
-            (root, target, source) for root, subjects in direct_subjects.items() if source in subjects
+        raw_types = [
+            raw_edges[raw_id].type
+            for raw_id in edge.raw_edge_ids
+            if raw_id in raw_edges
+        ]
+        ownership = (
+            edge.type == EdgeType.CONTAINS
+            and arch_nodes.get(source)
+            and arch_nodes.get(target)
+            and arch_nodes[source].type == NodeType.APPLICATION
+            and target in framework_application_components
+            and target in semantic_flow_subjects
+        )
+        propagation = context_propagation_kind(
+            edge.type,
+            raw_relation_types=raw_types,
+            semantic_ownership=bool(ownership),
+        )
+        if propagation == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
+            continue
+        candidates.append((
+            source,
+            target,
+            canonical_relation_type(edge.type),
+            edge.id,
+            list(edge.evidence_refs),
+            propagation,
+        ))
+
+    for relation in ir.infrastructure_relations:
+        source = (
+            relation.source
+            if relation.source in subject_ids
+            else _resolve(relation.source, arch_nodes, raw_to_arch)
+        )
+        target = (
+            relation.target
+            if relation.target in subject_ids
+            else _resolve(relation.target, arch_nodes, raw_to_arch)
+        )
+        if not source or not target:
+            continue
+        propagation = context_propagation_kind(relation.type)
+        if propagation == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
+            continue
+        candidates.append((source, target, canonical_relation_type(relation.type), relation.id, list(relation.evidence_refs), propagation))
+
+    for source, target, kind, relation_id, refs, propagation in candidates:
+        for root, subject in ((source, target), (target, source)):
+            if root in roots:
+                add_link(root, subject, kind, relation_id, refs, [root, subject], propagation)
+
+    # One additional semantic hop is intentionally bounded. Weak-only paths
+    # are not added to direct_subjects and therefore cannot become membership.
+    for source, target, kind, relation_id, refs, propagation in candidates:
+        for root, via, subject in (
+            (root, source, target)
+            for root, subjects in direct_subjects.items()
+            if source in subjects
         ):
-            if subject == root:
-                continue
-            links[subject].append(ProjectionContextLink(
-                root_id=root,
-                subject_id=subject,
-                relation_kind=kind,
-                relation_id=_relation_id(edge),
-                evidence_refs=sorted(set(edge.evidence_refs)),
-                chain=[root, via, subject],
-            ))
-        for root, subject, via in (
-            (root, source, target) for root, subjects in direct_subjects.items() if target in subjects
+            if subject != root:
+                add_link(root, subject, kind, relation_id, refs, [root, via, subject], propagation)
+        for root, via, subject in (
+            (root, target, source)
+            for root, subjects in direct_subjects.items()
+            if target in subjects
         ):
-            if subject == root:
-                continue
-            links[subject].append(ProjectionContextLink(
-                root_id=root,
-                subject_id=subject,
-                relation_kind=kind,
-                relation_id=_relation_id(edge),
-                evidence_refs=sorted(set(edge.evidence_refs)),
-                chain=[root, via, subject],
-            ))
+            if subject != root:
+                add_link(root, subject, kind, relation_id, refs, [root, via, subject], propagation)
+
     return {
         subject: sorted(
             values,
-            key=lambda item: (item.root_id, item.subject_id, item.relation_kind, item.relation_id or "", item.chain),
+            key=lambda item: (
+                item.root_id,
+                item.subject_id,
+                item.relation_kind,
+                item.relation_id or "",
+                item.chain,
+            ),
         )
         for subject, values in links.items()
     }
 
+def _weak_only_reachable(
+    ir: ArchitectureIR,
+    roots: set[str],
+    arch_nodes: dict[str, Any],
+    raw_to_arch: dict[str, str],
+    raw_edges: dict[str, Any],
+    max_hops: int = 2,
+) -> set[str]:
+    adjacency: dict[str, set[str]] = defaultdict(set)
+    resource_ids = {resource.id for resource in ir.infrastructure_resources}
+    subject_ids = set(arch_nodes) | resource_ids
+    for edge in ir.architectural_graph.edges:
+        source = _resolve(edge.source, arch_nodes, raw_to_arch) or edge.source
+        target = _resolve(edge.target, arch_nodes, raw_to_arch) or edge.target
+        raw_types = [
+            raw_edges[raw_id].type
+            for raw_id in edge.raw_edge_ids
+            if raw_id in raw_edges
+        ]
+        if context_propagation_kind(edge.type, raw_relation_types=raw_types) == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
+            adjacency[source].add(target)
+            adjacency[target].add(source)
+    for relation in ir.infrastructure_relations:
+        source = (
+            relation.source
+            if relation.source in subject_ids
+            else _resolve(relation.source, arch_nodes, raw_to_arch)
+        )
+        target = (
+            relation.target
+            if relation.target in subject_ids
+            else _resolve(relation.target, arch_nodes, raw_to_arch)
+        )
+        if not source or not target:
+            continue
+        if context_propagation_kind(relation.type) == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
+            adjacency[source].add(target)
+            adjacency[target].add(source)
+    frontier = set(roots)
+    reached: set[str] = set()
+    for _ in range(max_hops):
+        next_frontier = {
+            target
+            for source in frontier
+            for target in adjacency.get(source, set())
+            if target not in roots and target not in reached
+        }
+        reached.update(next_frontier)
+        frontier = next_frontier
+        if not frontier:
+            break
+    return reached
 
 def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjection) -> ProjectionAudit:
     """Build a deterministic audit without modifying IR, projection or ReadModel."""
@@ -396,7 +539,7 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
     significance = {item.subject: item for item in projection.significances}
     roots = set(projection.context_root_ids)
     raw_edges = {edge.id: edge for edge in ir.raw_graph.edges if edge.id}
-    links = _context_links(ir, roots, arch_nodes, raw_to_arch, raw_edges)
+    links = _context_links(ir, roots, projection.context_root_strengths, arch_nodes, raw_to_arch, raw_edges)
     framework_counts: dict[str, int] = defaultdict(int)
     for fact in ir.framework_facts:
         for value in (fact.subject, fact.target, fact.attributes.get("endpoint"), fact.attributes.get("module")):
@@ -415,11 +558,68 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
             for subject in (relation.source, relation.target):
                 resolved = _resolve(subject, arch_nodes, raw_to_arch) or subject
                 semantic_refs[resolved].add(relation.id)
+    globally_linked_boundaries: set[str] = set()
+    resource_ids = {resource.id for resource in ir.infrastructure_resources}
+    # Keep this diagnostic aligned with projection eligibility: an explicit
+    # infrastructure relation to a projected significant subject, or an
+    # application-owned deployment boundary, is a global boundary signal.
+    for relation in ir.infrastructure_relations:
+        source = relation.source if relation.source in selected or relation.source in resource_ids else _resolve(relation.source, arch_nodes, raw_to_arch)
+        target = relation.target if relation.target in selected or relation.target in resource_ids else _resolve(relation.target, arch_nodes, raw_to_arch)
+        if not source or not target:
+            continue
+        resource_endpoint = source in resource_ids or target in resource_ids
+        if not resource_endpoint:
+            continue
+        for boundary, other in ((source, target), (target, source)):
+            if boundary not in resource_ids:
+                continue
+            if (
+                other in roots
+                or links.get(other)
+                or (
+                    other in selected
+                    and significance.get(other)
+                    and significance[other].significance in {SignificanceLevel.HIGH, SignificanceLevel.MEDIUM}
+                )
+            ):
+                globally_linked_boundaries.add(boundary)
+    deployment_targets = {
+        edge.target
+        for edge in ir.architectural_graph.edges
+        if edge.type == EdgeType.DEPLOYS and edge.target in selected
+    }
+    for edge in ir.architectural_graph.edges:
+        if edge.type == EdgeType.CONTAINS and edge.source in roots and edge.target in deployment_targets:
+            globally_linked_boundaries.add(edge.target)
+
     explanations: list[ProjectionExplanation] = []
     for subject in sorted(significance):
         item = significance[subject]
         subject_links = links.get(subject, [])
         root_ids = sorted({link.root_id for link in subject_links})
+        root_strength = (
+            projection.context_root_strengths.get(root_ids[0])
+            if root_ids
+            else None
+        )
+        root_kind = (
+            projection.context_root_kinds.get(root_ids[0])
+            if root_ids
+            else None
+        )
+        if root_ids:
+            membership_source = "context_root" if subject in roots else (
+                "propagated:" + ",".join(sorted({link.relation_kind for link in subject_links}))
+            )
+            membership_strength = max(
+                (link.relation_strength for link in subject_links),
+                key=lambda value: {"weak": 0, "supporting": 1, "strong": 2}.get(value, 0),
+                default="weak",
+            )
+        else:
+            membership_source = "none"
+            membership_strength = "weak"
         boundary = [
             reason for reason in item.reasons
             if "architectural context root" in reason
@@ -431,7 +631,16 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
             if any(token in reason for token in ("strong", "explicit", "principal", "observed application"))
         ]
         supporting_reasons = sorted(set(item.reasons) - set(strong_reasons))
-        global_context = bool(root_ids or boundary)
+        global_boundary_reasons = [
+            reason for reason in boundary
+            if "architectural context root" in reason
+            or "explicit architectural boundary" in reason
+            or "observed application boundary" in reason
+        ]
+        global_context = bool(root_ids or global_boundary_reasons or subject in globally_linked_boundaries)
+        if boundary and not root_ids:
+            membership_source = "independent_boundary"
+            membership_strength = "strong" if global_context else "weak"
         local = item.significance in {SignificanceLevel.HIGH, SignificanceLevel.MEDIUM} and not global_context
         explanations.append(ProjectionExplanation(
             subject_id=subject,
@@ -442,6 +651,10 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
             boundary_justification=sorted(set(boundary)),
             context_root_ids=root_ids,
             context_chain=subject_links,
+            context_root_strength=root_strength,
+            context_root_kind=root_kind,
+            context_membership_source=membership_source,
+            context_membership_strength=membership_strength,
             locally_significant=local,
             globally_contextualized=global_context,
             local_framework_fact_count=framework_counts.get(subject, 0),
@@ -499,7 +712,18 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
         strength_counts[current_strength] += 1
         if context_scope == "CROSS_CONTEXT":
             cross_evidence.update(edge.evidence_refs)
+        raw_types = [
+            raw_edges[raw_id].type
+            for raw_id in edge.raw_edge_ids
+            if raw_id in raw_edges
+        ]
+        propagation = context_propagation_kind(
+            edge.kind,
+            raw_relation_types=raw_types,
+        )
         reason = "both endpoints are projection-eligible and the canonical relation has evidence"
+        if propagation == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
+            reason += "; relation is valid but does not propagate context"
         if stronger:
             reason += "; stronger relation exists for the same directed pair"
         if context_scope == "CROSS_CONTEXT":
@@ -522,6 +746,7 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
             stronger_relation_kinds=stronger,
             depends_on_category=category,
             projection_reason=reason,
+            context_propagation=propagation.value,
         ))
     hypothesis_explanations: list[HypothesisContextExplanation] = []
     for hypothesis in sorted(ir.architecture.hypotheses, key=lambda item: item.pattern):
@@ -544,6 +769,8 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
     audited_refs = [
         ref for item in explanations for ref in item.evidence_refs
     ] + [
+        ref for item in explanations for link in item.context_chain for ref in link.evidence_refs
+    ] + [
         ref for item in relation_explanations for ref in item.evidence_refs
     ]
     evidence_coverage = (
@@ -560,6 +787,45 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
     )
     local_framework = sum(
         item.local_framework_fact_count > 0 and item.locally_significant
+        for item in projected_explanations
+    )
+    root_strength_counts = defaultdict(int)
+    for root in roots:
+        root_strength_counts[projection.context_root_strengths.get(root, "strong")] += 1
+    propagation_counts = defaultdict(int)
+    chain_strength_counts = defaultdict(int)
+    for item in projected_explanations:
+        for link in item.context_chain:
+            chain_strength_counts[link.relation_strength] += 1
+    for item in relation_explanations:
+        propagation_counts[item.kind + ":" + item.context_propagation] += 1
+    weak_reachable = _weak_only_reachable(ir, roots, arch_nodes, raw_to_arch, raw_edges)
+    contextualized_by_strong = sum(
+        any(link.relation_strength == "strong" for link in item.context_chain)
+        and item.subject_id not in roots
+        for item in projected_explanations
+    )
+    projected_without_strong = sum(
+        not item.globally_contextualized
+        for item in projected_explanations
+    )
+    local_only = sum(item.locally_significant for item in projected_explanations)
+    independent_local = sum(
+        bool(item.boundary_justification)
+        and not item.globally_contextualized
+        and not item.context_root_ids
+        for item in projected_explanations
+    )
+    independent_global = sum(
+        bool(item.boundary_justification)
+        and item.globally_contextualized
+        and not item.context_root_ids
+        for item in projected_explanations
+    )
+    weak_only_projected = sum(
+        item.subject_id in weak_reachable
+        and not item.context_root_ids
+        and not item.boundary_justification
         for item in projected_explanations
     )
     return ProjectionAudit(
@@ -581,6 +847,18 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
         hypothesis_contextual_support_count=sum(item.context_root_evidence_count for item in hypothesis_explanations),
         hypothesis_local_only_support_count=sum(item.local_only_evidence_count for item in hypothesis_explanations),
         hypothesis_cross_context_support_count=sum(item.cross_context_evidence_count for item in hypothesis_explanations),
+        context_root_strength_counts=dict(sorted(root_strength_counts.items())),
+        strong_context_root_count=sum(value for key, value in root_strength_counts.items() if key == "strong"),
+        weak_navigation_root_count=len(projection.navigation_root_ids),
+        propagation_relation_kind_counts=dict(sorted(propagation_counts.items())),
+        context_chain_strength_counts=dict(sorted(chain_strength_counts.items())),
+        nodes_contextualized_by_strong_relation=contextualized_by_strong,
+        nodes_reachable_only_by_weak_relation=weak_only_projected,
+        projected_without_strong_context_count=projected_without_strong,
+        locally_significant_only_count=local_only,
+        independent_local_boundary_count=independent_local,
+        independent_global_boundary_count=independent_global,
+        weak_evidence_saturation_count=projection.weak_evidence_saturation_count,
         traceability=traceability,
         evidence_coverage=round(evidence_coverage, 6),
         node_explanations=explanations,
