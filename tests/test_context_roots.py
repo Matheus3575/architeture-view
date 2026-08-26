@@ -133,7 +133,8 @@ def test_isolated_framework_context_is_not_promoted():
     assert levels["component:support.py"] == SignificanceLevel.LOW
     assert "component:support.py" not in projection.projected_node_ids
     assert levels["component:entry.py"] == SignificanceLevel.HIGH
-    assert "application:neutral" in projection.context_root_ids
+    assert "application:neutral" not in projection.context_root_ids
+    assert "component:entry.py" in projection.context_root_ids
     assert projection.context_root_ids == sorted(projection.context_root_ids)
 
 

@@ -356,3 +356,41 @@ projection and audit. No fixed-point traversal, renderer inference, or
 project-specific library/path rule was added.
 
 No ADR was created; ADR-001/002/003 remain sufficient.
+
+## M8.1.9 - application boundary provenance and ownership calibration
+
+The investigation located the remaining false global-context source in
+graph/aggregation.py: every repository received a synthetic
+application:<repository> node with inferred GRAPH_AGGREGATION evidence based
+on repository membership. visualization/projection.py then admitted every
+application node with evidence as a strong context root. Its broad CONTAINS
+edges could therefore be interpreted as APPLICATION_CONTEXT_OWNERSHIP and
+contextualize unrelated components.
+
+The aggregate now carries explicit provenance:
+application_provenance=repository_aggregate,
+boundary_evidence_kind=repository_membership, and
+architectural_boundary=false. It remains available in the Detailed Model,
+but is not a strong root. Standalone explicit application nodes remain
+supported for compatibility; framework application components become roots only
+when their own application evidence has an observed boundary (explicit boundary
+or boundary fact plus semantic flow). A lone framework fact or application
+count is insufficient.
+
+Repository/application containment is structural by default and is never
+treated as architectural ownership. APPLICATION_CONTEXT_OWNERSHIP is accepted
+only from explicit edge provenance (architectural_ownership or
+ownership_kind=architectural). The audit reports structural ownership
+rejections, application provenance, boundary evidence kind, observed/inferred
+status, framework/entrypoint/deployment evidence and ownership refs.
+
+This implements:
+Application detected != Application boundary.
+Application boundary != Global context root.
+Structural ownership != Architectural context ownership.
+Navigation context != Architectural significance.
+
+No significance weights, relation semantics, hypothesis scoring, renderer or
+layout behavior was changed. No repository-specific names, paths or library
+rules were introduced. The bounded policy remains linear in architectural
+nodes, edges and framework facts.

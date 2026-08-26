@@ -91,7 +91,7 @@ def test_svg_renderer_uses_semantic_group_order_and_explicit_layers():
         if element.attrib.get("data-layout-group")
     ]
 
-    assert groups == ["application", "domain", "persistence", "infrastructure", "external"]
+    assert groups == ["domain", "persistence", "infrastructure", "external"]
 
 
 def test_svg_renderer_distinguishes_relation_classes_and_routes():
@@ -107,7 +107,7 @@ def test_svg_renderer_distinguishes_relation_classes_and_routes():
 
     assert relation_classes["CONTAINS"] == "structural"
     assert relation_classes["DEPENDS_ON"] == "architectural"
-    assert relation_classes["DEPLOYS"] == "architectural"
+    assert "DEPLOYS" not in relation_classes
     assert all(
         element.find("{http://www.w3.org/2000/svg}path") is not None
         for element in root.iter()

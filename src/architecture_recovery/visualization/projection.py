@@ -79,7 +79,6 @@ class ArchitecturalProjectionBuilder:
     """
 
     _STRONG_NODE_TYPES = {
-        NodeType.APPLICATION,
         NodeType.API,
 
         NodeType.EXTERNAL_SERVICE,
@@ -147,6 +146,30 @@ class ArchitecturalProjectionBuilder:
             return bool(
                 node.metadata.get("architectural_boundary")
                 or role in {"http_endpoint", "http_entrypoint", "architectural_boundary"}
+            )
+        def application_boundary_info(node: Node) -> tuple[bool, str, str]:
+            """Return admission, provenance kind and evidence kind for an application."""
+            metadata = node.metadata
+            provenance = str(metadata.get("application_provenance", "")).lower()
+            if provenance == "repository_aggregate":
+                return (
+                    bool(metadata.get("architectural_boundary") or metadata.get("entrypoint")),
+                    provenance,
+                    str(metadata.get("boundary_evidence_kind", "repository_membership")),
+                )
+            if metadata.get("architectural_boundary") or metadata.get("entrypoint") or metadata.get("executable"):
+                return True, provenance or "explicit_application", str(metadata.get("boundary_evidence_kind", "explicit_metadata"))
+            # Standalone application nodes are retained for compatibility with
+            # hand-authored IR fixtures. Aggregation-created nodes always carry
+            # raw_node_ids and are therefore not admitted by this fallback.
+            if not metadata.get("raw_node_ids") and node.status == EvidenceStatus.OBSERVED:
+                return True, provenance or "standalone_application", str(metadata.get("boundary_evidence_kind", "standalone_node"))
+            return False, provenance or "detected_application", str(metadata.get("boundary_evidence_kind", "insufficient_boundary_evidence"))
+
+        def is_architectural_ownership(edge: Edge) -> bool:
+            return bool(
+                edge.metadata.get("architectural_ownership")
+                or edge.metadata.get("ownership_kind") == "architectural"
             )
 
         def dependency_role(subject: str, relation_type: EdgeType | str | None = None) -> str:
@@ -245,19 +268,23 @@ class ArchitecturalProjectionBuilder:
                     reasons[subject].append("component detection evidence (structural, not sufficient alone)")
 
         application_ids = {node.id for node in arch_nodes.values() if node.type == NodeType.APPLICATION}
-        context_root_ids: set[str] = {
-            node.id
-            for node in arch_nodes.values()
-            if node.type == NodeType.APPLICATION and bool(node.evidence_refs)
-        }
-        context_root_strengths: dict[str, str] = {
-            root_id: "strong" for root_id in context_root_ids
-        }
-        context_root_kinds: dict[str, str] = {
-            root_id: "APPLICATION_BOUNDARY" for root_id in context_root_ids
-        }
+        application_provenance: dict[str, tuple[str, str, bool]] = {}
+        context_root_ids: set[str] = set()
+        context_root_strengths: dict[str, str] = {}
+        context_root_kinds: dict[str, str] = {}
+        for application_id in sorted(application_ids):
+            application = arch_nodes[application_id]
+            admitted, provenance, evidence_kind = application_boundary_info(application)
+            application_provenance[application_id] = (provenance, evidence_kind, admitted)
+            if not admitted:
+                reasons[application_id].append(f"application boundary rejected: {evidence_kind}")
+                continue
+            context_root_ids.add(application_id)
+            context_root_strengths[application_id] = "strong"
+            context_root_kinds[application_id] = "APPLICATION_BOUNDARY"
+            add_signal(application_id, "strong", 0.55, f"application boundary: {evidence_kind}", set(application.evidence_refs))
         for root_id in sorted(context_root_ids):
-            reasons[root_id].append("architectural context root: observed application boundary")
+            reasons[root_id].append("architectural context root: independently justified application boundary")
         component_main_context: set[str] = set()
         component_semantic_flow: set[str] = set()
         for edge in ir.architectural_graph.edges:
@@ -315,16 +342,37 @@ class ArchitecturalProjectionBuilder:
             for resolved in [self._resolve(value, arch_nodes, raw_to_arch)]
             if resolved and arch_nodes.get(resolved) and arch_nodes[resolved].type == NodeType.COMPONENT
         }
-        application_root_fact = any(
-            fact.kind == "APPLICATION"
-            and any(
-                resolved in context_root_ids
-                for value in (fact.subject, fact.target, fact.attributes.get("module"))
-                for resolved in [self._resolve(value, arch_nodes, raw_to_arch)]
-                if resolved
-            )
+        framework_application_fact_by_component: dict[str, list[Any]] = defaultdict(list)
+        for fact in ir.framework_facts:
+            if fact.kind != "APPLICATION":
+                continue
+            for value in (fact.subject, fact.target, fact.attributes.get("module")):
+                resolved = self._resolve(value, arch_nodes, raw_to_arch)
+                if resolved in framework_application_components:
+                    framework_application_fact_by_component[resolved].append(fact)
+        framework_boundary_fact_kinds = {"HTTP_ENDPOINT", "ROUTER", "CONTROLLER_LIKE"}
+        framework_boundary_subjects_for_application = {
+            resolved
             for fact in ir.framework_facts
-        )
+            if fact.kind in framework_boundary_fact_kinds
+            for value in (fact.subject, fact.target, fact.attributes.get("endpoint"), fact.attributes.get("module"))
+            for resolved in [self._resolve(value, arch_nodes, raw_to_arch)]
+            if resolved
+        }
+        for subject, app_facts in sorted(framework_application_fact_by_component.items()):
+            has_explicit_boundary = any(explicit_framework_boundary(fact) for fact in app_facts)
+            has_observed_boundary = (
+                subject in framework_boundary_subjects_for_application
+                and subject in component_semantic_flow
+            )
+            if not (has_explicit_boundary or has_observed_boundary):
+                continue
+            context_root_ids.add(subject)
+            context_root_strengths[subject] = "strong"
+            context_root_kinds[subject] = "EXECUTION_BOUNDARY" if has_explicit_boundary else "FRAMEWORK_APPLICATION_BOUNDARY"
+            refs_for_subject = {ref for fact in app_facts for ref in fact.evidence_refs}
+            add_signal(subject, "strong", 0.55, "application boundary: framework application with observed boundary", refs_for_subject)
+            reasons[subject].append("architectural context root: framework application boundary")
         # A component explicitly owned by an observed application boundary and
         # carrying an application fact is context-bound when it also has the
         # existing semantic flow evidence used by the bounded pass. This keeps
@@ -338,7 +386,6 @@ class ArchitecturalProjectionBuilder:
                 and edge.target in component_semantic_flow
             ):
                 root_context_component_ids.add(edge.target)
-        single_application_component = len(framework_application_components) == 1 and not application_root_fact
         semantic_subjects: set[str] = set()
         framework_boundary_candidates: set[str] = set()
         framework_context_components: set[str] = set()
@@ -357,7 +404,6 @@ class ArchitecturalProjectionBuilder:
             fact_context = any(
                 subject in context_root_ids
                 or subject in root_context_component_ids
-                or (single_application_component and subject in framework_application_components)
                 for subject in resolved_values
                 if subject
             ) or explicit_framework_boundary(fact)
@@ -454,8 +500,7 @@ class ArchitecturalProjectionBuilder:
                 if subject in infrastructure_subjects:
                     add_signal(subject, "strong", 0.55, "explicit infrastructure boundary relation", relation.evidence_refs)
                 elif arch_nodes.get(subject) and arch_nodes[subject].type in {
-                    NodeType.APPLICATION,
-                    NodeType.COMPONENT,
+                                NodeType.COMPONENT,
                     NodeType.API,
                     NodeType.MODULE,
                 }:
@@ -574,11 +619,7 @@ class ArchitecturalProjectionBuilder:
             ownership = (
                 edge.type == EdgeType.CONTAINS
                 and source in context_root_ids
-                and (
-                    target in framework_application_components
-                    or target in deployment_boundary_components
-                    or target in component_semantic_flow
-                )
+                and is_architectural_ownership(edge)
             )
             context_candidates.append((source, target, edge.type, raw_types, bool(ownership)))
         for relation in ir.infrastructure_relations:
@@ -608,11 +649,10 @@ class ArchitecturalProjectionBuilder:
         independent_global_subjects: set[str] = set()
         for subject in strong:
             node = arch_nodes.get(subject)
-            if node and node.type in {
-                NodeType.APPLICATION,
+            if subject in context_root_ids or (node and node.type in {
                 NodeType.API,
                 NodeType.EXTERNAL_SERVICE,
-            }:
+            }):
                 independent_global_subjects.add(subject)
             if any(
                 token in reason

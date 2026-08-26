@@ -10,9 +10,7 @@
     "projection": {
       "required_significant": [
         "repository:significance_calibration",
-        "application:significance_calibration",
         "component:app.py",
-        "component:docker-compose.yml",
         "component:domain.py",
         "external.fastapi",
         "infrastructure:compose:docker-compose.yml:api",
@@ -20,7 +18,7 @@
         "infrastructure:compose:docker-compose.yml:redis"
       ],
       "required_low_or_unknown": [
-        "component:benchmarks",
+        "application:significance_calibration",
         "component:persistence.py",
         "component:tests",
         "component:tools",
@@ -34,7 +32,7 @@
         "external.yaml"
       ],
       "forbid_projected": [
-        "component:benchmarks",
+        "application:significance_calibration",
         "component:persistence.py",
         "component:tests",
         "component:tools",
@@ -51,7 +49,6 @@
         "external.fastapi"
       ],
       "expected_significance": {
-        "application:significance_calibration": "high",
         "component:app.py": "high",
         "component:docker-compose.yml": "medium",
         "component:domain.py": "medium",

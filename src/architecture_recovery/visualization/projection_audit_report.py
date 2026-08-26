@@ -89,6 +89,8 @@ def _compact_context_link(link: Any, index: EvidencePayloadIndex) -> dict[str, A
 def _node_record(item: ProjectionExplanation, index: EvidencePayloadIndex) -> dict[str, Any]:
     record = item.model_dump(mode="json", exclude={"evidence_refs", "context_chain"})
     record.update(_compact_refs(item.evidence_refs, index))
+    ownership_refs = record.pop("ownership_evidence_refs", [])
+    record["ownership_evidence"] = _compact_refs(ownership_refs, index)
     record["context_chain"] = [
         _compact_context_link(link, index)
         for link in item.context_chain
@@ -148,6 +150,12 @@ def _diagnostics(audit: ProjectionAudit) -> list[dict[str, str]]:
             "severity": "candidate_issue",
             "message": "Projected nodes without a context root or explicit boundary require review.",
         })
+    if audit.structural_ownership_rejected_count:
+        diagnostics.append({
+            "kind": "structural_ownership_rejected",
+            "severity": "diagnostic_signal",
+            "message": "Structural application containment was not used as architectural ownership.",
+        })
     if audit.local_only_framework_promotion_count:
         diagnostics.append({
             "kind": "local_only_framework_promotion",
@@ -202,6 +210,7 @@ def build_projection_audit_report(
 
     index = EvidencePayloadIndex(ir.evidence)
     nodes = [_node_record(item, index) for item in audit.node_explanations if item.projection_eligible]
+    application_nodes = [_node_record(item, index) for item in audit.node_explanations if item.application_provenance is not None]
     relations = [_relation_record(item, index) for item in audit.relation_explanations]
     hypotheses = [_hypothesis_record(item, index) for item in audit.hypothesis_explanations]
     cardinalities = _cardinalities(ir, projection, audit, profile, len(index.groups))
@@ -239,6 +248,7 @@ def build_projection_audit_report(
             "reduction_ratio": projection.reduction_ratio,
         },
         "nodes": sorted(nodes, key=lambda item: item["subject_id"]),
+        "application_nodes": sorted(application_nodes, key=lambda item: item["subject_id"]),
         "relations": sorted(relations, key=lambda item: item["edge_id"]),
         "hypotheses": sorted(hypotheses, key=lambda item: item["pattern"]),
         "metrics": audit.model_dump(
@@ -288,9 +298,26 @@ def render_projection_audit_markdown(report: dict[str, Any]) -> str:
         f"- traceability: {_yes_no(summary['traceability'])}",
         f"- determinism: {_yes_no(summary['deterministic'])}",
         "",
-        "## Projected Nodes",
-        "",
     ]
+    if report.get("application_nodes"):
+        lines.extend(["## Application Boundary Audit", ""])
+        for node in report["application_nodes"]:
+            lines.extend([
+                f"### {node['subject_id']}",
+                "",
+                f"- application provenance: {node.get('application_provenance') or 'none'}",
+                f"- boundary evidence kind: {node.get('boundary_evidence_kind') or 'none'}",
+                f"- projected: {_yes_no(node.get('projection_eligible', False))}",
+                f"- significance: {node.get('significance')}",
+                f"- observed/inferred: {node.get('observed_inferred_status') or 'none'}",
+                f"- executable/entrypoint evidence: {_yes_no(node.get('executable_entrypoint_evidence', False))}",
+                f"- evidence count/group: {node.get('evidence_count', 0)} / {node.get('evidence_group_ref') or 'none'}",
+                "",
+            ])
+    else:
+        lines.extend(["## Application Boundary Audit", "", "- none", ""])
+
+    lines.extend(["## Projected Nodes", ""])
     for node in report["nodes"]:
         lines.extend([
             f"### {node['subject_id']}",
@@ -312,6 +339,11 @@ def render_projection_audit_markdown(report: dict[str, Any]) -> str:
             f"- supporting reasons: {', '.join(node['supporting_reasons']) or 'none'}",
             f"- evidence count: {node['evidence_count']}",
             f"- evidence group: {node.get('evidence_group_ref') or 'none'}",
+            f"- application provenance: {node.get('application_provenance') or 'none'}",
+            f"- boundary evidence kind: {node.get('boundary_evidence_kind') or 'none'}",
+            f"- observed/inferred: {node.get('observed_inferred_status') or 'none'}",
+            f"- executable/entrypoint evidence: {_yes_no(node.get('executable_entrypoint_evidence', False))}",
+            f"- ownership: {node.get('ownership_kind') or 'none'} via {node.get('ownership_source_relation') or 'none'}",
             "",
         ])
     lines.extend(["## Projected Relations", ""])
@@ -345,6 +377,8 @@ def render_projection_audit_markdown(report: dict[str, Any]) -> str:
         f"- projected without strong context: {metrics.get('projected_without_strong_context_count', 0)}",
         f"- local-only significance: {metrics.get('locally_significant_only_count', 0)}",
         f"- weak evidence saturation: {metrics.get('weak_evidence_saturation_count', 0)}",
+        f"- structural ownership rejected: {metrics.get('structural_ownership_rejected_count', 0)}",
+        f"- globally contextualized by ownership: {metrics.get('globally_contextualized_by_ownership_count', 0)}",
         "",
         "## Hypothesis Context Audit",
         "",

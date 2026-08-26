@@ -55,6 +55,15 @@ class ProjectionExplanation(BaseModel):
     supporting_reasons: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     semantic_relation_refs: list[str] = Field(default_factory=list)
+    application_provenance: str | None = None
+    boundary_evidence_kind: str | None = None
+    observed_inferred_status: str | None = None
+    executable_entrypoint_evidence: bool = False
+    framework_application_evidence: bool = False
+    deployment_evidence: bool = False
+    ownership_source_relation: str | None = None
+    ownership_evidence_refs: list[str] = Field(default_factory=list)
+    ownership_kind: str = "none"
 
 
 class ProjectedRelationExplanation(BaseModel):
@@ -135,6 +144,13 @@ class ProjectionAudit(BaseModel):
     independent_local_boundary_count: int = Field(default=0, ge=0)
     independent_global_boundary_count: int = Field(default=0, ge=0)
     weak_evidence_saturation_count: int = Field(default=0, ge=0)
+    application_node_count: int = Field(default=0, ge=0)
+    strong_application_boundary_count: int = Field(default=0, ge=0)
+    observed_application_boundary_count: int = Field(default=0, ge=0)
+    inferred_application_boundary_count: int = Field(default=0, ge=0)
+    architectural_ownership_count: int = Field(default=0, ge=0)
+    structural_ownership_rejected_count: int = Field(default=0, ge=0)
+    globally_contextualized_by_ownership_count: int = Field(default=0, ge=0)
 
 
 _CONTEXT_RELATIONS = {
@@ -343,11 +359,7 @@ def _context_links(
         if edge.type != EdgeType.CONTAINS or edge.source not in roots:
             continue
         subject = _resolve(edge.target, arch_nodes, raw_to_arch) or edge.target
-        if (
-            subject in framework_application_components
-            or subject in deployment_boundary_components
-            or subject in semantic_flow_subjects
-        ):
+        if edge.metadata.get("architectural_ownership") or edge.metadata.get("ownership_kind") == "architectural":
             add_link(
                 edge.source,
                 subject,
@@ -357,37 +369,6 @@ def _context_links(
                 [edge.source, subject],
                 ContextPropagation.CAN_PROPAGATE_CONTEXT,
             )
-
-    application_root_fact = any(
-        fact.kind == "APPLICATION"
-        and any(
-            resolved in roots
-            for value in (fact.subject, fact.target, fact.attributes.get("module"))
-            for resolved in [_resolve(value, arch_nodes, raw_to_arch)]
-            if resolved
-        )
-        for fact in ir.framework_facts
-    )
-    if len(roots) == 1 and not application_root_fact and len(framework_application_components) == 1:
-        root = next(iter(roots))
-        subject = sorted(framework_application_components)[0]
-        fact = next(
-            fact for fact in ir.framework_facts
-            if fact.kind == "APPLICATION"
-            and subject in {
-                _resolve(value, arch_nodes, raw_to_arch)
-                for value in (fact.subject, fact.target, fact.attributes.get("module"))
-            }
-        )
-        add_link(
-            root,
-            subject,
-            "FRAMEWORK_CONTEXT_SINGLE_APPLICATION",
-            f"framework:{fact.kind}:{root}:{subject}",
-            list(fact.evidence_refs),
-            [root, subject],
-            ContextPropagation.CAN_PROPAGATE_CONTEXT,
-        )
 
     candidates: list[tuple[str, str, str, str | None, list[str], ContextPropagation]] = []
     for edge in ir.architectural_graph.edges:
@@ -400,11 +381,7 @@ def _context_links(
         ]
         ownership = (
             edge.type == EdgeType.CONTAINS
-            and arch_nodes.get(source)
-            and arch_nodes.get(target)
-            and arch_nodes[source].type == NodeType.APPLICATION
-            and target in framework_application_components
-            and target in semantic_flow_subjects
+            and edge.metadata.get("architectural_ownership")
         )
         propagation = context_propagation_kind(
             edge.type,
@@ -546,6 +523,34 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
             subject = _resolve(value, arch_nodes, raw_to_arch)
             if subject:
                 framework_counts[subject] += 1
+    application_fact_subjects: dict[str, list[Any]] = defaultdict(list)
+    for fact in ir.framework_facts:
+        if fact.kind != "APPLICATION":
+            continue
+        for value in (fact.subject, fact.target, fact.attributes.get("module")):
+            subject = _resolve(value, arch_nodes, raw_to_arch)
+            if subject:
+                application_fact_subjects[subject].append(fact)
+    deployment_subjects = {
+        endpoint
+        for edge in ir.architectural_graph.edges
+        if edge.type == EdgeType.DEPLOYS
+        for endpoint in (edge.source, edge.target)
+    }
+    structural_ownership_rejected = 0
+    structural_ownership_subjects: set[str] = set()
+    for edge in ir.architectural_graph.edges:
+        source = _resolve(edge.source, arch_nodes, raw_to_arch) or edge.source
+        target = _resolve(edge.target, arch_nodes, raw_to_arch) or edge.target
+        if (
+            edge.type == EdgeType.CONTAINS
+            and arch_nodes.get(source)
+            and arch_nodes[source].type == NodeType.APPLICATION
+            and target in arch_nodes
+            and not (edge.metadata.get("architectural_ownership") or edge.metadata.get("ownership_kind") == "architectural")
+        ):
+            structural_ownership_rejected += 1
+            structural_ownership_subjects.add(target)
     semantic_refs: dict[str, set[str]] = defaultdict(set)
     for edge in ir.architectural_graph.edges:
         kind = canonical_relation_type(edge.type)
@@ -597,6 +602,35 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
     for subject in sorted(significance):
         item = significance[subject]
         subject_links = links.get(subject, [])
+        node = arch_nodes.get(subject)
+        application_provenance = None
+        boundary_evidence_kind = None
+        observed_inferred_status = node.status.value if node else None
+        executable_entrypoint_evidence = False
+        framework_application_evidence = bool(application_fact_subjects.get(subject))
+        deployment_evidence = subject in deployment_subjects
+        if node and node.type == NodeType.APPLICATION:
+            application_provenance = str(node.metadata.get("application_provenance", "")) or (
+                "standalone_application" if not node.metadata.get("raw_node_ids") else "detected_application"
+            )
+            boundary_evidence_kind = str(node.metadata.get("boundary_evidence_kind", "")) or "unspecified"
+            executable_entrypoint_evidence = bool(
+                node.metadata.get("entrypoint")
+                or node.metadata.get("executable")
+                or any(
+                    fact.attributes.get("entrypoint") or fact.metadata.get("entrypoint")
+                    for fact in application_fact_subjects.get(subject, [])
+                )
+            )
+        ownership_links = [
+            link for link in subject_links
+            if link.relation_kind == "APPLICATION_CONTEXT_OWNERSHIP"
+        ]
+        ownership_source_relation = ownership_links[0].relation_kind if ownership_links else None
+        ownership_evidence_refs = sorted({ref for link in ownership_links for ref in link.evidence_refs})
+        ownership_kind = "architectural" if ownership_links else (
+            "structural_rejected" if subject in structural_ownership_subjects else "none"
+        )
         root_ids = sorted({link.root_id for link in subject_links})
         root_strength = (
             projection.context_root_strengths.get(root_ids[0])
@@ -662,6 +696,15 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
             supporting_reasons=supporting_reasons,
             evidence_refs=sorted(set(item.evidence_refs)),
             semantic_relation_refs=sorted(ref for ref in semantic_refs.get(subject, set()) if ref),
+            application_provenance=application_provenance,
+            boundary_evidence_kind=boundary_evidence_kind,
+            observed_inferred_status=observed_inferred_status,
+            executable_entrypoint_evidence=executable_entrypoint_evidence,
+            framework_application_evidence=framework_application_evidence,
+            deployment_evidence=deployment_evidence,
+            ownership_source_relation=ownership_source_relation,
+            ownership_evidence_refs=ownership_evidence_refs,
+            ownership_kind=ownership_kind,
         ))
     explanation_by_subject = {item.subject_id: item for item in explanations}
     pairs = _edge_endpoints(ir, selected, arch_nodes, raw_to_arch)
@@ -822,6 +865,32 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
         and not item.context_root_ids
         for item in projected_explanations
     )
+    application_explanations = [
+        item for item in projected_explanations
+        if item.application_provenance is not None
+    ]
+    strong_application_boundaries = sum(
+        item.subject_id in roots
+        and item.subject_id in arch_nodes
+        and arch_nodes[item.subject_id].type == NodeType.APPLICATION
+        for item in application_explanations
+    )
+    observed_application_boundaries = sum(
+        item.subject_id in roots and item.observed_inferred_status == "observed"
+        for item in application_explanations
+    )
+    inferred_application_boundaries = sum(
+        item.subject_id in roots and item.observed_inferred_status == "inferred"
+        for item in application_explanations
+    )
+    architectural_ownership_count = sum(
+        item.ownership_kind == "architectural"
+        for item in projected_explanations
+    )
+    contextualized_by_ownership = sum(
+        item.ownership_kind == "architectural" and item.globally_contextualized
+        for item in projected_explanations
+    )
     weak_only_projected = sum(
         item.subject_id in weak_reachable
         and not item.context_root_ids
@@ -859,6 +928,13 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
         independent_local_boundary_count=independent_local,
         independent_global_boundary_count=independent_global,
         weak_evidence_saturation_count=projection.weak_evidence_saturation_count,
+        application_node_count=sum(1 for node in arch_nodes.values() if node.type == NodeType.APPLICATION),
+        strong_application_boundary_count=strong_application_boundaries,
+        observed_application_boundary_count=observed_application_boundaries,
+        inferred_application_boundary_count=inferred_application_boundaries,
+        architectural_ownership_count=architectural_ownership_count,
+        structural_ownership_rejected_count=structural_ownership_rejected,
+        globally_contextualized_by_ownership_count=contextualized_by_ownership,
         traceability=traceability,
         evidence_coverage=round(evidence_coverage, 6),
         node_explanations=explanations,

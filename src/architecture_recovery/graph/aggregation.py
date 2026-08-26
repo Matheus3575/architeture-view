@@ -78,7 +78,12 @@ class ArchitecturalGraphBuilder:
             status=EvidenceStatus.INFERRED,
             confidence=0.8,
             evidence_refs=[application_evidence.id],
-            metadata={"raw_node_ids": application_members},
+            metadata={
+                "raw_node_ids": application_members,
+                "application_provenance": "repository_aggregate",
+                "boundary_evidence_kind": "repository_membership",
+                "architectural_boundary": False,
+            },
         )
         for node in raw.nodes.values():
             if node.type == NodeType.REPOSITORY:
@@ -229,7 +234,7 @@ class ArchitecturalGraphBuilder:
                 raw,
             ).id
             edges.append(
-                self._inferred_edge(application.id, component_id, EdgeType.CONTAINS, [evidence_id], raw_edge_ids)
+                self._inferred_edge(application.id, component_id, EdgeType.CONTAINS, [evidence_id], raw_edge_ids, metadata={"ownership_kind": "structural", "ownership_source": "repository_aggregation"})
             )
         return edges
 
@@ -269,7 +274,7 @@ class ArchitecturalGraphBuilder:
         return result
 
     @staticmethod
-    def _inferred_edge(source, target, edge_type, evidence_refs, raw_edge_ids):
+    def _inferred_edge(source, target, edge_type, evidence_refs, raw_edge_ids, metadata=None):
         token = f"{source}:{target}:{edge_type.value}".encode()
         return Edge(
             id=f"arch-edge:{hashlib.sha1(token).hexdigest()[:16]}",
@@ -280,6 +285,7 @@ class ArchitecturalGraphBuilder:
             confidence=0.97 if raw_edge_ids else 0.8,
             evidence_refs=sorted(set(evidence_refs)),
             raw_edge_ids=sorted(set(raw_edge_ids)),
+            metadata=dict(metadata or {}),
         )
 
     @staticmethod

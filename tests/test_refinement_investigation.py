@@ -25,8 +25,8 @@ def test_investigation_report_is_structural_and_deterministic():
         "significance_precision": 1.0,
         "significance_recall": 1.0,
         "false_architectural_promotions": 0,
-        "expected_significant_count": 9,
-        "actual_projected_count": 9,
+        "expected_significant_count": 7,
+        "actual_projected_count": 7,
     }
     for item in report["scenarios"]:
         assert all(item["determinism"].values())
@@ -68,7 +68,7 @@ def test_investigation_records_relation_composition_and_context_roots():
         PROJECT_ROOT / "benchmarks" / "fixtures" / "infrastructure_semantics",
     )
 
-    assert result["nodes"]["context_root_count"] >= 1
+    assert result["nodes"]["context_root_count"] == 0
     assert result["relations"]["projected_strength_counts"]
     assert result["relations"]["max_in_degree"] >= 0
     assert result["relations"]["max_out_degree"] >= 0
@@ -83,5 +83,5 @@ def test_generated_auxiliary_framework_context_is_not_promoted():
     generated = result["scenarios"][0]
 
     assert generated["quality"]["auxiliary_framework_promotions_observed"] == []
-    assert generated["nodes"]["projected_node_count"] == 5
+    assert generated["nodes"]["projected_node_count"] == 4
     assert generated["nodes"]["context_root_count"] == 1
