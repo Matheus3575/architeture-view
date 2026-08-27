@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -14,7 +14,7 @@ from architecture_recovery.ir import (
     canonical_relation_type,
     relation_strength,
 )
-from .context import ContextPropagation, context_propagation_kind, context_strength
+from .context import ContextPropagation, DeploymentProvenance, context_propagation_kind, context_strength, deployment_provenance
 from .projection import ArchitecturalProjectionBuilder, HighLevelArchitectureProjection, SignificanceLevel
 
 
@@ -30,6 +30,7 @@ class ProjectionContextLink(BaseModel):
     relation_strength: str = "strong"
     propagation_class: str = "can_propagate_context"
     establishes_membership: bool = True
+    deployment_provenance: str | None = None
 
 
 class ProjectionExplanation(BaseModel):
@@ -94,6 +95,7 @@ class ProjectedRelationExplanation(BaseModel):
     depends_on_category: str | None = None
     projection_reason: str
     context_propagation: str = "does_not_propagate_context"
+    deployment_provenance: str | None = None
 
 
 class HypothesisContextExplanation(BaseModel):
@@ -171,7 +173,16 @@ class ProjectionAudit(BaseModel):
     projected_without_global_justification_count: int = Field(default=0, ge=0)
     navigation_only_projected_count: int = Field(default=0, ge=0)
     independent_global_boundary_projected_count: int = Field(default=0, ge=0)
-
+    deploys_total: int = Field(default=0, ge=0)
+    deploys_by_provenance: dict[str, int] = Field(default_factory=dict)
+    deploys_can_propagate_count: int = Field(default=0, ge=0)
+    deploys_supporting_count: int = Field(default=0, ge=0)
+    deploys_non_propagating_count: int = Field(default=0, ge=0)
+    membership_established_by_deploys: int = Field(default=0, ge=0)
+    deployment_boundary_candidate_count: int = Field(default=0, ge=0)
+    qualified_global_deployment_boundary_count: int = Field(default=0, ge=0)
+    rejected_local_deployment_boundary_count: int = Field(default=0, ge=0)
+    navigation_transit_membership_count: int = Field(default=0, ge=0)
 
 _CONTEXT_RELATIONS = {
     EdgeType.ROUTES_TO.value,
@@ -271,6 +282,37 @@ def _edge_endpoints(
     return pairs
 
 
+def _deployment_provenance_for_subjects(
+    ir: ArchitectureIR,
+    source: str,
+    target: str,
+    metadata: dict[str, Any] | None = None,
+    evidence_refs: list[str] | None = None,
+) -> DeploymentProvenance:
+    arch_nodes = {node.id: node for node in ir.architectural_graph.nodes}
+    resources = {resource.id: resource for resource in ir.infrastructure_resources}
+    source_node = arch_nodes.get(source)
+    target_node = arch_nodes.get(target)
+    source_resource = resources.get(source)
+    target_resource = resources.get(target)
+    source_type = source_node.type if source_node else source_resource.kind if source_resource else None
+    target_type = target_node.type if target_node else target_resource.kind if target_resource else None
+    evidence_by_id = {item.id: item for item in ir.evidence}
+    refs = evidence_refs or []
+    return deployment_provenance(
+        EdgeType.DEPLOYS,
+        source_id=source,
+        target_id=target,
+        source_type=source_type,
+        target_type=target_type,
+        metadata=metadata,
+        evidence_sources=(
+            evidence_by_id[ref].source_type.value
+            for ref in refs
+            if ref in evidence_by_id
+        ),
+    )
+
 def _context_links(
     ir: ArchitectureIR,
     roots: set[str],
@@ -293,6 +335,7 @@ def _context_links(
         chain: list[str],
         propagation: ContextPropagation,
         establishes_membership: bool = True,
+        deployment_kind: DeploymentProvenance | None = None,
     ) -> None:
         if subject == root or subject not in subject_ids:
             return
@@ -307,6 +350,7 @@ def _context_links(
             relation_strength=strength,
             propagation_class=propagation.value,
             establishes_membership=establishes_membership,
+            deployment_provenance=deployment_kind.value if deployment_kind else None,
         ))
         if establishes_membership:
             direct_subjects[root].add(subject)
@@ -394,7 +438,7 @@ def _context_links(
                 ContextPropagation.CAN_PROPAGATE_CONTEXT,
             )
 
-    candidates: list[tuple[str, str, str, str | None, list[str], ContextPropagation]] = []
+    candidates: list[tuple[str, str, str, str | None, list[str], ContextPropagation, DeploymentProvenance | None]] = []
     for edge in ir.architectural_graph.edges:
         source = _resolve(edge.source, arch_nodes, raw_to_arch) or edge.source
         target = _resolve(edge.target, arch_nodes, raw_to_arch) or edge.target
@@ -407,10 +451,12 @@ def _context_links(
             edge.type == EdgeType.CONTAINS
             and edge.metadata.get("architectural_ownership")
         )
+        deployment_kind = _deployment_provenance_for_subjects(ir, source, target, edge.metadata, list(edge.evidence_refs)) if edge.type == EdgeType.DEPLOYS else None
         propagation = context_propagation_kind(
             edge.type,
             raw_relation_types=raw_types,
             semantic_ownership=bool(ownership),
+            deployment_provenance=deployment_kind,
         )
         if propagation == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
             continue
@@ -421,6 +467,7 @@ def _context_links(
             edge.id,
             list(edge.evidence_refs),
             propagation,
+            deployment_kind,
         ))
 
     for relation in ir.infrastructure_relations:
@@ -436,15 +483,16 @@ def _context_links(
         )
         if not source or not target:
             continue
-        propagation = context_propagation_kind(relation.type)
+        deployment_kind = _deployment_provenance_for_subjects(ir, source, target, relation.metadata, list(relation.evidence_refs)) if canonical_relation_type(relation.type) == EdgeType.DEPLOYS.value else None
+        propagation = context_propagation_kind(relation.type, deployment_provenance=deployment_kind)
         if propagation == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
             continue
-        candidates.append((source, target, canonical_relation_type(relation.type), relation.id, list(relation.evidence_refs), propagation))
+        candidates.append((source, target, canonical_relation_type(relation.type), relation.id, list(relation.evidence_refs), propagation, deployment_kind))
 
     # Establish membership only from semantic relations. SUPPORTS_CONTEXT may
     # annotate an already established member, but cannot create membership.
     for expected in (ContextPropagation.CAN_PROPAGATE_CONTEXT, ContextPropagation.SUPPORTS_CONTEXT):
-        for source, target, kind, relation_id, refs, propagation in candidates:
+        for source, target, kind, relation_id, refs, propagation, deployment_kind in candidates:
             if propagation != expected:
                 continue
             for root, subject in ((source, target), (target, source)):
@@ -454,12 +502,13 @@ def _context_links(
                         add_link(
                             root, subject, kind, relation_id, refs, [root, subject], propagation,
                             establishes_membership=expected == ContextPropagation.CAN_PROPAGATE_CONTEXT,
+                            deployment_kind=deployment_kind,
                         )
 
     # One additional bounded hop. SUPPORTS_CONTEXT is retained only when the
     # target already has membership from another establishing relation.
     for expected in (ContextPropagation.CAN_PROPAGATE_CONTEXT, ContextPropagation.SUPPORTS_CONTEXT):
-        for source, target, kind, relation_id, refs, propagation in candidates:
+        for source, target, kind, relation_id, refs, propagation, deployment_kind in candidates:
             if propagation != expected:
                 continue
             for root, via, subject in (
@@ -471,6 +520,7 @@ def _context_links(
                     add_link(
                         root, subject, kind, relation_id, refs, [root, via, subject], propagation,
                         establishes_membership=expected == ContextPropagation.CAN_PROPAGATE_CONTEXT,
+                        deployment_kind=deployment_kind,
                     )
             for root, via, subject in (
                 (root, target, source)
@@ -481,6 +531,7 @@ def _context_links(
                     add_link(
                         root, subject, kind, relation_id, refs, [root, via, subject], propagation,
                         establishes_membership=expected == ContextPropagation.CAN_PROPAGATE_CONTEXT,
+                        deployment_kind=deployment_kind,
                     )
 
     return {
@@ -516,7 +567,8 @@ def _weak_only_reachable(
             for raw_id in edge.raw_edge_ids
             if raw_id in raw_edges
         ]
-        if context_propagation_kind(edge.type, raw_relation_types=raw_types) == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
+        deployment_kind = _deployment_provenance_for_subjects(ir, source, target, edge.metadata, list(edge.evidence_refs)) if edge.type == EdgeType.DEPLOYS else None
+        if context_propagation_kind(edge.type, raw_relation_types=raw_types, deployment_provenance=deployment_kind) == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
             adjacency[source].add(target)
             adjacency[target].add(source)
     for relation in ir.infrastructure_relations:
@@ -532,7 +584,8 @@ def _weak_only_reachable(
         )
         if not source or not target:
             continue
-        if context_propagation_kind(relation.type) == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
+        deployment_kind = _deployment_provenance_for_subjects(ir, source, target, relation.metadata, list(relation.evidence_refs)) if canonical_relation_type(relation.type) == EdgeType.DEPLOYS.value else None
+        if context_propagation_kind(relation.type, deployment_provenance=deployment_kind) == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
             adjacency[source].add(target)
             adjacency[target].add(source)
     frontier = set(roots)
@@ -575,12 +628,36 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
             subject = _resolve(value, arch_nodes, raw_to_arch)
             if subject:
                 application_fact_subjects[subject].append(fact)
+    resource_ids = {resource.id for resource in ir.infrastructure_resources}
     deployment_subjects = {
         endpoint
         for edge in ir.architectural_graph.edges
         if edge.type == EdgeType.DEPLOYS
         for endpoint in (edge.source, edge.target)
     }
+    deployment_records: list[tuple[str, str, DeploymentProvenance, ContextPropagation, list[str]]] = []
+    for edge in ir.architectural_graph.edges:
+        if edge.type != EdgeType.DEPLOYS:
+            continue
+        source = _resolve(edge.source, arch_nodes, raw_to_arch) or edge.source
+        target = _resolve(edge.target, arch_nodes, raw_to_arch) or edge.target
+        provenance = _deployment_provenance_for_subjects(ir, source, target, edge.metadata, list(edge.evidence_refs))
+        propagation = context_propagation_kind(edge.type, deployment_provenance=provenance)
+        deployment_records.append((source, target, provenance, propagation, list(edge.evidence_refs)))
+    for relation in ir.infrastructure_relations:
+        if canonical_relation_type(relation.type) != EdgeType.DEPLOYS.value:
+            continue
+        source = relation.source if relation.source in resource_ids or relation.source in arch_nodes else _resolve(relation.source, arch_nodes, raw_to_arch)
+        target = relation.target if relation.target in resource_ids or relation.target in arch_nodes else _resolve(relation.target, arch_nodes, raw_to_arch)
+        if not source or not target:
+            continue
+        provenance = _deployment_provenance_for_subjects(ir, source, target, relation.metadata, list(relation.evidence_refs))
+        propagation = context_propagation_kind(relation.type, deployment_provenance=provenance)
+        deployment_records.append((source, target, provenance, propagation, list(relation.evidence_refs)))
+    deployment_provenance_counts = Counter(item[2].value for item in deployment_records)
+    deploys_can_propagate = sum(item[3] == ContextPropagation.CAN_PROPAGATE_CONTEXT for item in deployment_records)
+    deploys_supporting = sum(item[3] == ContextPropagation.SUPPORTS_CONTEXT for item in deployment_records)
+    deploys_non_propagating = sum(item[3] == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT for item in deployment_records)
     structural_ownership_rejected = 0
     structural_ownership_subjects: set[str] = set()
     for edge in ir.architectural_graph.edges:
@@ -634,9 +711,9 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
             ):
                 globally_linked_boundaries.add(boundary)
     deployment_targets = {
-        edge.target
-        for edge in ir.architectural_graph.edges
-        if edge.type == EdgeType.DEPLOYS and edge.target in selected
+        target
+        for source, target, provenance, propagation, refs in deployment_records
+        if propagation == ContextPropagation.CAN_PROPAGATE_CONTEXT and target in selected
     }
     for edge in ir.architectural_graph.edges:
         if edge.type == EdgeType.CONTAINS and edge.source in roots and edge.target in deployment_targets:
@@ -812,9 +889,29 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
             for raw_id in edge.raw_edge_ids
             if raw_id in raw_edges
         ]
+        deployment_kind = None
+        if canonical_relation_type(edge.kind) == EdgeType.DEPLOYS.value:
+            original_edge = next(
+                (candidate for candidate in ir.architectural_graph.edges
+                 if candidate.id and candidate.id in edge.raw_edge_ids),
+                None,
+            )
+            original_relation = next(
+                (candidate for candidate in ir.infrastructure_relations
+                 if candidate.id in edge.raw_edge_ids),
+                None,
+            )
+            deployment_kind = _deployment_provenance_for_subjects(
+                ir,
+                edge.source,
+                edge.target,
+                original_edge.metadata if original_edge else original_relation.metadata if original_relation else None,
+                list(edge.evidence_refs),
+            )
         propagation = context_propagation_kind(
             edge.kind,
             raw_relation_types=raw_types,
+            deployment_provenance=deployment_kind,
         )
         reason = "both endpoints are projection-eligible and the canonical relation has evidence"
         if propagation == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
@@ -842,6 +939,7 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
             depends_on_category=category,
             projection_reason=reason,
             context_propagation=propagation.value,
+            deployment_provenance=deployment_kind.value if deployment_kind else None,
         ))
     hypothesis_explanations: list[HypothesisContextExplanation] = []
     for hypothesis in sorted(ir.architecture.hypotheses, key=lambda item: item.pattern):
@@ -1002,6 +1100,20 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
         and not item.boundary_justification
         for item in projected_explanations
     )
+    navigation_ids = {
+        node.id for node in arch_nodes.values() if node.type == NodeType.REPOSITORY
+    }
+    membership_deployed = sum(
+        link.relation_kind == EdgeType.DEPLOYS.value and link.establishes_membership
+        for links_for_subject in links.values()
+        for link in links_for_subject
+    )
+    navigation_transit_memberships = sum(
+        link.relation_kind == EdgeType.DEPLOYS.value
+        and any(intermediate in navigation_ids for intermediate in link.chain[1:-1])
+        for links_for_subject in links.values()
+        for link in links_for_subject
+    )
     return ProjectionAudit(
         projected_node_count=len(selected),
         context_root_count=len(roots),
@@ -1055,6 +1167,28 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
         projected_without_global_justification_count=projected_without_global,
         navigation_only_projected_count=navigation_only_projected,
         independent_global_boundary_projected_count=independent_global_boundary_projected,
+        deploys_total=len(deployment_records),
+        deploys_by_provenance=dict(sorted(deployment_provenance_counts.items())),
+        deploys_can_propagate_count=deploys_can_propagate,
+        deploys_supporting_count=deploys_supporting,
+        deploys_non_propagating_count=deploys_non_propagating,
+        membership_established_by_deploys=membership_deployed,
+        deployment_boundary_candidate_count=len(deployment_records),
+        qualified_global_deployment_boundary_count=sum(
+            provenance in {
+                DeploymentProvenance.EXPLICIT_EXECUTION_DEPLOYMENT,
+                DeploymentProvenance.EXPLICIT_DEPLOYMENT_OWNERSHIP,
+            }
+            for _, _, provenance, _, _ in deployment_records
+        ),
+        rejected_local_deployment_boundary_count=sum(
+            provenance not in {
+                DeploymentProvenance.EXPLICIT_EXECUTION_DEPLOYMENT,
+                DeploymentProvenance.EXPLICIT_DEPLOYMENT_OWNERSHIP,
+            }
+            for _, _, provenance, _, _ in deployment_records
+        ),
+        navigation_transit_membership_count=navigation_transit_memberships,
         traceability=traceability,
         evidence_coverage=round(evidence_coverage, 6),
         node_explanations=explanations,

@@ -339,3 +339,7 @@ DEPLOYS/infrastructure provenance on a locally available large repository. It
 must not compensate for missing context with score or cardinality thresholds.
 Keep the policy bounded, evidence-based, deterministic, and prefer detailed-only
 or UNKNOWN over an unsupported global promotion.
+
+## M8.1.12 - next steps
+
+Completed: separate deployment relation validity from deployment context transit. Investigate explicit deployment ownership on a large repository with actual application/runtime relations when one is available. If infrastructure still produces suspicious global boundaries after provenance is explicit, address that as a separate bounded calibration milestone. Do not use repository or artifact containment as runtime ownership and do not compensate for missing provenance with weights or cardinality thresholds.

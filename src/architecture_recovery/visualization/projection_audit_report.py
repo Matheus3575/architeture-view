@@ -204,6 +204,12 @@ def _diagnostics(audit: ProjectionAudit) -> list[dict[str, str]]:
             "severity": "diagnostic_signal",
             "message": "Projected nodes are reachable from roots through weak-only relations but are not context members.",
         })
+    if audit.navigation_transit_membership_count:
+        diagnostics.append({
+            "kind": "navigation_transit_membership",
+            "severity": "candidate_issue",
+            "message": "A DEPLOYS membership used a navigation-only intermediate and requires review.",
+        })
     if audit.weak_evidence_saturation_count:
         diagnostics.append({
             "kind": "weak_evidence_saturation",
@@ -274,6 +280,16 @@ def build_projection_audit_report(
         "projected_without_global_justification_count": audit.projected_without_global_justification_count,
         "navigation_only_projected_count": audit.navigation_only_projected_count,
         "independent_global_boundary_projected_count": audit.independent_global_boundary_projected_count,
+        "deploys_total": audit.deploys_total,
+        "deploys_by_provenance": audit.deploys_by_provenance,
+        "deploys_can_propagate_count": audit.deploys_can_propagate_count,
+        "deploys_supporting_count": audit.deploys_supporting_count,
+        "deploys_non_propagating_count": audit.deploys_non_propagating_count,
+        "membership_established_by_deploys": audit.membership_established_by_deploys,
+        "deployment_boundary_candidate_count": audit.deployment_boundary_candidate_count,
+        "qualified_global_deployment_boundary_count": audit.qualified_global_deployment_boundary_count,
+        "rejected_local_deployment_boundary_count": audit.rejected_local_deployment_boundary_count,
+        "navigation_transit_membership_count": audit.navigation_transit_membership_count,
     }
     profile_payload = profile.as_dict() if profile is not None else None
     return {
@@ -346,6 +362,10 @@ def render_projection_audit_markdown(report: dict[str, Any]) -> str:
         f"- projected without global justification: {summary['projected_without_global_justification_count']}",
         f"- navigation-only projected: {summary['navigation_only_projected_count']}",
         f"- independent global boundaries projected: {summary['independent_global_boundary_projected_count']}",
+        f"- DEPLOYS total / can propagate / supporting / non-propagating: {summary['deploys_total']} / {summary['deploys_can_propagate_count']} / {summary['deploys_supporting_count']} / {summary['deploys_non_propagating_count']}",
+        f"- DEPLOYS provenance: {summary['deploys_by_provenance']}",
+        f"- deployment memberships / navigation transit: {summary['membership_established_by_deploys']} / {summary['navigation_transit_membership_count']}",
+        f"- deployment boundary candidates / qualified global / rejected-local: {summary['deployment_boundary_candidate_count']} / {summary['qualified_global_deployment_boundary_count']} / {summary['rejected_local_deployment_boundary_count']}",
         f"- semantic details: {summary['semantic_details']}",
         f"- external dependencies: {summary['external_dependencies']}",
         f"- evidence groups: {summary['evidence_groups']}",
@@ -461,6 +481,10 @@ def render_projection_audit_markdown(report: dict[str, Any]) -> str:
         f"- projected without global justification: {metrics.get('projected_without_global_justification_count', 0)}",
         f"- navigation-only projected: {metrics.get('navigation_only_projected_count', 0)}",
         f"- independent global boundaries projected: {metrics.get('independent_global_boundary_projected_count', 0)}",
+        f"- DEPLOYS total / can propagate / supporting / non-propagating: {metrics.get('deploys_total', 0)} / {metrics.get('deploys_can_propagate_count', 0)} / {metrics.get('deploys_supporting_count', 0)} / {metrics.get('deploys_non_propagating_count', 0)}",
+        f"- DEPLOYS provenance: {metrics.get('deploys_by_provenance', {})}",
+        f"- deployment memberships / navigation transit: {metrics.get('membership_established_by_deploys', 0)} / {metrics.get('navigation_transit_membership_count', 0)}",
+        f"- deployment boundary candidates / qualified global / rejected-local: {metrics.get('deployment_boundary_candidate_count', 0)} / {metrics.get('qualified_global_deployment_boundary_count', 0)} / {metrics.get('rejected_local_deployment_boundary_count', 0)}",
         "",
         "## Hypothesis Context Audit",
         "",

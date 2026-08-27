@@ -8,7 +8,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from architecture_recovery.ir import ArchitectureIR, Edge, EdgeType, EvidenceStatus, Node, NodeType, relation_strength
-from .context import ContextPropagation, context_propagation_kind
+from .context import ContextPropagation, DeploymentProvenance, context_propagation_kind, deployment_provenance
 
 
 class SignificanceLevel(StrEnum):
@@ -117,6 +117,30 @@ class ArchitecturalProjectionBuilder:
         evidence_ids = {item.id for item in ir.evidence}
         resource_ids = {resource.id for resource in ir.infrastructure_resources}
         raw_edges = {edge.id: edge for edge in ir.raw_graph.edges if edge.id}
+        evidence_by_id = {item.id: item for item in ir.evidence}
+        resources_by_id = {resource.id: resource for resource in ir.infrastructure_resources}
+
+        def subject_type(subject: str | None) -> NodeType | None:
+            node = arch_nodes.get(subject or "")
+            if node:
+                return node.type
+            resource = resources_by_id.get(subject or "")
+            return resource.kind if resource else None
+
+        def deployment_kind(edge: Any, source: str, target: str) -> DeploymentProvenance:
+            return deployment_provenance(
+                edge.type,
+                source_id=source,
+                target_id=target,
+                source_type=subject_type(source),
+                target_type=subject_type(target),
+                metadata=edge.metadata,
+                evidence_sources=(
+                    evidence_by_id[ref].source_type.value
+                    for ref in edge.evidence_refs
+                    if ref in evidence_by_id
+                ),
+            )
         strong: dict[str, list[tuple[float, str]]] = defaultdict(list)
         medium: dict[str, list[tuple[float, str]]] = defaultdict(list)
         weak: dict[str, list[tuple[float, str]]] = defaultdict(list)
@@ -292,11 +316,14 @@ class ArchitecturalProjectionBuilder:
             target = arch_nodes.get(edge.target)
             if not source or not target:
                 continue
+            deployment_can_context = edge.type != EdgeType.DEPLOYS or context_propagation_kind(
+                edge.type, deployment_provenance=deployment_kind(edge, edge.source, edge.target)
+            ) == ContextPropagation.CAN_PROPAGATE_CONTEXT
             if source.type == NodeType.APPLICATION and target.type == NodeType.COMPONENT:
-                if source.id in context_root_ids and edge.type in {EdgeType.ROUTES_TO, EdgeType.DEPLOYS, EdgeType.CALLS, EdgeType.INSTANTIATES}:
+                if source.id in context_root_ids and (edge.type != EdgeType.DEPLOYS or deployment_can_context) and edge.type in {EdgeType.ROUTES_TO, EdgeType.DEPLOYS, EdgeType.CALLS, EdgeType.INSTANTIATES}:
                     component_main_context.add(target.id)
             elif target.type == NodeType.APPLICATION and source.type == NodeType.COMPONENT:
-                if target.id in context_root_ids and edge.type in {EdgeType.ROUTES_TO, EdgeType.DEPLOYS, EdgeType.CALLS, EdgeType.INSTANTIATES}:
+                if target.id in context_root_ids and (edge.type != EdgeType.DEPLOYS or deployment_can_context) and edge.type in {EdgeType.ROUTES_TO, EdgeType.DEPLOYS, EdgeType.CALLS, EdgeType.INSTANTIATES}:
                     component_main_context.add(source.id)
             if source.type == NodeType.COMPONENT and target.type == NodeType.COMPONENT:
                 if edge.type in self._STRONG_EDGE_TYPES or any(
@@ -578,7 +605,7 @@ class ArchitecturalProjectionBuilder:
             and arch_nodes[edge.target].type in {NodeType.COMPONENT, NodeType.CONTAINER}
         }
         context_frontier = set(contextual_subjects)
-        context_candidates: list[tuple[str, str, EdgeType | str, list[EdgeType | str], bool]] = []
+        context_candidates: list[tuple[str, str, EdgeType | str, list[EdgeType | str], bool, DeploymentProvenance | None]] = []
         for edge in ir.architectural_graph.edges:
             source = self._resolve(edge.source, arch_nodes, raw_to_arch) or edge.source
             target = self._resolve(edge.target, arch_nodes, raw_to_arch) or edge.target
@@ -592,19 +619,32 @@ class ArchitecturalProjectionBuilder:
                 and source in context_root_ids
                 and is_architectural_ownership(edge)
             )
-            context_candidates.append((source, target, edge.type, raw_types, bool(ownership)))
+            context_candidates.append((source, target, edge.type, raw_types, bool(ownership), deployment_kind(edge, source, target) if edge.type == EdgeType.DEPLOYS else None))
         for relation in ir.infrastructure_relations:
             source = relation.source if relation.source in resource_ids or relation.source in arch_nodes else self._resolve(relation.source, arch_nodes, raw_to_arch)
             target = relation.target if relation.target in resource_ids or relation.target in arch_nodes else self._resolve(relation.target, arch_nodes, raw_to_arch)
             if source and target:
-                context_candidates.append((source, target, relation.type, [], False))
+                context_candidates.append((source, target, relation.type, [], False, deployment_provenance(
+                    relation.type,
+                    source_id=source,
+                    target_id=target,
+                    source_type=subject_type(source),
+                    target_type=subject_type(target),
+                    metadata=relation.metadata,
+                    evidence_sources=(
+                        evidence_by_id[ref].source_type.value
+                        for ref in relation.evidence_refs
+                        if ref in evidence_by_id
+                    ),
+                ) if relation.type == EdgeType.DEPLOYS else None))
         for _ in range(2):
             next_frontier: set[str] = set()
-            for source, target, relation_type, raw_types, ownership in context_candidates:
+            for source, target, relation_type, raw_types, ownership, deployment_kind_value in context_candidates:
                 propagation = context_propagation_kind(
                     relation_type,
                     raw_relation_types=raw_types,
                     semantic_ownership=ownership,
+                    deployment_provenance=deployment_kind_value,
                 )
                 if propagation != ContextPropagation.CAN_PROPAGATE_CONTEXT:
                     continue
@@ -624,11 +664,12 @@ class ArchitecturalProjectionBuilder:
         root_frontier = set(root_contextual_subjects)
         for _ in range(2):
             next_root_frontier: set[str] = set()
-            for source, target, relation_type, raw_types, ownership in context_candidates:
+            for source, target, relation_type, raw_types, ownership, deployment_kind_value in context_candidates:
                 propagation = context_propagation_kind(
                     relation_type,
                     raw_relation_types=raw_types,
                     semantic_ownership=ownership,
+                    deployment_provenance=deployment_kind_value,
                 )
                 if propagation != ContextPropagation.CAN_PROPAGATE_CONTEXT:
                     continue
@@ -662,11 +703,12 @@ class ArchitecturalProjectionBuilder:
                 independent_global_subjects.add(subject)
 
         strong_subjects = set(strong)
-        for source, target, relation_type, raw_types, ownership in context_candidates:
+        for source, target, relation_type, raw_types, ownership, deployment_kind_value in context_candidates:
             propagation = context_propagation_kind(
                 relation_type,
                 raw_relation_types=raw_types,
                 semantic_ownership=ownership,
+                deployment_provenance=deployment_kind_value,
             )
             if propagation == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
                 # A generic infrastructure observation can justify a boundary
@@ -689,7 +731,7 @@ class ArchitecturalProjectionBuilder:
         # but their existence must not satisfy this gate.
         independently_global_resource_subjects = {
             boundary
-            for source, target, relation_type, raw_types, ownership in context_candidates
+            for source, target, relation_type, raw_types, ownership, deployment_kind_value in context_candidates
             if (source in resource_ids or target in resource_ids)
             for boundary, other in ((source, target), (target, source))
             if boundary in resource_ids and other in root_contextual_subjects
@@ -873,6 +915,21 @@ class ArchitecturalProjectionBuilder:
                     candidate_subjects.add(subject)
 
         assessments: dict[str, dict[str, Any]] = {}
+        def explicit_deployment(edge: Edge) -> bool:
+            source = arch_nodes.get(edge.source)
+            target = arch_nodes.get(edge.target)
+            provenance = deployment_provenance(
+                edge.type,
+                source_id=edge.source,
+                target_id=edge.target,
+                source_type=source.type if source else None,
+                target_type=target.type if target else None,
+                metadata=edge.metadata,
+            )
+            return provenance in {
+                DeploymentProvenance.EXPLICIT_EXECUTION_DEPLOYMENT,
+                DeploymentProvenance.EXPLICIT_DEPLOYMENT_OWNERSHIP,
+            }
         for subject in sorted(facts_by_component):
             facts = facts_by_component[subject]
             applications = [fact for fact in facts if fact.kind == "APPLICATION"]
@@ -902,7 +959,9 @@ class ArchitecturalProjectionBuilder:
                         coherent = True
                         associated_refs.update(boundary.evidence_refs)
             deployment = any(
-                edge.type == EdgeType.DEPLOYS and subject in {edge.source, edge.target}
+                edge.type == EdgeType.DEPLOYS
+                and subject in {edge.source, edge.target}
+                and explicit_deployment(edge)
                 for edge in ir.architectural_graph.edges
             )
             executable = any(

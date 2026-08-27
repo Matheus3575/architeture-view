@@ -18,6 +18,15 @@ class ContextPropagation(StrEnum):
     DOES_NOT_PROPAGATE_CONTEXT = "does_not_propagate_context"
 
 
+class DeploymentProvenance(StrEnum):
+    EXPLICIT_EXECUTION_DEPLOYMENT = "explicit_execution_deployment"
+    EXPLICIT_DEPLOYMENT_OWNERSHIP = "explicit_deployment_ownership"
+    AGGREGATED_DEPLOYMENT = "aggregated_deployment"
+    NAVIGATION_DERIVED = "navigation_derived"
+    LOCAL_DEPLOYMENT = "local_deployment"
+    UNRESOLVED = "unresolved"
+
+
 class ContextStrength(StrEnum):
     STRONG = "strong"
     SUPPORTING = "supporting"
@@ -42,6 +51,64 @@ _SEMANTIC_RAW_RELATIONS = {
     EdgeType.INSTANTIATES,
     EdgeType.EXTENDS,
 }
+_DEPLOYABLE_NODE_TYPES = {
+    NodeType.CONTAINER.value,
+    NodeType.DATABASE.value,
+    NodeType.CACHE.value,
+    NodeType.QUEUE.value,
+    NodeType.MESSAGE_BROKER.value,
+    NodeType.INFRASTRUCTURE.value,
+    NodeType.EXTERNAL_SERVICE.value,
+}
+
+
+def deployment_provenance(
+    relation_type: EdgeType | str,
+    *,
+    source_id: str | None = None,
+    target_id: str | None = None,
+    source_type: NodeType | str | None = None,
+    target_type: NodeType | str | None = None,
+    metadata: dict[str, object] | None = None,
+    evidence_sources: Iterable[str] = (),
+) -> DeploymentProvenance:
+    """Classify deployment provenance without changing the observed relation."""
+
+    if canonical_relation_type(relation_type) != EdgeType.DEPLOYS.value:
+        return DeploymentProvenance.UNRESOLVED
+    details = dict(metadata or {})
+    explicit = str(details.get("deployment_provenance", "")).lower()
+    explicit_values = {item.value: item for item in DeploymentProvenance}
+    if explicit in explicit_values:
+        return explicit_values[explicit]
+    if details.get("deployment_execution_boundary") or details.get("execution_boundary"):
+        return DeploymentProvenance.EXPLICIT_EXECUTION_DEPLOYMENT
+    if details.get("deployment_ownership") or details.get("architectural_ownership"):
+        return DeploymentProvenance.EXPLICIT_DEPLOYMENT_OWNERSHIP
+    if details.get("local_deployment") or details.get("scope") == "local":
+        return DeploymentProvenance.LOCAL_DEPLOYMENT
+
+    def node_kind(value: NodeType | str | None) -> str:
+        return value.value if isinstance(value, NodeType) else str(value or "").lower()
+
+    source_kind = node_kind(source_type)
+    target_kind = node_kind(target_type)
+    if source_kind == NodeType.REPOSITORY.value or target_kind == NodeType.REPOSITORY.value:
+        return DeploymentProvenance.NAVIGATION_DERIVED
+    if (source_kind == NodeType.APPLICATION.value and target_kind in _DEPLOYABLE_NODE_TYPES) or (
+        target_kind == NodeType.APPLICATION.value and source_kind in _DEPLOYABLE_NODE_TYPES
+    ):
+        return DeploymentProvenance.EXPLICIT_EXECUTION_DEPLOYMENT
+    if source_kind == NodeType.COMPONENT.value and target_kind in _DEPLOYABLE_NODE_TYPES:
+        return DeploymentProvenance.AGGREGATED_DEPLOYMENT
+    if target_kind == NodeType.COMPONENT.value and source_kind in _DEPLOYABLE_NODE_TYPES:
+        return DeploymentProvenance.AGGREGATED_DEPLOYMENT
+    evidence_kinds = {str(value).upper() for value in evidence_sources}
+    if evidence_kinds & {"DOCKERFILE", "DOCKER_COMPOSE"}:
+        return DeploymentProvenance.LOCAL_DEPLOYMENT
+    if (source_id and source_id.startswith("repository:")) or (target_id and target_id.startswith("repository:")):
+        return DeploymentProvenance.NAVIGATION_DERIVED
+    return DeploymentProvenance.UNRESOLVED
 
 
 def context_propagation_kind(
@@ -49,11 +116,25 @@ def context_propagation_kind(
     *,
     raw_relation_types: Iterable[EdgeType | str] = (),
     semantic_ownership: bool = False,
+    deployment_provenance: DeploymentProvenance | str | None = None,
 ) -> ContextPropagation:
     """Classify whether one relation can establish bounded context membership."""
 
     kind = canonical_relation_type(relation_type)
-    if kind in _SEMANTIC_RELATIONS:
+    if kind == EdgeType.DEPLOYS.value:
+        provenance = str(deployment_provenance or "").lower()
+        if provenance in {
+            DeploymentProvenance.EXPLICIT_EXECUTION_DEPLOYMENT.value,
+            DeploymentProvenance.EXPLICIT_DEPLOYMENT_OWNERSHIP.value,
+        }:
+            return ContextPropagation.CAN_PROPAGATE_CONTEXT
+        if provenance in {
+            DeploymentProvenance.AGGREGATED_DEPLOYMENT.value,
+            DeploymentProvenance.LOCAL_DEPLOYMENT.value,
+        }:
+            return ContextPropagation.SUPPORTS_CONTEXT
+        return ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT
+    if kind in _SEMANTIC_RELATIONS - {EdgeType.DEPLOYS.value}:
         return ContextPropagation.CAN_PROPAGATE_CONTEXT
     if kind in _PROVENANCE_RELATIONS:
         return ContextPropagation.SUPPORTS_CONTEXT
@@ -61,7 +142,7 @@ def context_propagation_kind(
         return ContextPropagation.CAN_PROPAGATE_CONTEXT
     # A generic DEPENDS_ON is retained as a valid relation, but only an
     # attached observed call/instantiation/extension provenance can make it
-    # context-supporting.  Weak aggregation alone never propagates context.
+    # context-supporting. Weak aggregation alone never propagates context.
     if kind == EdgeType.DEPENDS_ON.value:
         raw_kinds = {canonical_relation_type(item) for item in raw_relation_types}
         if raw_kinds & {item.value for item in _SEMANTIC_RAW_RELATIONS}:
@@ -84,7 +165,9 @@ def is_navigation_root(node_type: NodeType) -> bool:
 __all__ = [
     "ContextPropagation",
     "ContextStrength",
+    "DeploymentProvenance",
     "context_propagation_kind",
     "context_strength",
+    "deployment_provenance",
     "is_navigation_root",
 ]

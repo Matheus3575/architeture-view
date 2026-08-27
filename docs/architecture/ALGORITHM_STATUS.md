@@ -444,3 +444,11 @@ The implementation does not recalibrate significance, context propagation,
 framework boundaries, DEPLOYS, dependencies, hypotheses, or the renderer. It
 uses a bounded indexed pass and preserves deterministic IDs, evidence refs,
 Detailed Model records, and projected-edge endpoint validity.
+
+## M8.1.12 - Deployment Provenance & Context Transit Calibration
+
+DEPLOYS is now represented by provenance separately from observed relation validity. Only `EXPLICIT_EXECUTION_DEPLOYMENT` and `EXPLICIT_DEPLOYMENT_OWNERSHIP` are `CAN_PROPAGATE_CONTEXT`. `AGGREGATED_DEPLOYMENT` and `LOCAL_DEPLOYMENT` are supporting-only; `NAVIGATION_DERIVED` and `UNRESOLVED` do not propagate. A repository envelope containing Docker/Compose evidence is therefore not treated as runtime ownership. Explicit application-to-deployable relations remain eligible for global deployment context.
+
+The bounded context passes use the provenance-aware classification. Navigation nodes cannot relay global membership through aggregated deployment evidence. DEPLOYS remains in the Architectural Graph, Detailed Model and projection when both endpoints are otherwise eligible. Framework deployment qualification also requires explicit execution/ownership provenance.
+
+Projection Audit exposes deployment totals, provenance counts, propagation counts, deployment membership count, candidate/qualified/rejected boundary counts and navigation-transit memberships. This preserves `CORRECT > UNKNOWN >> WRONG`, determinism and traceability.

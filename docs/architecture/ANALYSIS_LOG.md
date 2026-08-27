@@ -1078,7 +1078,7 @@ No new architectural rule was introduced. The command is a reporting consumer
 of existing analysis results. No large real-world repository was available for
 a network-independent manual run.
 
-## M8.1.8 — Context propagation strength and scope
+## M8.1.8 ï¿½ Context propagation strength and scope
 
 The projection audit confirmed a general failure mode: reachability through
 valid but weak structural relations was being treated as global architectural
@@ -1205,3 +1205,15 @@ metrics distinguish `local_only_significant_count` from
 `local_only_projected_count`; the latter is an invariant and must be zero.
 
 No repository-specific heuristic or new ADR was introduced.
+
+## M8.1.12 - deployment provenance and context transit calibration
+
+The investigation traced every current DEPLOYS source. `InfrastructureAnalyzer.augment` creates a raw `repository -> infrastructure-resource` DEPLOYS edge for Dockerfile and Compose resources, carrying the resource evidence. Aggregation preserves that relation but does not prove that the repository or an aggregate component owns an executable runtime. Before this change, DEPLOYS followed the generic semantic context branch and could therefore be treated as a context-propagating relation.
+
+M8.1.12 separates relation validity from propagation strength with a deterministic provenance classifier: `EXPLICIT_EXECUTION_DEPLOYMENT`, `EXPLICIT_DEPLOYMENT_OWNERSHIP`, `AGGREGATED_DEPLOYMENT`, `NAVIGATION_DERIVED`, `LOCAL_DEPLOYMENT`, and `UNRESOLVED`. Only the first two can establish bounded global context. Aggregated/local deployment may support an already established member; navigation-derived and unresolved deployment do not propagate context. The original DEPLOYS edge and all evidence remain unchanged.
+
+The classifier uses explicit relation metadata first, then endpoint semantics and evidence. Repository/resource aggregation is navigation-derived; component/resource aggregation is not runtime ownership. An application-to-deployable relation is classified as explicit execution deployment, allowing independently evidenced application boundaries to retain legitimate deployment context. Framework boundary qualification also consumes only explicit deployment provenance.
+
+The neutral fixture has three deployment relations: one explicit execution relation, one aggregated relation and one navigation-derived relation. The resulting counts are `deploys_can_propagate_count=1`, `deploys_supporting_count=1`, `deploys_non_propagating_count=1`, `membership_established_by_deploys=1`, and `navigation_transit_membership_count=0`. The workspace manual audit produced two navigation-derived DEPLOYS relations, zero propagating, zero supporting and two non-propagating; it projected 3 nodes and 3 edges in 3.208 seconds. No large external repository was available locally.
+
+No significance weights, global eligibility gate, DEPENDS_ON semantics, hypothesis scoring, renderer or layout was changed. No project-specific heuristic or ADR was introduced.

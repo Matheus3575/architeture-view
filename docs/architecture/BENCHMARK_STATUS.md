@@ -546,3 +546,17 @@ The existing isolated infrastructure fixture now remains detailed-only, so its
 high-level relation count is zero while its infrastructure semantic details are
 preserved. No large real-world repository was available locally for a manual
 comparison.
+
+## M8.1.12 - deployment provenance measurements
+
+The neutral provenance fixture contains 7 architectural/resource subjects and 3 audited DEPLOYS relations. It measured:
+
+| provenance | count | context behavior |
+|---|---:|---|
+| explicit_execution_deployment | 1 | can propagate |
+| aggregated_deployment | 1 | supporting only |
+| navigation_derived | 1 | does not propagate |
+
+The resulting audit values were `deploys_total=3`, `membership_established_by_deploys=1`, and `navigation_transit_membership_count=0`. The workspace manual run found 338 files, 926 symbols, 1,595 raw nodes, 4,239 raw edges, 5,361 evidence items, 54 architectural nodes, 51 architectural edges, 3 projected nodes and 3 projected edges. Its two DEPLOYS relations were both navigation-derived and non-propagating. Profile total was 3.208 seconds. The temporary report sizes were 44,458 bytes JSON and 16,982 bytes Markdown. These are observations, not timing/cardinality contracts.
+
+The focused deployment/projection tests passed. No large real-world repository was available locally for a separate comparison.
