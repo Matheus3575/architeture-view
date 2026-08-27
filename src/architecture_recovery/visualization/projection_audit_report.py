@@ -162,6 +162,18 @@ def _diagnostics(audit: ProjectionAudit) -> list[dict[str, str]]:
             "severity": "candidate_issue",
             "message": "Framework evidence is locally significant but lacks global context.",
         })
+    if audit.rejected_framework_boundary_count:
+        diagnostics.append({
+            "kind": "rejected_framework_boundary",
+            "severity": "diagnostic_signal",
+            "message": "Framework boundary candidates lack coherent application ownership or boundary evidence.",
+        })
+    if audit.supporting_only_global_membership_count:
+        diagnostics.append({
+            "kind": "supporting_only_global_membership",
+            "severity": "candidate_issue",
+            "message": "A global membership appears to rely only on supporting relations.",
+        })
     if audit.depends_on_shadowed_count:
         diagnostics.append({
             "kind": "shadowed_generic_dependency",
@@ -211,6 +223,7 @@ def build_projection_audit_report(
     index = EvidencePayloadIndex(ir.evidence)
     nodes = [_node_record(item, index) for item in audit.node_explanations if item.projection_eligible]
     application_nodes = [_node_record(item, index) for item in audit.node_explanations if item.application_provenance is not None]
+    framework_nodes = [_node_record(item, index) for item in audit.node_explanations if item.framework_boundary_qualification is not None]
     relations = [_relation_record(item, index) for item in audit.relation_explanations]
     hypotheses = [_hypothesis_record(item, index) for item in audit.hypothesis_explanations]
     cardinalities = _cardinalities(ir, projection, audit, profile, len(index.groups))
@@ -230,6 +243,13 @@ def build_projection_audit_report(
         "traceability": audit.traceability,
         "evidence_coverage": audit.evidence_coverage,
         "deterministic": audit.deterministic,
+        "framework_context_roots": audit.framework_context_root_count,
+        "framework_boundary_candidates": audit.framework_boundary_candidate_count,
+        "qualified_framework_boundaries": audit.qualified_framework_boundary_count,
+        "rejected_framework_boundaries": audit.rejected_framework_boundary_count,
+        "owned_framework_applications": audit.owned_framework_application_count,
+        "local_framework_usage": audit.local_framework_usage_count,
+        "supporting_only_global_memberships": audit.supporting_only_global_membership_count,
     }
     profile_payload = profile.as_dict() if profile is not None else None
     return {
@@ -249,6 +269,7 @@ def build_projection_audit_report(
         },
         "nodes": sorted(nodes, key=lambda item: item["subject_id"]),
         "application_nodes": sorted(application_nodes, key=lambda item: item["subject_id"]),
+        "framework_boundary_nodes": sorted(framework_nodes, key=lambda item: item["subject_id"]),
         "relations": sorted(relations, key=lambda item: item["edge_id"]),
         "hypotheses": sorted(hypotheses, key=lambda item: item["pattern"]),
         "metrics": audit.model_dump(
@@ -292,6 +313,10 @@ def render_projection_audit_markdown(report: dict[str, Any]) -> str:
         f"- context roots: {summary['context_roots']} (strong: {summary['strong_context_roots']})",
         f"- navigation roots: {summary['weak_navigation_roots']}",
         f"- context root strengths: {summary['context_root_strength_counts']}",
+        f"- framework context roots: {summary['framework_context_roots']}",
+        f"- framework boundary candidates / qualified / rejected: {summary['framework_boundary_candidates']} / {summary['qualified_framework_boundaries']} / {summary['rejected_framework_boundaries']}",
+        f"- owned framework applications / local usage: {summary['owned_framework_applications']} / {summary['local_framework_usage']}",
+        f"- supporting-only global memberships: {summary['supporting_only_global_memberships']}",
         f"- semantic details: {summary['semantic_details']}",
         f"- external dependencies: {summary['external_dependencies']}",
         f"- evidence groups: {summary['evidence_groups']}",
@@ -316,6 +341,21 @@ def render_projection_audit_markdown(report: dict[str, Any]) -> str:
             ])
     else:
         lines.extend(["## Application Boundary Audit", "", "- none", ""])
+
+    if report.get("framework_boundary_nodes"):
+        lines.extend(["## Framework Boundary Audit", ""])
+        for node in report["framework_boundary_nodes"]:
+            lines.extend([
+                f"### {node['subject_id']}",
+                "",
+                f"- qualification: {node.get('framework_boundary_qualification') or 'none'}",
+                f"- scope: {node.get('framework_boundary_scope') or 'none'}",
+                f"- fact ownership: {node.get('framework_fact_ownership') or 'none'}",
+                f"- boundary evidence: {', '.join(node.get('framework_boundary_evidence', [])) or 'none'}",
+                f"- context root: {_yes_no(bool(node.get('context_root_ids')))}",
+                f"- evidence count/group: {node.get('evidence_count', 0)} / {node.get('evidence_group_ref') or 'none'}",
+                "",
+            ])
 
     lines.extend(["## Projected Nodes", ""])
     for node in report["nodes"]:
@@ -344,6 +384,10 @@ def render_projection_audit_markdown(report: dict[str, Any]) -> str:
             f"- observed/inferred: {node.get('observed_inferred_status') or 'none'}",
             f"- executable/entrypoint evidence: {_yes_no(node.get('executable_entrypoint_evidence', False))}",
             f"- ownership: {node.get('ownership_kind') or 'none'} via {node.get('ownership_source_relation') or 'none'}",
+            f"- framework qualification: {node.get('framework_boundary_qualification') or 'none'}",
+            f"- framework scope: {node.get('framework_boundary_scope') or 'none'}",
+            f"- framework fact ownership: {node.get('framework_fact_ownership') or 'none'}",
+            f"- framework boundary evidence: {', '.join(node.get('framework_boundary_evidence', [])) or 'none'}",
             "",
         ])
     lines.extend(["## Projected Relations", ""])
@@ -379,6 +423,10 @@ def render_projection_audit_markdown(report: dict[str, Any]) -> str:
         f"- weak evidence saturation: {metrics.get('weak_evidence_saturation_count', 0)}",
         f"- structural ownership rejected: {metrics.get('structural_ownership_rejected_count', 0)}",
         f"- globally contextualized by ownership: {metrics.get('globally_contextualized_by_ownership_count', 0)}",
+        f"- framework context roots: {metrics.get('framework_context_root_count', 0)}",
+        f"- framework candidates / qualified / rejected: {metrics.get('framework_boundary_candidate_count', 0)} / {metrics.get('qualified_framework_boundary_count', 0)} / {metrics.get('rejected_framework_boundary_count', 0)}",
+        f"- owned framework applications / local usage: {metrics.get('owned_framework_application_count', 0)} / {metrics.get('local_framework_usage_count', 0)}",
+        f"- supporting-only global memberships: {metrics.get('supporting_only_global_membership_count', 0)}",
         "",
         "## Hypothesis Context Audit",
         "",

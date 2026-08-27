@@ -488,3 +488,37 @@ No significance weights, relation semantics, hypothesis scoring, renderer or
 layout behavior was changed. No repository-specific names, paths or library
 rules were introduced. The bounded policy remains linear in architectural
 nodes, edges and framework facts.
+
+## M8.1.10 - framework boundary qualification and context membership consistency
+
+The audit isolated two independent causes. Framework application components became
+`FRAMEWORK_APPLICATION_BOUNDARY` when APPLICATION plus endpoint/router facts
+and any local flow were present, without proving that the component owned a
+coherent application boundary. Separately, SUPPORTS_CONTEXT relations were
+allowed into the same bounded frontier as establishing relations, so a supporting
+relation could create global context membership.
+
+The policy now classifies framework facts by provenance and ownership. An
+APPLICATION fact is `OWNED_APPLICATION_BOUNDARY` only when it is associated with
+an explicit boundary, a coherent owned router/endpoint boundary, deployment, or
+an equivalent semantic boundary. Unowned framework usage is reported as
+`LOCAL_FRAMEWORK_USAGE`, related facts as `RELATED_FRAMEWORK_BOUNDARY`, and
+unresolved associations remain `UNRESOLVED`. A coherent isolated boundary may
+remain `QUALIFIED_LOCAL`; it becomes a global context root only with explicit
+boundary/deployment evidence or a bounded semantic flow to another component.
+
+`CAN_PROPAGATE_CONTEXT` establishes membership. `SUPPORTS_CONTEXT` can be
+retained as supporting provenance only for a subject already established by a
+strong relation; it cannot create membership. `DOES_NOT_PROPAGATE_CONTEXT` never
+establishes membership. DEPENDS_ON remains intact in the Architectural Graph and
+projection. No significance weights, hypothesis scoring, renderer behavior or
+repository-specific rule changed.
+
+The neutral fixtures cover high framework-fact volume without ownership, owned
+declarative applications, isolated local boundaries, multiple explicit framework
+applications, supporting-only and strong-plus-supporting relation chains,
+determinism and traceability. The new audit metrics separate framework candidates,
+qualified roots, local usage, established membership and supporting membership.
+
+No new ADR was required; this refines the evidence/uncertainty and graph/renderer
+separation contracts from ADR-001, ADR-002 and ADR-003.

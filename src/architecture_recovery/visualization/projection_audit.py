@@ -15,7 +15,7 @@ from architecture_recovery.ir import (
     relation_strength,
 )
 from .context import ContextPropagation, context_propagation_kind, context_strength
-from .projection import HighLevelArchitectureProjection, SignificanceLevel
+from .projection import ArchitecturalProjectionBuilder, HighLevelArchitectureProjection, SignificanceLevel
 
 
 class ProjectionContextLink(BaseModel):
@@ -29,6 +29,7 @@ class ProjectionContextLink(BaseModel):
     chain: list[str] = Field(default_factory=list)
     relation_strength: str = "strong"
     propagation_class: str = "can_propagate_context"
+    establishes_membership: bool = True
 
 
 class ProjectionExplanation(BaseModel):
@@ -64,6 +65,10 @@ class ProjectionExplanation(BaseModel):
     ownership_source_relation: str | None = None
     ownership_evidence_refs: list[str] = Field(default_factory=list)
     ownership_kind: str = "none"
+    framework_boundary_qualification: str | None = None
+    framework_boundary_scope: str | None = None
+    framework_fact_ownership: str | None = None
+    framework_boundary_evidence: list[str] = Field(default_factory=list)
 
 
 class ProjectedRelationExplanation(BaseModel):
@@ -151,6 +156,15 @@ class ProjectionAudit(BaseModel):
     architectural_ownership_count: int = Field(default=0, ge=0)
     structural_ownership_rejected_count: int = Field(default=0, ge=0)
     globally_contextualized_by_ownership_count: int = Field(default=0, ge=0)
+    framework_context_root_count: int = Field(default=0, ge=0)
+    framework_boundary_candidate_count: int = Field(default=0, ge=0)
+    qualified_framework_boundary_count: int = Field(default=0, ge=0)
+    rejected_framework_boundary_count: int = Field(default=0, ge=0)
+    owned_framework_application_count: int = Field(default=0, ge=0)
+    local_framework_usage_count: int = Field(default=0, ge=0)
+    supporting_only_global_membership_count: int = Field(default=0, ge=0)
+    membership_established_by_relation_kind: dict[str, int] = Field(default_factory=dict)
+    membership_supported_by_relation_kind: dict[str, int] = Field(default_factory=dict)
 
 
 _CONTEXT_RELATIONS = {
@@ -272,6 +286,7 @@ def _context_links(
         evidence_refs: list[str],
         chain: list[str],
         propagation: ContextPropagation,
+        establishes_membership: bool = True,
     ) -> None:
         if subject == root or subject not in subject_ids:
             return
@@ -285,8 +300,10 @@ def _context_links(
             chain=chain,
             relation_strength=strength,
             propagation_class=propagation.value,
+            establishes_membership=establishes_membership,
         ))
-        direct_subjects[root].add(subject)
+        if establishes_membership:
+            direct_subjects[root].add(subject)
 
     for root in sorted(roots):
         links[root].append(ProjectionContextLink(
@@ -296,6 +313,7 @@ def _context_links(
             chain=[root],
             relation_strength=root_strengths.get(root, "strong"),
             propagation_class="context_root",
+            establishes_membership=True,
         ))
 
     framework_application_components: set[str] = set()
@@ -417,28 +435,47 @@ def _context_links(
             continue
         candidates.append((source, target, canonical_relation_type(relation.type), relation.id, list(relation.evidence_refs), propagation))
 
-    for source, target, kind, relation_id, refs, propagation in candidates:
-        for root, subject in ((source, target), (target, source)):
-            if root in roots:
-                add_link(root, subject, kind, relation_id, refs, [root, subject], propagation)
+    # Establish membership only from semantic relations. SUPPORTS_CONTEXT may
+    # annotate an already established member, but cannot create membership.
+    for expected in (ContextPropagation.CAN_PROPAGATE_CONTEXT, ContextPropagation.SUPPORTS_CONTEXT):
+        for source, target, kind, relation_id, refs, propagation in candidates:
+            if propagation != expected:
+                continue
+            for root, subject in ((source, target), (target, source)):
+                if root in roots:
+                    already_member = subject in direct_subjects[root]
+                    if expected == ContextPropagation.CAN_PROPAGATE_CONTEXT or already_member:
+                        add_link(
+                            root, subject, kind, relation_id, refs, [root, subject], propagation,
+                            establishes_membership=expected == ContextPropagation.CAN_PROPAGATE_CONTEXT,
+                        )
 
-    # One additional semantic hop is intentionally bounded. Weak-only paths
-    # are not added to direct_subjects and therefore cannot become membership.
-    for source, target, kind, relation_id, refs, propagation in candidates:
-        for root, via, subject in (
-            (root, source, target)
-            for root, subjects in direct_subjects.items()
-            if source in subjects
-        ):
-            if subject != root:
-                add_link(root, subject, kind, relation_id, refs, [root, via, subject], propagation)
-        for root, via, subject in (
-            (root, target, source)
-            for root, subjects in direct_subjects.items()
-            if target in subjects
-        ):
-            if subject != root:
-                add_link(root, subject, kind, relation_id, refs, [root, via, subject], propagation)
+    # One additional bounded hop. SUPPORTS_CONTEXT is retained only when the
+    # target already has membership from another establishing relation.
+    for expected in (ContextPropagation.CAN_PROPAGATE_CONTEXT, ContextPropagation.SUPPORTS_CONTEXT):
+        for source, target, kind, relation_id, refs, propagation in candidates:
+            if propagation != expected:
+                continue
+            for root, via, subject in (
+                (root, source, target)
+                for root, subjects in direct_subjects.items()
+                if source in subjects
+            ):
+                if subject != root and (expected == ContextPropagation.CAN_PROPAGATE_CONTEXT or subject in direct_subjects[root]):
+                    add_link(
+                        root, subject, kind, relation_id, refs, [root, via, subject], propagation,
+                        establishes_membership=expected == ContextPropagation.CAN_PROPAGATE_CONTEXT,
+                    )
+            for root, via, subject in (
+                (root, target, source)
+                for root, subjects in direct_subjects.items()
+                if target in subjects
+            ):
+                if subject != root and (expected == ContextPropagation.CAN_PROPAGATE_CONTEXT or subject in direct_subjects[root]):
+                    add_link(
+                        root, subject, kind, relation_id, refs, [root, via, subject], propagation,
+                        establishes_membership=expected == ContextPropagation.CAN_PROPAGATE_CONTEXT,
+                    )
 
     return {
         subject: sorted(
@@ -514,6 +551,7 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
     raw_to_arch = _raw_to_arch(ir)
     selected = set(projection.projected_node_ids)
     significance = {item.subject: item for item in projection.significances}
+    framework_assessments = ArchitecturalProjectionBuilder()._framework_boundary_assessments(ir, arch_nodes, raw_to_arch)
     roots = set(projection.context_root_ids)
     raw_edges = {edge.id: edge for edge in ir.raw_graph.edges if edge.id}
     links = _context_links(ir, roots, projection.context_root_strengths, arch_nodes, raw_to_arch, raw_edges)
@@ -628,10 +666,11 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
         ]
         ownership_source_relation = ownership_links[0].relation_kind if ownership_links else None
         ownership_evidence_refs = sorted({ref for link in ownership_links for ref in link.evidence_refs})
+        framework_assessment = framework_assessments.get(subject, {})
         ownership_kind = "architectural" if ownership_links else (
             "structural_rejected" if subject in structural_ownership_subjects else "none"
         )
-        root_ids = sorted({link.root_id for link in subject_links})
+        root_ids = sorted({link.root_id for link in subject_links if link.establishes_membership})
         root_strength = (
             projection.context_root_strengths.get(root_ids[0])
             if root_ids
@@ -705,6 +744,10 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
             ownership_source_relation=ownership_source_relation,
             ownership_evidence_refs=ownership_evidence_refs,
             ownership_kind=ownership_kind,
+            framework_boundary_qualification=("QUALIFIED_GLOBAL" if framework_assessment.get("global_qualified") else "QUALIFIED_LOCAL" if framework_assessment.get("qualified") else "REJECTED") if framework_assessment else None,
+            framework_boundary_scope=framework_assessment.get("boundary_scope"),
+            framework_fact_ownership=framework_assessment.get("ownership"),
+            framework_boundary_evidence=list(framework_assessment.get("boundary_evidence", [])),
         ))
     explanation_by_subject = {item.subject_id: item for item in explanations}
     pairs = _edge_endpoints(ir, selected, arch_nodes, raw_to_arch)
@@ -891,6 +934,28 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
         item.ownership_kind == "architectural" and item.globally_contextualized
         for item in projected_explanations
     )
+    membership_established_counts = defaultdict(int)
+    membership_supported_counts = defaultdict(int)
+    supporting_only_membership = 0
+    for item in projected_explanations:
+        establishing = [
+            link for link in item.context_chain
+            if link.establishes_membership and link.relation_kind != "CONTEXT_ROOT"
+        ]
+        supporting = [
+            link for link in item.context_chain
+            if not link.establishes_membership
+        ]
+        for link in establishing:
+            membership_established_counts[link.relation_kind] += 1
+        for link in supporting:
+            membership_supported_counts[link.relation_kind] += 1
+        if supporting and not establishing and item.globally_contextualized:
+            supporting_only_membership += 1
+    qualified_framework = sum(1 for item in framework_assessments.values() if item["qualified"])
+    framework_candidates = sum(1 for item in framework_assessments.values() if item["candidate"])
+    owned_framework = sum(1 for item in framework_assessments.values() if item["ownership"] == "OWNED_APPLICATION_BOUNDARY")
+    local_framework_usage = sum(1 for item in framework_assessments.values() if item["ownership"] == "LOCAL_FRAMEWORK_USAGE")
     weak_only_projected = sum(
         item.subject_id in weak_reachable
         and not item.context_root_ids
@@ -935,6 +1000,15 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
         architectural_ownership_count=architectural_ownership_count,
         structural_ownership_rejected_count=structural_ownership_rejected,
         globally_contextualized_by_ownership_count=contextualized_by_ownership,
+        framework_context_root_count=sum(1 for subject, item in framework_assessments.items() if item["qualified"] and subject in roots),
+        framework_boundary_candidate_count=framework_candidates,
+        qualified_framework_boundary_count=qualified_framework,
+        rejected_framework_boundary_count=max(0, framework_candidates - qualified_framework),
+        owned_framework_application_count=owned_framework,
+        local_framework_usage_count=local_framework_usage,
+        supporting_only_global_membership_count=supporting_only_membership,
+        membership_established_by_relation_kind=dict(sorted(membership_established_counts.items())),
+        membership_supported_by_relation_kind=dict(sorted(membership_supported_counts.items())),
         traceability=traceability,
         evidence_coverage=round(evidence_coverage, 6),
         node_explanations=explanations,

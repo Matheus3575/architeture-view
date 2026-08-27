@@ -334,49 +334,19 @@ class ArchitecturalProjectionBuilder:
                 component_main_context.add(source.id)
         root_context_component_ids = set(component_main_context)
         context_component_ids = root_context_component_ids | set(component_semantic_flow)
-        framework_application_components = {
-            resolved
-            for fact in ir.framework_facts
-            if fact.kind == "APPLICATION"
-            for value in (fact.subject, fact.target, fact.attributes.get("module"))
-            for resolved in [self._resolve(value, arch_nodes, raw_to_arch)]
-            if resolved and arch_nodes.get(resolved) and arch_nodes[resolved].type == NodeType.COMPONENT
-        }
-        framework_application_fact_by_component: dict[str, list[Any]] = defaultdict(list)
-        for fact in ir.framework_facts:
-            if fact.kind != "APPLICATION":
-                continue
-            for value in (fact.subject, fact.target, fact.attributes.get("module")):
-                resolved = self._resolve(value, arch_nodes, raw_to_arch)
-                if resolved in framework_application_components:
-                    framework_application_fact_by_component[resolved].append(fact)
-        framework_boundary_fact_kinds = {"HTTP_ENDPOINT", "ROUTER", "CONTROLLER_LIKE"}
-        framework_boundary_subjects_for_application = {
-            resolved
-            for fact in ir.framework_facts
-            if fact.kind in framework_boundary_fact_kinds
-            for value in (fact.subject, fact.target, fact.attributes.get("endpoint"), fact.attributes.get("module"))
-            for resolved in [self._resolve(value, arch_nodes, raw_to_arch)]
-            if resolved
-        }
-        for subject, app_facts in sorted(framework_application_fact_by_component.items()):
-            has_explicit_boundary = any(explicit_framework_boundary(fact) for fact in app_facts)
-            has_observed_boundary = (
-                subject in framework_boundary_subjects_for_application
-                and subject in component_semantic_flow
-            )
-            if not (has_explicit_boundary or has_observed_boundary):
+        framework_assessments = self._framework_boundary_assessments(ir, arch_nodes, raw_to_arch)
+        framework_application_components = set(framework_assessments)
+        for subject, assessment in sorted(framework_assessments.items()):
+            if not assessment["global_qualified"]:
                 continue
             context_root_ids.add(subject)
             context_root_strengths[subject] = "strong"
-            context_root_kinds[subject] = "EXECUTION_BOUNDARY" if has_explicit_boundary else "FRAMEWORK_APPLICATION_BOUNDARY"
-            refs_for_subject = {ref for fact in app_facts for ref in fact.evidence_refs}
-            add_signal(subject, "strong", 0.55, "application boundary: framework application with observed boundary", refs_for_subject)
-            reasons[subject].append("architectural context root: framework application boundary")
-        # A component explicitly owned by an observed application boundary and
-        # carrying an application fact is context-bound when it also has the
-        # existing semantic flow evidence used by the bounded pass. This keeps
-        # isolated framework components outside the root context.
+            context_root_kinds[subject] = "FRAMEWORK_APPLICATION_BOUNDARY"
+            refs_for_subject = set(assessment["application_refs"]) | set(assessment["boundary_refs"])
+            add_signal(subject, "strong", 0.55, "application boundary: owned framework application", refs_for_subject)
+            reasons[subject].append("architectural context root: owned framework application boundary")
+        # Repository aggregation CONTAINS remains structural. Only explicit
+        # architectural ownership can associate another component with a root.
         for edge in ir.architectural_graph.edges:
             if edge.type != EdgeType.CONTAINS:
                 continue
@@ -384,6 +354,7 @@ class ArchitecturalProjectionBuilder:
                 edge.source in context_root_ids
                 and edge.target in framework_application_components
                 and edge.target in component_semantic_flow
+                and is_architectural_ownership(edge)
             ):
                 root_context_component_ids.add(edge.target)
         semantic_subjects: set[str] = set()
@@ -635,7 +606,7 @@ class ArchitecturalProjectionBuilder:
                     raw_relation_types=raw_types,
                     semantic_ownership=ownership,
                 )
-                if propagation == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
+                if propagation != ContextPropagation.CAN_PROPAGATE_CONTEXT:
                     continue
                 if source in context_frontier and target not in contextual_subjects:
                     next_frontier.add(target)
@@ -835,6 +806,119 @@ class ArchitecturalProjectionBuilder:
                 return arch_id
         return None
 
+    def _framework_boundary_assessments(self, ir: ArchitectureIR, arch_nodes: dict[str, Node], raw_to_arch: dict[str, str]) -> dict[str, dict[str, Any]]:
+        """Classify framework facts by boundary ownership, without scoring."""
+        facts_by_component: dict[str, list[Any]] = defaultdict(list)
+        candidate_subjects: set[str] = set()
+        strong_fact_kinds = {"APPLICATION", "HTTP_ENDPOINT", "ROUTER", "CONTROLLER_LIKE"}
+
+        for fact in ir.framework_facts:
+            subjects = {
+                resolved
+                for value in (
+                    fact.subject,
+                    fact.target,
+                    fact.attributes.get("module"),
+                    fact.attributes.get("endpoint"),
+                    fact.attributes.get("owner"),
+                    fact.attributes.get("application"),
+                    fact.attributes.get("router"),
+                )
+                for resolved in [self._resolve(value, arch_nodes, raw_to_arch)]
+                if resolved and arch_nodes.get(resolved) and arch_nodes[resolved].type == NodeType.COMPONENT
+            }
+            for subject in subjects:
+                facts_by_component[subject].append(fact)
+                if fact.kind in strong_fact_kinds:
+                    candidate_subjects.add(subject)
+
+        assessments: dict[str, dict[str, Any]] = {}
+        for subject in sorted(facts_by_component):
+            facts = facts_by_component[subject]
+            applications = [fact for fact in facts if fact.kind == "APPLICATION"]
+            boundary_facts = [
+                fact for fact in facts
+                if fact.kind in {"HTTP_ENDPOINT", "ROUTER", "CONTROLLER_LIKE", "ROUTER_INCLUSION"}
+            ]
+            explicit = any(
+                fact.attributes.get("architectural_boundary")
+                or fact.metadata.get("architectural_boundary")
+                or fact.attributes.get("entrypoint")
+                or fact.metadata.get("entrypoint")
+                for fact in applications
+            )
+            coherent = False
+            associated_refs: set[str] = set()
+            for application in applications:
+                application_name = application.attributes.get("application") or application.subject
+                application_module = application.attributes.get("module")
+                for boundary in boundary_facts:
+                    boundary_module = boundary.attributes.get("module")
+                    same_module = bool(application_module and boundary_module and application_module == boundary_module)
+                    same_application = boundary.attributes.get("application") == application_name
+                    owned_endpoint = boundary.attributes.get("owner") == application_name
+                    owned_router = boundary.attributes.get("router") == application_name
+                    if same_module or same_application or owned_endpoint or owned_router:
+                        coherent = True
+                        associated_refs.update(boundary.evidence_refs)
+            deployment = any(
+                edge.type == EdgeType.DEPLOYS and subject in {edge.source, edge.target}
+                for edge in ir.architectural_graph.edges
+            )
+            executable = any(
+                fact.attributes.get("entrypoint")
+                or fact.metadata.get("entrypoint")
+                or fact.attributes.get("executable")
+                or fact.metadata.get("executable")
+                for fact in applications
+            )
+            raw_type_by_id = {edge.id: edge.type for edge in ir.raw_graph.edges if edge.id}
+            semantic_flow = any(
+                edge.type in {EdgeType.ROUTES_TO, EdgeType.QUERIES, EdgeType.PUBLISHES, EdgeType.CONSUMES, EdgeType.CONNECTS_TO}
+                or any(raw_type_by_id.get(raw_id) in {EdgeType.CALLS, EdgeType.INSTANTIATES, EdgeType.EXTENDS} for raw_id in edge.raw_edge_ids)
+                for edge in ir.architectural_graph.edges
+                if subject in {edge.source, edge.target}
+                and any(
+                    arch_nodes.get(endpoint) and arch_nodes[endpoint].type == NodeType.COMPONENT
+                    for endpoint in (edge.source, edge.target)
+                    if endpoint != subject
+                )
+            )
+            qualified = bool(applications and (explicit or coherent or deployment))
+            global_qualified = bool(qualified and (explicit or deployment or semantic_flow))
+            if qualified:
+                ownership = "OWNED_APPLICATION_BOUNDARY"
+                boundary_evidence = []
+                if explicit:
+                    boundary_evidence.append("explicit_application_boundary")
+                if coherent:
+                    boundary_evidence.append("application_router_endpoint_association")
+                if deployment:
+                    boundary_evidence.append("deployment_execution_boundary")
+            elif applications:
+                ownership = "LOCAL_FRAMEWORK_USAGE"
+                boundary_evidence = []
+            elif boundary_facts:
+                ownership = "RELATED_FRAMEWORK_BOUNDARY"
+                boundary_evidence = []
+            else:
+                ownership = "UNRESOLVED"
+                boundary_evidence = []
+            assessments[subject] = {
+                "candidate": subject in candidate_subjects,
+                "qualified": qualified,
+                "global_qualified": global_qualified,
+                "ownership": ownership,
+                "boundary_evidence": sorted(boundary_evidence),
+                "application_fact_count": len(applications),
+                "framework_fact_count": len(facts),
+                "application_refs": sorted({ref for fact in applications for ref in fact.evidence_refs}),
+                "boundary_refs": sorted(associated_refs),
+                "executable": bool(executable),
+                "deployment": bool(deployment),
+                "boundary_scope": "global" if global_qualified else "local" if (qualified or applications or boundary_facts) else "unresolved",
+            }
+        return assessments
     def _selected_owner(self, value: str, selected: set[str], arch_nodes: dict[str, Node], raw_to_arch: dict[str, str]) -> str | None:
         resolved = self._resolve(value, arch_nodes, raw_to_arch) or value
         if resolved in selected:

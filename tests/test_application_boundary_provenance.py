@@ -124,6 +124,7 @@ def test_framework_application_component_can_be_a_boundary_without_promoting_rep
     assert application.id not in projection.context_root_ids
     assert projection.context_root_ids == []
     assert audit.strong_application_boundary_count == 0
+    assert audit.qualified_framework_boundary_count >= 1
     assert audit.traceability is True
 
 
