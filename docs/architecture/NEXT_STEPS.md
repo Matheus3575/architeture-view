@@ -343,3 +343,11 @@ or UNKNOWN over an unsupported global promotion.
 ## M8.1.12 - next steps
 
 Completed: separate deployment relation validity from deployment context transit. Investigate explicit deployment ownership on a large repository with actual application/runtime relations when one is available. If infrastructure still produces suspicious global boundaries after provenance is explicit, address that as a separate bounded calibration milestone. Do not use repository or artifact containment as runtime ownership and do not compensate for missing provenance with weights or cardinality thresholds.
+
+## M8.1.13 - next steps
+
+Completed: provenance audit and minimal directional correction for deployment context. `DEPLOYS` now respects source-to-target direction in projection and audit context traversal. The Positive Evidence Ledger distinguishes evidence absent, lost before architectural aggregation, produced and rejected, and accepted, while preserving recoverability through existing evidence structures.
+
+Next recommended milestone: recover one positive producer at a time, beginning with deterministic executable/packaging entrypoint evidence or explicit framework application ownership. Each candidate must have a neutral fixture proving precision, a provenance chain to the existing projection gate, and no relaxation of global eligibility. A locally available large repository should then be rerun to determine whether the remaining one-node projection is evidence absence or a second producer/aggregation loss.
+
+Do not add score weight, fallback global roots, bidirectional deployment traversal or repository-specific heuristics to compensate for missing evidence.

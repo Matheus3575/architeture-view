@@ -8,7 +8,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from architecture_recovery.ir import ArchitectureIR, Edge, EdgeType, EvidenceStatus, Node, NodeType, relation_strength
-from .context import ContextPropagation, DeploymentProvenance, context_propagation_kind, deployment_provenance
+from .context import ContextPropagation, DeploymentProvenance, context_direction_pairs, context_propagation_kind, deployment_provenance
 
 
 class SignificanceLevel(StrEnum):
@@ -648,10 +648,9 @@ class ArchitecturalProjectionBuilder:
                 )
                 if propagation != ContextPropagation.CAN_PROPAGATE_CONTEXT:
                     continue
-                if source in context_frontier and target not in contextual_subjects:
-                    next_frontier.add(target)
-                if target in context_frontier and source not in contextual_subjects:
-                    next_frontier.add(source)
+                for origin, destination in context_direction_pairs(source, target, relation_type):
+                    if origin in context_frontier and destination not in contextual_subjects:
+                        next_frontier.add(destination)
             contextual_subjects.update(next_frontier)
             context_frontier = next_frontier
             if not context_frontier:
@@ -673,10 +672,9 @@ class ArchitecturalProjectionBuilder:
                 )
                 if propagation != ContextPropagation.CAN_PROPAGATE_CONTEXT:
                     continue
-                if source in root_frontier and target not in root_contextual_subjects:
-                    next_root_frontier.add(target)
-                if target in root_frontier and source not in root_contextual_subjects:
-                    next_root_frontier.add(source)
+                for origin, destination in context_direction_pairs(source, target, relation_type):
+                    if origin in root_frontier and destination not in root_contextual_subjects:
+                        next_root_frontier.add(destination)
             root_contextual_subjects.update(next_root_frontier)
             root_frontier = next_root_frontier
             if not root_frontier:
@@ -712,29 +710,25 @@ class ArchitecturalProjectionBuilder:
             )
             if propagation == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
                 # A generic infrastructure observation can justify a boundary
-                # only when its opposite endpoint is independently significant;
-                # it still does not propagate context membership.
-                if source in resource_ids and target in strong_subjects | set(medium):
-                    independent_global_subjects.add(source)
-                if target in resource_ids and source in strong_subjects | set(medium):
-                    independent_global_subjects.add(target)
+                # only when its directional source is independently significant.
+                for origin, destination in context_direction_pairs(source, target, relation_type):
+                    if origin in resource_ids and destination in strong_subjects | set(medium):
+                        independent_global_subjects.add(origin)
                 continue
-            if source in strong_subjects and target in strong_subjects:
-                independent_global_subjects.update((source, target))
-            if source in strong_subjects and target in medium:
-                independent_global_subjects.add(target)
-            if target in strong_subjects and source in medium:
-                independent_global_subjects.add(source)
+            for origin, destination in context_direction_pairs(source, target, relation_type):
+                if origin in strong_subjects and destination in strong_subjects:
+                    independent_global_subjects.update((origin, destination))
+                if origin in strong_subjects and destination in medium:
+                    independent_global_subjects.add(destination)
 
         # Significance is local evidence; projection eligibility is a separate final gate.
         # Navigation roots remain available for detailed/read-model navigation,
         # but their existence must not satisfy this gate.
         independently_global_resource_subjects = {
-            boundary
+            destination
             for source, target, relation_type, raw_types, ownership, deployment_kind_value in context_candidates
-            if (source in resource_ids or target in resource_ids)
-            for boundary, other in ((source, target), (target, source))
-            if boundary in resource_ids and other in root_contextual_subjects
+            for origin, destination in context_direction_pairs(source, target, relation_type)
+            if destination in resource_ids and origin in root_contextual_subjects
         }
         independently_global_role_subjects = {
             subject

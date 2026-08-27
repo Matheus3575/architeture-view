@@ -14,7 +14,7 @@ from architecture_recovery.ir import (
     canonical_relation_type,
     relation_strength,
 )
-from .context import ContextPropagation, DeploymentProvenance, context_propagation_kind, context_strength, deployment_provenance
+from .context import ContextPropagation, DeploymentProvenance, context_direction_pairs, context_propagation_kind, context_strength, deployment_provenance
 from .projection import ArchitecturalProjectionBuilder, HighLevelArchitectureProjection, SignificanceLevel
 
 
@@ -32,6 +32,23 @@ class ProjectionContextLink(BaseModel):
     establishes_membership: bool = True
     deployment_provenance: str | None = None
 
+
+class PositiveEvidenceLedgerEntry(BaseModel):
+    """Read-only ledger entry for positive architectural evidence."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    subject_id: str
+    evidence_kind: str
+    producer: str
+    source_relation: str | None = None
+    owner_id: str | None = None
+    direction: str | None = None
+    provenance: str = "unknown"
+    accepted: bool = False
+    rejection_reason: str | None = None
+    architectural_role: str | None = None
+    evidence_refs: list[str] = Field(default_factory=list)
 
 class ProjectionExplanation(BaseModel):
     """Deterministic explanation for one detailed or projected node."""
@@ -139,6 +156,7 @@ class ProjectionAudit(BaseModel):
     node_explanations: list[ProjectionExplanation] = Field(default_factory=list)
     relation_explanations: list[ProjectedRelationExplanation] = Field(default_factory=list)
     hypothesis_explanations: list[HypothesisContextExplanation] = Field(default_factory=list)
+    positive_evidence_ledger: list[PositiveEvidenceLedgerEntry] = Field(default_factory=list)
     context_root_strength_counts: dict[str, int] = Field(default_factory=dict)
     strong_context_root_count: int = Field(default=0, ge=0)
     weak_navigation_root_count: int = Field(default=0, ge=0)
@@ -183,6 +201,16 @@ class ProjectionAudit(BaseModel):
     qualified_global_deployment_boundary_count: int = Field(default=0, ge=0)
     rejected_local_deployment_boundary_count: int = Field(default=0, ge=0)
     navigation_transit_membership_count: int = Field(default=0, ge=0)
+    positive_evidence_produced_count: int = Field(default=0, ge=0)
+    positive_evidence_accepted_count: int = Field(default=0, ge=0)
+    positive_evidence_rejected_count: int = Field(default=0, ge=0)
+    positive_evidence_absent_count: int = Field(default=0, ge=0)
+    rejection_reason_counts: dict[str, int] = Field(default_factory=dict)
+    executable_root_count: int = Field(default=0, ge=0)
+    owned_framework_boundary_count: int = Field(default=0, ge=0)
+    semantic_membership_count: int = Field(default=0, ge=0)
+    explicit_deployment_ownership_count: int = Field(default=0, ge=0)
+    directional_propagation_count: int = Field(default=0, ge=0)
 
 _CONTEXT_RELATIONS = {
     EdgeType.ROUTES_TO.value,
@@ -495,7 +523,7 @@ def _context_links(
         for source, target, kind, relation_id, refs, propagation, deployment_kind in candidates:
             if propagation != expected:
                 continue
-            for root, subject in ((source, target), (target, source)):
+            for root, subject in context_direction_pairs(source, target, kind):
                 if root in roots:
                     already_member = subject in direct_subjects[root]
                     if expected == ContextPropagation.CAN_PROPAGATE_CONTEXT or already_member:
@@ -511,28 +539,16 @@ def _context_links(
         for source, target, kind, relation_id, refs, propagation, deployment_kind in candidates:
             if propagation != expected:
                 continue
-            for root, via, subject in (
-                (root, source, target)
-                for root, subjects in direct_subjects.items()
-                if source in subjects
-            ):
-                if subject != root and (expected == ContextPropagation.CAN_PROPAGATE_CONTEXT or subject in direct_subjects[root]):
-                    add_link(
-                        root, subject, kind, relation_id, refs, [root, via, subject], propagation,
-                        establishes_membership=expected == ContextPropagation.CAN_PROPAGATE_CONTEXT,
-                        deployment_kind=deployment_kind,
-                    )
-            for root, via, subject in (
-                (root, target, source)
-                for root, subjects in direct_subjects.items()
-                if target in subjects
-            ):
-                if subject != root and (expected == ContextPropagation.CAN_PROPAGATE_CONTEXT or subject in direct_subjects[root]):
-                    add_link(
-                        root, subject, kind, relation_id, refs, [root, via, subject], propagation,
-                        establishes_membership=expected == ContextPropagation.CAN_PROPAGATE_CONTEXT,
-                        deployment_kind=deployment_kind,
-                    )
+            for via, subject in context_direction_pairs(source, target, kind):
+                for root, subjects in direct_subjects.items():
+                    if via not in subjects:
+                        continue
+                    if subject != root and (expected == ContextPropagation.CAN_PROPAGATE_CONTEXT or subject in direct_subjects[root]):
+                        add_link(
+                            root, subject, kind, relation_id, refs, [root, via, subject], propagation,
+                            establishes_membership=expected == ContextPropagation.CAN_PROPAGATE_CONTEXT,
+                            deployment_kind=deployment_kind,
+                        )
 
     return {
         subject: sorted(
@@ -569,8 +585,8 @@ def _weak_only_reachable(
         ]
         deployment_kind = _deployment_provenance_for_subjects(ir, source, target, edge.metadata, list(edge.evidence_refs)) if edge.type == EdgeType.DEPLOYS else None
         if context_propagation_kind(edge.type, raw_relation_types=raw_types, deployment_provenance=deployment_kind) == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
-            adjacency[source].add(target)
-            adjacency[target].add(source)
+            for origin, destination in context_direction_pairs(source, target, edge.type):
+                adjacency[origin].add(destination)
     for relation in ir.infrastructure_relations:
         source = (
             relation.source
@@ -586,8 +602,8 @@ def _weak_only_reachable(
             continue
         deployment_kind = _deployment_provenance_for_subjects(ir, source, target, relation.metadata, list(relation.evidence_refs)) if canonical_relation_type(relation.type) == EdgeType.DEPLOYS.value else None
         if context_propagation_kind(relation.type, deployment_provenance=deployment_kind) == ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT:
-            adjacency[source].add(target)
-            adjacency[target].add(source)
+            for origin, destination in context_direction_pairs(source, target, relation.type):
+                adjacency[origin].add(destination)
     frontier = set(roots)
     reached: set[str] = set()
     for _ in range(max_hops):
@@ -603,6 +619,201 @@ def _weak_only_reachable(
             break
     return reached
 
+def _build_positive_evidence_ledger(
+    ir: ArchitectureIR,
+    projection: HighLevelArchitectureProjection,
+    explanations: list[ProjectionExplanation],
+    links: dict[str, list[ProjectionContextLink]],
+    framework_assessments: dict[str, dict[str, Any]],
+    raw_edges: dict[str, Any],
+) -> list[PositiveEvidenceLedgerEntry]:
+    """Explain where positive context evidence was produced and consumed."""
+
+    positive_facts = {"APPLICATION", "ROUTER", "HTTP_ENDPOINT", "ROUTER_INCLUSION", "CONTROLLER_LIKE"}
+    positive_relations = {
+        EdgeType.ROUTES_TO.value,
+        EdgeType.QUERIES.value,
+        EdgeType.CONNECTS_TO.value,
+        EdgeType.PUBLISHES.value,
+        EdgeType.CONSUMES.value,
+        EdgeType.DEPLOYS.value,
+    }
+    roots = set(projection.context_root_ids)
+    arch_nodes = {node.id: node for node in ir.architectural_graph.nodes}
+    raw_to_arch = _raw_to_arch(ir)
+    established = roots | {
+        subject
+        for subject, subject_links in links.items()
+        if any(link.establishes_membership for link in subject_links)
+    }
+    entries: list[PositiveEvidenceLedgerEntry] = []
+
+    def add(
+        *,
+        subject: str,
+        evidence_kind: str,
+        producer: str,
+        source_relation: str | None,
+        owner_id: str | None,
+        direction: str | None,
+        provenance: str,
+        accepted: bool,
+        rejection_reason: str | None,
+        role: str | None,
+        refs: list[str],
+    ) -> None:
+        entries.append(PositiveEvidenceLedgerEntry(
+            subject_id=subject,
+            evidence_kind=evidence_kind,
+            producer=producer,
+            source_relation=source_relation,
+            owner_id=owner_id,
+            direction=direction,
+            provenance=provenance,
+            accepted=accepted,
+            rejection_reason=rejection_reason,
+            architectural_role=role,
+            evidence_refs=sorted(set(refs)),
+        ))
+
+    def resolved(value: str | None) -> str | None:
+        return _resolve(value, arch_nodes, raw_to_arch) or value
+
+    # Application nodes are producer outputs, even when their boundary evidence
+    # is rejected. This distinguishes a rejected aggregate from no producer.
+    for node in sorted(ir.architectural_graph.nodes, key=lambda item: item.id):
+        if node.type != NodeType.APPLICATION:
+            continue
+        provenance = str(node.metadata.get("application_provenance", "detected_application"))
+        accepted = node.id in roots
+        add(
+            subject=node.id,
+            evidence_kind="application_boundary",
+            producer="GraphAggregation",
+            source_relation="APPLICATION_BOUNDARY",
+            owner_id=node.id,
+            direction=None,
+            provenance=provenance,
+            accepted=accepted,
+            rejection_reason=None if accepted else "application boundary was not admitted as a global root",
+            role="APPLICATION",
+            refs=list(node.evidence_refs),
+        )
+
+    for fact in sorted(ir.framework_facts, key=lambda item: (item.kind, item.subject or "", tuple(item.evidence_refs))):
+        if fact.kind not in positive_facts:
+            continue
+        values = [fact.subject, fact.target, fact.attributes.get("owner"), fact.attributes.get("application"), fact.attributes.get("router"), fact.attributes.get("endpoint"), fact.attributes.get("module")]
+        subjects = sorted({item for value in values if (item := resolved(value)) and item in arch_nodes})
+        for subject in subjects:
+            assessment = framework_assessments.get(subject, {})
+            accepted = subject in established
+            provenance = assessment.get("ownership") or "framework_fact"
+            add(
+                subject=subject,
+                evidence_kind="framework_boundary",
+                producer="FrameworkAdapter",
+                source_relation=fact.kind,
+                owner_id=resolved(fact.attributes.get("owner") or fact.attributes.get("application") or fact.attributes.get("router")) or subject,
+                direction="fact",
+                provenance=str(provenance),
+                accepted=accepted,
+                rejection_reason=None if accepted else "framework fact lacks an accepted global context association",
+                role=fact.kind,
+                refs=list(fact.evidence_refs),
+            )
+
+    arch_node_ids = {node.id for node in ir.architectural_graph.nodes}
+    relation_items: list[tuple[str, str, str, str | None, list[str], dict[str, Any], str]] = []
+    for edge in ir.architectural_graph.edges:
+        kind = canonical_relation_type(edge.type)
+        if kind in positive_relations:
+            source = resolved(edge.source) or edge.source
+            target = resolved(edge.target) or edge.target
+            relation_items.append((source, target, kind, edge.id, list(edge.evidence_refs), edge.metadata, "GraphAggregation"))
+    resource_ids = {resource.id for resource in ir.infrastructure_resources}
+    for relation in ir.infrastructure_relations:
+        kind = canonical_relation_type(relation.type)
+        if kind not in positive_relations:
+            continue
+        source = relation.source if relation.source in resource_ids or relation.source in arch_node_ids else resolved(relation.source) or relation.source
+        target = relation.target if relation.target in resource_ids or relation.target in arch_node_ids else resolved(relation.target) or relation.target
+        relation_items.append((source, target, kind, relation.id, list(relation.evidence_refs), relation.metadata, "InfrastructureAnalyzer"))
+
+    aggregated_raw_ids = {
+        raw_id
+        for edge in ir.architectural_graph.edges
+        for raw_id in edge.raw_edge_ids
+    }
+    for raw_edge in sorted(raw_edges.values(), key=lambda item: item.id or ""):
+        kind = canonical_relation_type(raw_edge.type)
+        if not raw_edge.id or kind not in positive_relations or raw_edge.id in aggregated_raw_ids:
+            continue
+        source = resolved(raw_edge.source) or raw_edge.source
+        target = resolved(raw_edge.target) or raw_edge.target
+        add(
+            subject=target,
+            evidence_kind="raw_relation",
+            producer="RawGraph",
+            source_relation=f"{kind}:{raw_edge.id}",
+            owner_id=source,
+            direction="forward" if kind == EdgeType.DEPLOYS.value else "observed",
+            provenance="lost_before_architecture",
+            accepted=False,
+            rejection_reason="raw positive relation has no architectural aggregation",
+            role=kind,
+            refs=list(raw_edge.evidence_refs),
+        )
+
+    for source, target, kind, relation_id, refs, metadata, producer in sorted(relation_items, key=lambda item: (item[0], item[1], item[2], item[3] or "")):
+        deployment_kind = _deployment_provenance_for_subjects(ir, source, target, metadata, refs) if kind == EdgeType.DEPLOYS.value else None
+        propagation = context_propagation_kind(kind, deployment_provenance=deployment_kind)
+        accepted = any(
+            origin in roots and destination in established
+            for origin, destination in context_direction_pairs(source, target, kind)
+        ) and propagation == ContextPropagation.CAN_PROPAGATE_CONTEXT
+        deployment_label = deployment_kind.value if deployment_kind else None
+        provenance = deployment_label or "inferred_architectural_relation"
+        reason = None
+        if not accepted:
+            if kind == EdgeType.DEPLOYS.value and propagation != ContextPropagation.CAN_PROPAGATE_CONTEXT:
+                reason = "deployment provenance does not establish global context"
+            else:
+                reason = "relation does not connect a root to an established context member"
+        add(
+            subject=target,
+            evidence_kind="deployment_ownership" if kind == EdgeType.DEPLOYS.value else "semantic_relation",
+            producer=producer,
+            source_relation=f"{kind}:{relation_id or ''}",
+            owner_id=source,
+            direction="forward" if kind == EdgeType.DEPLOYS.value else "directed",
+            provenance=provenance,
+            accepted=accepted,
+            rejection_reason=reason,
+            role=kind,
+            refs=refs,
+        )
+
+    ledger_subjects = {entry.subject_id for entry in entries}
+    significance = {item.subject_id: item for item in explanations}
+    for item in sorted(explanations, key=lambda value: value.subject_id):
+        if item.significance not in {SignificanceLevel.HIGH, SignificanceLevel.MEDIUM} or item.subject_id in ledger_subjects:
+            continue
+        add(
+            subject=item.subject_id,
+            evidence_kind="global_context",
+            producer="not_observed",
+            source_relation=None,
+            owner_id=None,
+            direction=None,
+            provenance="absent",
+            accepted=False,
+            rejection_reason="no positive architectural context evidence was produced",
+            role=item.role,
+            refs=[],
+        )
+    return sorted(entries, key=lambda item: (item.subject_id, item.evidence_kind, item.source_relation or "", item.provenance, item.evidence_refs))
+
 def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjection) -> ProjectionAudit:
     """Build a deterministic audit without modifying IR, projection or ReadModel."""
 
@@ -612,6 +823,8 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
     significance = {item.subject: item for item in projection.significances}
     framework_assessments = ArchitecturalProjectionBuilder()._framework_boundary_assessments(ir, arch_nodes, raw_to_arch)
     roots = set(projection.context_root_ids)
+    arch_nodes = {node.id: node for node in ir.architectural_graph.nodes}
+    raw_to_arch = _raw_to_arch(ir)
     raw_edges = {edge.id: edge for edge in ir.raw_graph.edges if edge.id}
     links = _context_links(ir, roots, projection.context_root_strengths, arch_nodes, raw_to_arch, raw_edges)
     framework_counts: dict[str, int] = defaultdict(int)
@@ -941,6 +1154,12 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
             context_propagation=propagation.value,
             deployment_provenance=deployment_kind.value if deployment_kind else None,
         ))
+    positive_evidence_ledger = _build_positive_evidence_ledger(ir, projection, explanations, links, framework_assessments, raw_edges)
+    positive_evidence_produced = [item for item in positive_evidence_ledger if item.provenance != "absent"]
+    positive_evidence_accepted = [item for item in positive_evidence_produced if item.accepted]
+    positive_evidence_rejected = [item for item in positive_evidence_produced if not item.accepted]
+    positive_evidence_absent = [item for item in positive_evidence_ledger if item.provenance == "absent"]
+    rejection_reasons = Counter(item.rejection_reason for item in positive_evidence_rejected if item.rejection_reason)
     hypothesis_explanations: list[HypothesisContextExplanation] = []
     for hypothesis in sorted(ir.architecture.hypotheses, key=lambda item: item.pattern):
         supporting = set(hypothesis.supporting_evidence) | set(hypothesis.evidence_refs)
@@ -1189,11 +1408,22 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
             for _, _, provenance, _, _ in deployment_records
         ),
         navigation_transit_membership_count=navigation_transit_memberships,
+        positive_evidence_produced_count=len(positive_evidence_produced),
+        positive_evidence_accepted_count=len(positive_evidence_accepted),
+        positive_evidence_rejected_count=len(positive_evidence_rejected),
+        positive_evidence_absent_count=len(positive_evidence_absent),
+        rejection_reason_counts=dict(sorted(rejection_reasons.items())),
+        executable_root_count=sum(item.executable_entrypoint_evidence for item in projected_explanations if item.subject_id in roots),
+        owned_framework_boundary_count=sum(item["ownership"] == "OWNED_APPLICATION_BOUNDARY" for item in framework_assessments.values()),
+        semantic_membership_count=sum(item.accepted and item.evidence_kind == "semantic_relation" for item in positive_evidence_ledger),
+        explicit_deployment_ownership_count=sum(item.provenance == DeploymentProvenance.EXPLICIT_DEPLOYMENT_OWNERSHIP.value for item in positive_evidence_ledger),
+        directional_propagation_count=sum(item.accepted and item.evidence_kind == "deployment_ownership" and item.direction == "forward" for item in positive_evidence_ledger),
         traceability=traceability,
         evidence_coverage=round(evidence_coverage, 6),
         node_explanations=explanations,
         relation_explanations=relation_explanations,
         hypothesis_explanations=hypothesis_explanations,
+        positive_evidence_ledger=positive_evidence_ledger,
     )
 
 

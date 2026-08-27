@@ -150,6 +150,23 @@ def context_propagation_kind(
     return ContextPropagation.DOES_NOT_PROPAGATE_CONTEXT
 
 
+def context_direction_pairs(
+    source: str,
+    target: str,
+    relation_type: EdgeType | str,
+) -> tuple[tuple[str, str], ...]:
+    """Return bounded propagation directions for a relation.
+
+    Existing semantic relations are treated as associative context links by
+    the projection policy. Deployment is directional: an application deploys
+    to a runtime boundary, and the reverse edge must not establish application
+    membership merely because the relation is otherwise valid.
+    """
+
+    if canonical_relation_type(relation_type) == EdgeType.DEPLOYS.value:
+        return ((source, target),)
+    return ((source, target), (target, source))
+
 def context_strength(propagation: ContextPropagation) -> ContextStrength:
     if propagation == ContextPropagation.CAN_PROPAGATE_CONTEXT:
         return ContextStrength.STRONG
@@ -167,6 +184,7 @@ __all__ = [
     "ContextStrength",
     "DeploymentProvenance",
     "context_propagation_kind",
+    "context_direction_pairs",
     "context_strength",
     "deployment_provenance",
     "is_navigation_root",

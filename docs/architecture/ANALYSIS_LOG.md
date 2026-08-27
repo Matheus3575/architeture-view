@@ -1217,3 +1217,17 @@ The classifier uses explicit relation metadata first, then endpoint semantics an
 The neutral fixture has three deployment relations: one explicit execution relation, one aggregated relation and one navigation-derived relation. The resulting counts are `deploys_can_propagate_count=1`, `deploys_supporting_count=1`, `deploys_non_propagating_count=1`, `membership_established_by_deploys=1`, and `navigation_transit_membership_count=0`. The workspace manual audit produced two navigation-derived DEPLOYS relations, zero propagating, zero supporting and two non-propagating; it projected 3 nodes and 3 edges in 3.208 seconds. No large external repository was available locally.
 
 No significance weights, global eligibility gate, DEPENDS_ON semantics, hypothesis scoring, renderer or layout was changed. No project-specific heuristic or ADR was introduced.
+
+## M8.1.13 - positive architectural context evidence recovery
+
+The provenance audit was performed before changing inference rules. A local checkout of the large real-world repository discussed in the milestone was not available, so the workspace audit is recorded separately and is not presented as a real-world target measurement.
+
+The source audit found that `InfrastructureAnalyzer.augment()` produces repository-to-resource `DEPLOYS` observations for Dockerfile/Compose resources. Architectural aggregation preserves the relation and evidence, but repository aggregation metadata does not prove executable runtime ownership. Framework adapters produce APPLICATION/ROUTER/HTTP_ENDPOINT facts, while no generic entrypoint producer was available to establish a runtime boundary from packaging or console-entrypoint evidence. The projection and audit consumers previously traversed deployment endpoints in both directions.
+
+A neutral reversed-DEPLOYS fixture proved the general defect: a relation recorded as runtime-to-application could be used by bidirectional context traversal to establish membership in the wrong direction. The minimal correction centralizes propagation direction: `DEPLOYS` propagates only from source to target; existing non-deployment context-link behavior is unchanged. Relation validity, evidence refs and detailed graph contents are preserved.
+
+M8.1.13 adds a read-only `PositiveEvidenceLedgerEntry` collection to ProjectionAudit and compact report serialization. It records producer, source relation, owner, direction, provenance, acceptance/rejection, reason, role and evidence refs. The ledger distinguishes produced-but-rejected evidence, raw positive relations not aggregated (`lost_before_architecture`), and significant subjects for which no positive producer evidence was observed (`absent`). It does not create evidence or change significance/projection decisions.
+
+The local workspace audit after the change measured 338 files, 934 symbols, 1,603 raw nodes, 4,280 raw edges, 5,435 evidence items, 54 architectural nodes, 51 architectural edges, 3 projected nodes and 3 projected edges. It found 2 DEPLOYS, both navigation-derived and non-propagating. The profile total was 3.243 seconds. No additional positive recovery was justified without a general producer-level proof; entrypoint/application ownership and infrastructure ownership remain follow-up investigations.
+
+No repository/name/path heuristic, score change, hypothesis change, renderer change or ADR was introduced. The direction fixture and lost-vs-rejected ledger fixture are deterministic and preserve the ArchitectureIR.

@@ -161,3 +161,58 @@ def test_deployment_relation_and_details_remain_traceable_and_closed():
     assert ir.model_dump_json() == before
     assert projection.model_dump_json() == ArchitecturalProjectionBuilder().build(ir).model_dump_json()
     assert model.model_dump_json() == VisualizationReadModelBuilder().build(ir).model_dump_json()
+
+def test_deployment_context_propagation_respects_application_to_runtime_direction():
+    ir = _ir()
+    original = next(edge for edge in ir.architectural_graph.edges if edge.id == "deploy-explicit")
+    reversed_edge = original.model_copy(update={
+        "id": "deploy-explicit-reversed",
+        "source": "container:explicit",
+        "target": "application:main",
+    })
+    ir.architectural_graph.edges = [
+        reversed_edge if edge.id == original.id else edge
+        for edge in ir.architectural_graph.edges
+    ]
+
+    projection = ArchitecturalProjectionBuilder().build(ir)
+    audit = audit_projection(ir, projection)
+
+    assert "container:explicit" not in projection.projected_node_ids
+    assert not any(
+        link.subject_id == "container:explicit" and link.establishes_membership
+        for item in audit.node_explanations
+        for link in item.context_chain
+    )
+    assert any(
+        item.provenance == "explicit_execution_deployment"
+        and item.accepted is False
+        and item.subject_id == "application:main"
+        for item in audit.positive_evidence_ledger
+    )
+    assert audit.directional_propagation_count == 0
+
+
+def test_positive_evidence_ledger_distinguishes_lost_from_rejected_evidence():
+    ir = _ir()
+    ir.raw_graph.edges = [Edge(
+        id="raw-route-not-aggregated",
+        source="application:main",
+        target="component:service",
+        type=EdgeType.ROUTES_TO,
+        evidence_refs=["route"],
+    )]
+
+    projection = ArchitecturalProjectionBuilder().build(ir)
+    audit = audit_projection(ir, projection)
+
+    lost = [
+        item for item in audit.positive_evidence_ledger
+        if item.provenance == "lost_before_architecture"
+    ]
+    assert any(item.source_relation == "ROUTES_TO:raw-route-not-aggregated" for item in lost)
+    assert audit.positive_evidence_absent_count >= 0
+    assert audit.positive_evidence_produced_count == (
+        audit.positive_evidence_accepted_count + audit.positive_evidence_rejected_count
+    )
+    assert audit.traceability is True

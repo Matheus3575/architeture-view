@@ -560,3 +560,24 @@ The neutral provenance fixture contains 7 architectural/resource subjects and 3 
 The resulting audit values were `deploys_total=3`, `membership_established_by_deploys=1`, and `navigation_transit_membership_count=0`. The workspace manual run found 338 files, 926 symbols, 1,595 raw nodes, 4,239 raw edges, 5,361 evidence items, 54 architectural nodes, 51 architectural edges, 3 projected nodes and 3 projected edges. Its two DEPLOYS relations were both navigation-derived and non-propagating. Profile total was 3.208 seconds. The temporary report sizes were 44,458 bytes JSON and 16,982 bytes Markdown. These are observations, not timing/cardinality contracts.
 
 The focused deployment/projection tests passed. No large real-world repository was available locally for a separate comparison.
+
+## M8.1.13 - positive evidence audit measurements
+
+The neutral deployment suite now includes a reversed-direction deployment case and a raw-positive-relation case that is intentionally not represented by an architectural aggregation. The focused suite passed 14 tests after these additions; the full suite and existing benchmark runner also passed before the final report-only additions and were rerun during validation.
+
+The workspace operational audit with `--profile` measured:
+
+| metric | value |
+|---|---:|
+| files | 338 |
+| symbols | 934 |
+| raw nodes / edges | 1,603 / 4,280 |
+| evidence | 5,435 |
+| architectural nodes / edges | 54 / 51 |
+| projected nodes / edges | 3 / 3 |
+| DEPLOYS | 2 |
+| positive evidence produced / accepted / rejected / absent | 95 / 87 / 8 / 14 |
+| directional propagation | 0 |
+| profile total | 3.243 s |
+
+Both local DEPLOYS were `navigation_derived`, non-propagating observations. The generated report was written to a temporary directory. The final report sizes were 53,396 bytes Markdown and 110,335 bytes JSON; these are operational observations, not contracts. No Prefect checkout was available for a separate real-world run, and no timing threshold was added.

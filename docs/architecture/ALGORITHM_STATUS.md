@@ -452,3 +452,11 @@ DEPLOYS is now represented by provenance separately from observed relation valid
 The bounded context passes use the provenance-aware classification. Navigation nodes cannot relay global membership through aggregated deployment evidence. DEPLOYS remains in the Architectural Graph, Detailed Model and projection when both endpoints are otherwise eligible. Framework deployment qualification also requires explicit execution/ownership provenance.
 
 Projection Audit exposes deployment totals, provenance counts, propagation counts, deployment membership count, candidate/qualified/rejected boundary counts and navigation-transit memberships. This preserves `CORRECT > UNKNOWN >> WRONG`, determinism and traceability.
+
+## M8.1.13 - Positive Evidence Ledger and directional deployment context
+
+Projection audit now exposes a read-only positive-evidence ledger. It reports evidence produced by GraphAggregation, FrameworkAdapter, InfrastructureAnalyzer or RawGraph, including provenance, owner, direction, acceptance and rejection reason. Compact reports retain evidence counts/groups rather than duplicating raw references.
+
+The only inference correction was directional: `DEPLOYS` is a source-to-target relation and can no longer establish context membership through reverse traversal. Aggregated, navigation-derived or unresolved deployment observations remain valid detailed facts but do not gain propagation strength. No new positive evidence producer was invented because the audit did not prove a generally safe missing producer for entrypoints or application ownership.
+
+This preserves `CORRECT > UNKNOWN >> WRONG`, deterministic projection, raw/architectural traceability and the separation between relation validity and context propagation. No significance weights, hypothesis scoring, ArchitectureIR semantics or renderer behavior changed.
