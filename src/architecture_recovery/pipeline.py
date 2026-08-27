@@ -15,6 +15,7 @@ from architecture_recovery.graph import (
     PropertyGraph,
 )
 from architecture_recovery.infrastructure import InfrastructureAnalyzer
+from architecture_recovery.entrypoints import EntrypointAnalyzer
 from architecture_recovery.frameworks import (
     FrameworkAdapter,
     FrameworkAnalysisContext,
@@ -203,6 +204,19 @@ def _analyze_local_repository(
                 pairs=int(component_detection.metrics.get("pair_count", 0)),
             )
 
+    with profile_stage(profile, "entrypoints") as timer:
+        entrypoint_analysis = EntrypointAnalyzer().analyze(
+            snapshot,
+            parsed_files,
+            graph,
+            arch_graph_model,
+        )
+        if timer:
+            timer.set_counts(
+                entrypoints=len(entrypoint_analysis.entrypoints),
+                resolved_entrypoints=sum(item.resolved_target is not None for item in entrypoint_analysis.entrypoints),
+                accepted_entrypoints=sum(item.accepted for item in entrypoint_analysis.entrypoints),
+            )
     with profile_stage(profile, "infrastructure_semantics") as timer:
         infra_analyzer.resolve(
             graph,
@@ -226,6 +240,7 @@ def _analyze_local_repository(
                 *framework_evidence,
                 *aggregated.evidence.values(),
                 *component_detection.evidence,
+                *entrypoint_analysis.evidence,
                 *infra_analyzer.evidence,
             ]
         }
@@ -251,6 +266,7 @@ def _analyze_local_repository(
             component_detection_metrics=component_detection.metrics,
             evidence=list(evidence_by_id.values()),
             framework_facts=framework_facts,
+            entrypoints=list(entrypoint_analysis.entrypoints),
             infrastructure_resources=infra_analyzer.resources,
             infrastructure_relations=infra_analyzer.relations,
         ).canonicalize()

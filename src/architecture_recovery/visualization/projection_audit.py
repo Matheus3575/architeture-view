@@ -211,6 +211,13 @@ class ProjectionAudit(BaseModel):
     semantic_membership_count: int = Field(default=0, ge=0)
     explicit_deployment_ownership_count: int = Field(default=0, ge=0)
     directional_propagation_count: int = Field(default=0, ge=0)
+    executable_entrypoint_count: int = Field(default=0, ge=0)
+    resolved_entrypoint_count: int = Field(default=0, ge=0)
+    unresolved_entrypoint_count: int = Field(default=0, ge=0)
+    first_party_entrypoint_count: int = Field(default=0, ge=0)
+    accepted_entrypoint_evidence_count: int = Field(default=0, ge=0)
+    rejected_entrypoint_evidence_count: int = Field(default=0, ge=0)
+    entrypoint_root_count: int = Field(default=0, ge=0)
 
 _CONTEXT_RELATIONS = {
     EdgeType.ROUTES_TO.value,
@@ -679,6 +686,21 @@ def _build_positive_evidence_ledger(
     def resolved(value: str | None) -> str | None:
         return _resolve(value, arch_nodes, raw_to_arch) or value
 
+    for entrypoint in sorted(ir.entrypoints, key=lambda item: item.id):
+        subject = entrypoint.owner_id or entrypoint.resolved_target or f"entrypoint:{entrypoint.id}"
+        add(
+            subject=subject,
+            evidence_kind="executable_entrypoint",
+            producer="EntrypointAnalyzer",
+            source_relation=entrypoint.declared_target,
+            owner_id=entrypoint.owner_id,
+            direction="declaration_to_target_to_owner",
+            provenance=entrypoint.provenance,
+            accepted=entrypoint.accepted,
+            rejection_reason=entrypoint.rejection_reason,
+            role="EXECUTABLE_ENTRYPOINT",
+            refs=list(entrypoint.evidence_refs),
+        )
     # Application nodes are producer outputs, even when their boundary evidence
     # is rejected. This distinguishes a rejected aggregate from no producer.
     for node in sorted(ir.architectural_graph.nodes, key=lambda item: item.id):
@@ -826,6 +848,11 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
     arch_nodes = {node.id: node for node in ir.architectural_graph.nodes}
     raw_to_arch = _raw_to_arch(ir)
     raw_edges = {edge.id: edge for edge in ir.raw_graph.edges if edge.id}
+    entrypoint_owner_ids = {item.owner_id for item in ir.entrypoints if item.owner_id}
+    entrypoint_refs_by_owner: dict[str, set[str]] = defaultdict(set)
+    for item in ir.entrypoints:
+        if item.owner_id:
+            entrypoint_refs_by_owner[item.owner_id].update(item.evidence_refs)
     links = _context_links(ir, roots, projection.context_root_strengths, arch_nodes, raw_to_arch, raw_edges)
     framework_counts: dict[str, int] = defaultdict(int)
     for fact in ir.framework_facts:
@@ -940,7 +967,7 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
         application_provenance = None
         boundary_evidence_kind = None
         observed_inferred_status = node.status.value if node else None
-        executable_entrypoint_evidence = False
+        executable_entrypoint_evidence = subject in entrypoint_owner_ids
         framework_application_evidence = bool(application_fact_subjects.get(subject))
         deployment_evidence = subject in deployment_subjects
         if node and node.type == NodeType.APPLICATION:
@@ -948,7 +975,7 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
                 "standalone_application" if not node.metadata.get("raw_node_ids") else "detected_application"
             )
             boundary_evidence_kind = str(node.metadata.get("boundary_evidence_kind", "")) or "unspecified"
-            executable_entrypoint_evidence = bool(
+            executable_entrypoint_evidence = executable_entrypoint_evidence or bool(
                 node.metadata.get("entrypoint")
                 or node.metadata.get("executable")
                 or any(
@@ -1032,7 +1059,7 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
             local_framework_fact_count=framework_counts.get(subject, 0),
             strong_reasons=sorted(set(strong_reasons)),
             supporting_reasons=supporting_reasons,
-            evidence_refs=sorted(set(item.evidence_refs)),
+            evidence_refs=sorted(set(item.evidence_refs) | entrypoint_refs_by_owner.get(subject, set())),
             semantic_relation_refs=sorted(ref for ref in semantic_refs.get(subject, set()) if ref),
             application_provenance=application_provenance,
             boundary_evidence_kind=boundary_evidence_kind,
@@ -1418,6 +1445,13 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
         semantic_membership_count=sum(item.accepted and item.evidence_kind == "semantic_relation" for item in positive_evidence_ledger),
         explicit_deployment_ownership_count=sum(item.provenance == DeploymentProvenance.EXPLICIT_DEPLOYMENT_OWNERSHIP.value for item in positive_evidence_ledger),
         directional_propagation_count=sum(item.accepted and item.evidence_kind == "deployment_ownership" and item.direction == "forward" for item in positive_evidence_ledger),
+        executable_entrypoint_count=len(ir.entrypoints),
+        resolved_entrypoint_count=sum(item.resolved_target is not None for item in ir.entrypoints),
+        unresolved_entrypoint_count=sum(item.resolved_target is None for item in ir.entrypoints),
+        first_party_entrypoint_count=sum(item.accepted for item in ir.entrypoints),
+        accepted_entrypoint_evidence_count=sum(item.evidence_kind == "executable_entrypoint" and item.accepted for item in positive_evidence_ledger),
+        rejected_entrypoint_evidence_count=sum(item.evidence_kind == "executable_entrypoint" and not item.accepted for item in positive_evidence_ledger),
+        entrypoint_root_count=len({item.owner_id for item in ir.entrypoints if item.accepted and item.owner_id in roots}),
         traceability=traceability,
         evidence_coverage=round(evidence_coverage, 6),
         node_explanations=explanations,

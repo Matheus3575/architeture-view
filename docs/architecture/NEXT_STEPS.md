@@ -351,3 +351,9 @@ Completed: provenance audit and minimal directional correction for deployment co
 Next recommended milestone: recover one positive producer at a time, beginning with deterministic executable/packaging entrypoint evidence or explicit framework application ownership. Each candidate must have a neutral fixture proving precision, a provenance chain to the existing projection gate, and no relaxation of global eligibility. A locally available large repository should then be rerun to determine whether the remaining one-node projection is evidence absence or a second producer/aggregation loss.
 
 Do not add score weight, fallback global roots, bidirectional deployment traversal or repository-specific heuristics to compensate for missing evidence.
+
+## M8.1.13a - next steps
+
+Completed: deterministic executable-entrypoint provenance recovery. The next investigation should inspect the real repository again when a local checkout is available and distinguish whether its remaining projection gap is due to absent framework/application ownership evidence, deployment ownership, or another producer. Use the Positive Evidence Ledger and entrypoint records to separate absent, lost, rejected and accepted evidence before changing any gate.
+
+Do not infer a primary application from entrypoint count, command names or `__main__.py` filenames. Preserve multiple independent roots, unresolved ownership as UNKNOWN, detailed-only information and the existing global eligibility gate. A future framework/application ownership producer should be implemented only after a neutral fixture proves positive precision and does not relax global projection criteria.

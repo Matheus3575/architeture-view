@@ -1231,3 +1231,21 @@ M8.1.13 adds a read-only `PositiveEvidenceLedgerEntry` collection to ProjectionA
 The local workspace audit after the change measured 338 files, 934 symbols, 1,603 raw nodes, 4,280 raw edges, 5,435 evidence items, 54 architectural nodes, 51 architectural edges, 3 projected nodes and 3 projected edges. It found 2 DEPLOYS, both navigation-derived and non-propagating. The profile total was 3.243 seconds. No additional positive recovery was justified without a general producer-level proof; entrypoint/application ownership and infrastructure ownership remain follow-up investigations.
 
 No repository/name/path heuristic, score change, hypothesis change, renderer change or ADR was introduced. The direction fixture and lost-vs-rejected ledger fixture are deterministic and preserve the ArchitectureIR.
+
+## M8.1.13a - executable entrypoint provenance
+
+M8.1.13a adds a deterministic `EntrypointAnalyzer` as a producer of positive executable-boundary evidence. It reads literal `pyproject.toml` project/gui scripts and entry-point tables, Poetry scripts, `setup.cfg` entry points, literal `setup.py` `entry_points`, and package `__main__.py` semantics. Dynamic configuration is not executed and remains UNKNOWN. No filename or command name is used as architectural proof.
+
+Each declaration preserves its source, declared name/target, parsed target, resolved raw target, first-party owner, status, acceptance, rejection reason and evidence reference. Resolution reuses existing raw-node and architectural-owner indexes; acceptance requires a resolved first-party target with one unambiguous component/application owner. Accepted executable evidence is consumed by the existing root policy for that owner only; it does not promote a repository aggregate or unrelated components.
+
+Neutral fixtures cover accepted project scripts, literal setup.cfg/setup.py, package `__main__.py`, unresolved and third-party targets, dynamic setup, missing owners, multiple declarations, determinism and report serialization. The Positive Evidence Ledger reports the same accepted/rejected entrypoint records without duplicating raw evidence.
+
+The workspace audit measured 340 files, 967 symbols, 1,644 raw nodes, 4,414 raw edges, 5,607 evidence items, 54 architectural nodes, 51 architectural edges, 4 projected nodes and 5 projected edges. It found 3 entrypoint declarations, 3 resolved, 3 accepted first-party-owned declarations, and 1 distinct entrypoint root owner. The entrypoint stage took 0.002 s and the profiled total was 3.784 s. These are observations, not performance contracts. No Prefect checkout was available locally, so no real-world measurement is claimed.
+
+No projection gate, significance weight, context propagation, framework or deployment rule, hypothesis scoring, renderer behavior, or ADR was changed. The additive IR field remains deterministic and evidence-traceable.
+Final deterministic rerun note: two consecutive analyses of the same workspace
+returned identical IR JSON, raw node/edge cardinalities (1,644 / 4,413), evidence
+(5,606), and entrypoint records. The final profiled audit was 3.348 s with
+0.003 s in `entrypoints`; report sizes were 58,457 bytes Markdown and 123,515
+bytes JSON. Earlier 3.784 s / 4,414-edge observations were retained as prior
+run observations, not contracts.

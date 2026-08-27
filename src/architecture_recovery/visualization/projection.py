@@ -119,7 +119,6 @@ class ArchitecturalProjectionBuilder:
         raw_edges = {edge.id: edge for edge in ir.raw_graph.edges if edge.id}
         evidence_by_id = {item.id: item for item in ir.evidence}
         resources_by_id = {resource.id: resource for resource in ir.infrastructure_resources}
-
         def subject_type(subject: str | None) -> NodeType | None:
             node = arch_nodes.get(subject or "")
             if node:
@@ -307,6 +306,16 @@ class ArchitecturalProjectionBuilder:
             context_root_strengths[application_id] = "strong"
             context_root_kinds[application_id] = "APPLICATION_BOUNDARY"
             add_signal(application_id, "strong", 0.55, f"application boundary: {evidence_kind}", set(application.evidence_refs))
+        for entrypoint in sorted(ir.entrypoints, key=lambda item: item.id):
+            owner = self._resolve(entrypoint.owner_id, arch_nodes, raw_to_arch)
+            if not entrypoint.accepted or not owner or owner not in arch_nodes:
+                continue
+            context_root_ids.add(owner)
+            context_root_strengths[owner] = "strong"
+            context_root_kinds[owner] = "EXECUTABLE_ENTRYPOINT"
+            refs[owner].update(set(entrypoint.evidence_refs) & evidence_ids)
+            add_signal(owner, "strong", 0.55, "executable entrypoint owned by first-party component", set(entrypoint.evidence_refs))
+            reasons[owner].append("architectural context root: executable entrypoint")
         for root_id in sorted(context_root_ids):
             reasons[root_id].append("architectural context root: independently justified application boundary")
         component_main_context: set[str] = set()

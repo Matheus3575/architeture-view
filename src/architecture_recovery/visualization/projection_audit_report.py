@@ -121,6 +121,13 @@ def _ledger_record(item: Any, index: EvidencePayloadIndex) -> dict[str, Any]:
     record.update(_compact_refs(item.evidence_refs, index))
     return record
 
+
+def _entrypoint_record(item: Any, index: EvidencePayloadIndex) -> dict[str, Any]:
+    record = item.model_dump(mode="json", exclude={"evidence_refs"})
+    record.update(_compact_refs(item.evidence_refs, index))
+    return record
+
+
 def _hypothesis_record(item: Any, index: EvidencePayloadIndex) -> dict[str, Any]:
     supporting = getattr(item, "supporting_evidence", [])
     contradicting = getattr(item, "contradicting_evidence", [])
@@ -262,6 +269,7 @@ def build_projection_audit_report(
     relations = [_relation_record(item, index) for item in audit.relation_explanations]
     hypotheses = [_hypothesis_record(item, index) for item in audit.hypothesis_explanations]
     ledger = [_ledger_record(item, index) for item in audit.positive_evidence_ledger]
+    entrypoints = [_entrypoint_record(item, index) for item in ir.entrypoints]
     cardinalities = _cardinalities(ir, projection, audit, profile, len(index.groups))
     summary = {
         "repository": ir.repository.model_dump(mode="json"),
@@ -312,6 +320,13 @@ def build_projection_audit_report(
         "semantic_membership_count": audit.semantic_membership_count,
         "explicit_deployment_ownership_count": audit.explicit_deployment_ownership_count,
         "directional_propagation_count": audit.directional_propagation_count,
+        "executable_entrypoint_count": audit.executable_entrypoint_count,
+        "resolved_entrypoint_count": audit.resolved_entrypoint_count,
+        "unresolved_entrypoint_count": audit.unresolved_entrypoint_count,
+        "first_party_entrypoint_count": audit.first_party_entrypoint_count,
+        "accepted_entrypoint_evidence_count": audit.accepted_entrypoint_evidence_count,
+        "rejected_entrypoint_evidence_count": audit.rejected_entrypoint_evidence_count,
+        "entrypoint_root_count": audit.entrypoint_root_count,
     }
     profile_payload = profile.as_dict() if profile is not None else None
     return {
@@ -335,6 +350,7 @@ def build_projection_audit_report(
         "relations": sorted(relations, key=lambda item: item["edge_id"]),
         "hypotheses": sorted(hypotheses, key=lambda item: item["pattern"]),
         "positive_evidence_ledger": sorted(ledger, key=lambda item: (item["subject_id"], item["evidence_kind"], item.get("source_relation") or "", item["provenance"])),
+        "entrypoints": sorted(entrypoints, key=lambda item: item["id"]),
         "metrics": audit.model_dump(
             mode="json",
             exclude={"node_explanations", "relation_explanations", "hypothesis_explanations", "positive_evidence_ledger"},
@@ -389,9 +405,12 @@ def render_projection_audit_markdown(report: dict[str, Any]) -> str:
         f"- DEPLOYS provenance: {summary['deploys_by_provenance']}",
         f"- deployment memberships / navigation transit: {summary['membership_established_by_deploys']} / {summary['navigation_transit_membership_count']}",
         f"- deployment boundary candidates / qualified global / rejected-local: {summary['deployment_boundary_candidate_count']} / {summary['qualified_global_deployment_boundary_count']} / {summary['rejected_local_deployment_boundary_count']}",
-f"- positive evidence produced / accepted / rejected / absent: {summary['positive_evidence_produced_count']} / {summary['positive_evidence_accepted_count']} / {summary['positive_evidence_rejected_count']} / {summary['positive_evidence_absent_count']}",
+        f"- positive evidence produced / accepted / rejected / absent: {summary['positive_evidence_produced_count']} / {summary['positive_evidence_accepted_count']} / {summary['positive_evidence_rejected_count']} / {summary['positive_evidence_absent_count']}",
         f"- semantic memberships / explicit deployment ownership / directional propagation: {summary['semantic_membership_count']} / {summary['explicit_deployment_ownership_count']} / {summary['directional_propagation_count']}",
         f"- positive evidence rejection reasons: {summary['rejection_reason_counts']}",
+        f"- entrypoints total / resolved / unresolved: {summary['executable_entrypoint_count']} / {summary['resolved_entrypoint_count']} / {summary['unresolved_entrypoint_count']}",
+        f"- first-party / accepted / rejected entrypoints: {summary['first_party_entrypoint_count']} / {summary['accepted_entrypoint_evidence_count']} / {summary['rejected_entrypoint_evidence_count']}",
+        f"- entrypoint roots: {summary['entrypoint_root_count']}",
         f"- semantic details: {summary['semantic_details']}",
         f"- external dependencies: {summary['external_dependencies']}",
         f"- evidence groups: {summary['evidence_groups']}",
@@ -417,6 +436,24 @@ f"- positive evidence produced / accepted / rejected / absent: {summary['positiv
     else:
         lines.extend(["## Application Boundary Audit", "", "- none", ""])
 
+    if report.get("entrypoints"):
+        lines.extend(["## Executable Entrypoints", ""])
+        for item in report["entrypoints"]:
+            lines.extend([
+                f"### {item['declared_name']}",
+                "",
+                f"- provenance: {item.get('provenance') or 'unknown'}",
+                f"- declared target: {item.get('declared_target') or 'unknown'}",
+                f"- resolved target: {item.get('resolved_target') or 'unknown'}",
+                f"- owner: {item.get('owner_id') or 'unknown'}",
+                f"- accepted: {_yes_no(item.get('accepted', False))}",
+                f"- status: {item.get('status') or 'unknown'}",
+                f"- rejection reason: {item.get('rejection_reason') or 'none'}",
+                f"- evidence count / group: {item.get('evidence_count', 0)} / {item.get('evidence_group_ref') or 'none'}",
+                "",
+            ])
+    else:
+        lines.extend(["## Executable Entrypoints", "", "- none", ""])
     if report.get("framework_boundary_nodes"):
         lines.extend(["## Framework Boundary Audit", ""])
         for node in report["framework_boundary_nodes"]:
@@ -511,9 +548,11 @@ f"- positive evidence produced / accepted / rejected / absent: {summary['positiv
         f"- DEPLOYS provenance: {metrics.get('deploys_by_provenance', {})}",
         f"- deployment memberships / navigation transit: {metrics.get('membership_established_by_deploys', 0)} / {metrics.get('navigation_transit_membership_count', 0)}",
         f"- deployment boundary candidates / qualified global / rejected-local: {metrics.get('deployment_boundary_candidate_count', 0)} / {metrics.get('qualified_global_deployment_boundary_count', 0)} / {metrics.get('rejected_local_deployment_boundary_count', 0)}",
-f"- positive evidence produced / accepted / rejected / absent: {summary['positive_evidence_produced_count']} / {summary['positive_evidence_accepted_count']} / {summary['positive_evidence_rejected_count']} / {summary['positive_evidence_absent_count']}",
-        f"- semantic memberships / explicit deployment ownership / directional propagation: {summary['semantic_membership_count']} / {summary['explicit_deployment_ownership_count']} / {summary['directional_propagation_count']}",
-        f"- positive evidence rejection reasons: {summary['rejection_reason_counts']}",
+        f"- positive evidence produced / accepted / rejected / absent: {metrics.get('positive_evidence_produced_count', 0)} / {metrics.get('positive_evidence_accepted_count', 0)} / {metrics.get('positive_evidence_rejected_count', 0)} / {metrics.get('positive_evidence_absent_count', 0)}",
+        f"- semantic memberships / explicit deployment ownership / directional propagation: {metrics.get('semantic_membership_count', 0)} / {metrics.get('explicit_deployment_ownership_count', 0)} / {metrics.get('directional_propagation_count', 0)}",
+        f"- positive evidence rejection reasons: {metrics.get('rejection_reason_counts', {})}",
+
+
         "",
         "## Hypothesis Context Audit",
         "",

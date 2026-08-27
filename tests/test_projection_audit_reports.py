@@ -207,3 +207,26 @@ def test_large_context_chain_and_raw_edge_lists_are_compact():
     assert "evidence_refs" not in node["context_chain"][0]
     assert report["evidence_groups"][0]["source_ref_count"] == 1
     assert len(report["evidence_groups"][0]["source_refs"]) == 1
+
+
+def test_report_exposes_compact_entrypoint_section(tmp_path):
+    fixture = tmp_path / "entrypoint-repo"
+    fixture.mkdir()
+    (fixture / "pyproject.toml").write_text(
+        "[project]\nname='entrypoint-repo'\nversion='0.1'\n[project.scripts]\nrun-app='pkg.main:run'\n",
+        encoding="utf-8",
+    )
+    (fixture / "pkg").mkdir()
+    (fixture / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+    (fixture / "pkg" / "main.py").write_text("def run():\n    return 1\n", encoding="utf-8")
+
+    cli.main(["audit", str(fixture), "--output-dir", str(tmp_path / "reports")])
+    payload = json.loads((tmp_path / "reports" / "architecture-audit.json").read_text(encoding="utf-8"))
+    markdown = (tmp_path / "reports" / "architecture-audit.md").read_text(encoding="utf-8")
+
+    assert payload["summary"]["executable_entrypoint_count"] == 1
+    assert payload["summary"]["accepted_entrypoint_evidence_count"] == 1
+    assert payload["entrypoints"][0]["declared_target"] == "pkg.main:run"
+    assert payload["entrypoints"][0]["evidence_count"] == 1
+    assert "## Executable Entrypoints" in markdown
+    assert "run-app" in markdown

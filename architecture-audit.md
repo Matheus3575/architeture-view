@@ -2,40 +2,43 @@
 
 ## Summary
 
-- repository: `C:/Users/pichau/AppData/Local/Temp/architecture-recovery-1bwpzqq_/repository`
-- files: 5358
-- symbols: 36041
-- raw nodes / edges: 43969 / 139300
-- architectural nodes / edges: 162 / 268
-- projected nodes / edges: 1 / 0
-- context roots: 1 (strong: 1)
+- repository: `C:/Users/pichau/Documents/Projetos/architeture-view`
+- files: 340
+- symbols: 967
+- raw nodes / edges: 1644 / 4413
+- architectural nodes / edges: 54 / 51
+- projected nodes / edges: 4 / 5
+- context roots: 2 (strong: 2)
 - navigation roots: 1
-- context root strengths: {'strong': 1}
+- context root strengths: {'strong': 2}
 - framework context roots: 1
-- framework boundary candidates / qualified / rejected: 3 / 1 / 2
-- owned framework applications / local usage: 1 / 1
+- framework boundary candidates / qualified / rejected: 2 / 1 / 1
+- owned framework applications / local usage: 1 / 0
 - supporting-only global memberships: 0
-- globally eligible projected: 1
-- local-only significant / projected: 15 / 0
+- globally eligible projected: 4
+- local-only significant / projected: 12 / 0
 - projected without global justification: 0
 - navigation-only projected: 0
-- independent global boundaries projected: 0
-- DEPLOYS total / can propagate / supporting / non-propagating: 6 / 0 / 0 / 6
-- DEPLOYS provenance: {'navigation_derived': 6}
+- independent global boundaries projected: 1
+- DEPLOYS total / can propagate / supporting / non-propagating: 2 / 0 / 0 / 2
+- DEPLOYS provenance: {'navigation_derived': 2}
 - deployment memberships / navigation transit: 0 / 0
-- deployment boundary candidates / qualified global / rejected-local: 6 / 0 / 6
-- positive evidence produced / accepted / rejected / absent: 41 / 29 / 12 / 10
-- semantic memberships / explicit deployment ownership / directional propagation: 0 / 0 / 0
-- positive evidence rejection reasons: {'application boundary was not admitted as a global root': 1, 'deployment provenance does not establish global context': 6, 'framework fact lacks an accepted global context association': 5}
-- semantic details: 176
-- external dependencies: 129
-- evidence groups: 8
+- deployment boundary candidates / qualified global / rejected-local: 2 / 0 / 2
+- positive evidence produced / accepted / rejected / absent: 98 / 90 / 8 / 13
+- semantic memberships / explicit deployment ownership / directional propagation: 1 / 0 / 0
+- positive evidence rejection reasons: {'application boundary was not admitted as a global root': 1, 'deployment provenance does not establish global context': 2, 'raw positive relation has no architectural aggregation': 1, 'relation does not connect a root to an established context member': 4}
+- entrypoints total / resolved / unresolved: 3 / 3 / 0
+- first-party / accepted / rejected entrypoints: 3 / 3 / 0
+- entrypoint roots: 1
+- semantic details: 72
+- external dependencies: 25
+- evidence groups: 6
 - traceability: yes
 - determinism: yes
 
 ## Application Boundary Audit
 
-### application:repository
+### application:architeture-view
 
 - application provenance: repository_aggregate
 - boundary evidence kind: repository_membership
@@ -43,49 +46,104 @@
 - significance: low
 - observed/inferred: inferred
 - executable/entrypoint evidence: no
-- evidence count/group: 52056 / evidence-group-c883f11d7c8d0908aa57
+- evidence count/group: 1634 / evidence-group-8621b2987f4e5bee030d
+
+## Executable Entrypoints
+
+### python -m architecture_recovery.repository
+
+- provenance: MAIN_MODULE
+- declared target: architecture_recovery.repository.__main__
+- resolved target: module:architecture_recovery.repository.__main__
+- owner: component:architecture_recovery
+- accepted: yes
+- status: observed
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### architecture-recovery
+
+- provenance: PROJECT_SCRIPT
+- declared target: architecture_recovery.cli:main
+- resolved target: architecture_recovery.cli.main
+- owner: component:architecture_recovery
+- accepted: yes
+- status: observed
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### python -m architecture_recovery
+
+- provenance: MAIN_MODULE
+- declared target: architecture_recovery.__main__
+- resolved target: module:architecture_recovery.__main__
+- owner: component:architecture_recovery
+- accepted: yes
+- status: observed
+- rejection reason: none
+- evidence count / group: 1 / none
 
 ## Framework Boundary Audit
 
-### component:examples
+### component:architecture_recovery
 
 - qualification: REJECTED
 - scope: unresolved
 - fact ownership: UNRESOLVED
 - boundary evidence: none
-- context root: no
-- evidence count/group: 68006 / evidence-group-fc550bc329ff7b29a4fc
+- context root: yes
+- evidence count/group: 3825 / evidence-group-33cff2a6abf835f8cb10
 
-### component:integrations
-
-- qualification: REJECTED
-- scope: local
-- fact ownership: LOCAL_FRAMEWORK_USAGE
-- boundary evidence: none
-- context root: no
-- evidence count/group: 93858 / evidence-group-78bd97508794d88de2ad
-
-### component:prefect
+### component:benchmarks
 
 - qualification: QUALIFIED_GLOBAL
 - scope: global
 - fact ownership: OWNED_APPLICATION_BOUNDARY
 - boundary evidence: application_router_endpoint_association
 - context root: yes
-- evidence count/group: 93953 / evidence-group-bfc634e63807af079f36
+- evidence count/group: 3656 / evidence-group-6f06e7640e261b2fd5ba
 
-### component:tests
+### component:examples
 
 - qualification: REJECTED
 - scope: local
 - fact ownership: RELATED_FRAMEWORK_BOUNDARY
 - boundary evidence: none
 - context root: yes
-- evidence count/group: 100541 / evidence-group-9cbba9785fabfc118ec5
+- evidence count/group: 49 / evidence-group-52c48ba914ee3a3ee4dc
 
 ## Projected Nodes
 
-### component:prefect
+### component:architecture_recovery
+
+- role: component
+- significance: high
+- score: 1.0
+- projection eligible: yes
+- context root: yes
+- root strength/kind: strong / EXECUTABLE_ENTRYPOINT
+- membership source: context_root
+- membership strength: strong
+- globally contextualized: yes
+- locally significant: no
+- boundary justification: architectural context root: executable entrypoint, architectural context root: independently justified application boundary
+- context root IDs: component:architecture_recovery
+- context chain: component:architecture_recovery
+- strong reasons: framework fact associated with the principal application context
+- supporting reasons: architectural context root: executable entrypoint, architectural context root: independently justified application boundary, component detection evidence (structural, not sufficient alone), evidence-backed architectural relation: CONTAINS, evidence-backed architectural relation: DEPENDS_ON, executable entrypoint owned by first-party component, framework fact candidate: SCHEMA, participates in an architecture hypothesis
+- evidence count: 3825
+- evidence group: evidence-group-33cff2a6abf835f8cb10
+- application provenance: none
+- boundary evidence kind: none
+- observed/inferred: inferred
+- executable/entrypoint evidence: yes
+- ownership: structural_rejected via none
+- framework qualification: REJECTED
+- framework scope: unresolved
+- framework fact ownership: UNRESOLVED
+- framework boundary evidence: none
+
+### component:benchmarks
 
 - role: component
 - significance: high
@@ -98,12 +156,12 @@
 - globally contextualized: yes
 - locally significant: no
 - boundary justification: architectural context root: owned framework application boundary
-- context root IDs: component:prefect
-- context chain: component:prefect
-- strong reasons: framework fact associated with the principal application context
-- supporting reasons: application boundary: owned framework application, architectural context root: owned framework application boundary, component detection evidence (structural, not sufficient alone), evidence-backed architectural relation: CONTAINS, evidence-backed architectural relation: DEPENDS_ON, framework boundary has observed cross-component flow, framework fact candidate: APPLICATION, framework fact candidate: CONTROLLER_LIKE, framework fact candidate: FRAMEWORK_DEPENDENCY, framework fact candidate: HTTP_ENDPOINT, framework fact candidate: ROUTER, framework fact candidate: SCHEMA, participates in an architecture hypothesis
-- evidence count: 93953
-- evidence group: evidence-group-bfc634e63807af079f36
+- context root IDs: component:benchmarks
+- context chain: component:benchmarks
+- strong reasons: component owns an explicitly related infrastructure resource, framework fact associated with the principal application context
+- supporting reasons: application boundary: owned framework application, architectural context root: owned framework application boundary, component detection evidence (structural, not sufficient alone), evidence-backed architectural relation: CONNECTS_TO, evidence-backed architectural relation: CONTAINS, evidence-backed architectural relation: DEPENDS_ON, evidence-backed architectural relation: DEPLOYS, framework boundary has observed cross-component flow, framework fact candidate: APPLICATION, framework fact candidate: CONTROLLER_LIKE, framework fact candidate: FRAMEWORK_DEPENDENCY, framework fact candidate: HTTP_ENDPOINT, framework fact candidate: RESPONSE_SCHEMA, framework fact candidate: ROUTER, framework fact candidate: SCHEMA, participates in an architecture hypothesis
+- evidence count: 3656
+- evidence group: evidence-group-6f06e7640e261b2fd5ba
 - application provenance: none
 - boundary evidence kind: none
 - observed/inferred: inferred
@@ -114,330 +172,773 @@
 - framework fact ownership: OWNED_APPLICATION_BOUNDARY
 - framework boundary evidence: application_router_endpoint_association
 
+### component:examples
+
+- role: component
+- significance: medium
+- score: 0.85
+- projection eligible: yes
+- context root: yes
+- root strength/kind: strong / FRAMEWORK_APPLICATION_BOUNDARY
+- membership source: propagated:CONNECTS_TO,DEPENDS_ON
+- membership strength: strong
+- globally contextualized: yes
+- locally significant: no
+- boundary justification: none
+- context root IDs: component:benchmarks
+- context chain: component:benchmarks → component:examples; component:benchmarks → external.app → component:examples
+- strong reasons: none
+- supporting reasons: bounded support from a significant component relation, evidence-backed architectural relation: CONNECTS_TO, evidence-backed architectural relation: CONTAINS, evidence-backed architectural relation: DEPENDS_ON, evidence-backed architectural relation: DEPLOYS, framework fact candidate: CONTROLLER_LIKE, framework fact candidate: FRAMEWORK_DEPENDENCY, framework fact candidate: HTTP_ENDPOINT, framework fact candidate: SCHEMA, participates in an architecture hypothesis
+- evidence count: 49
+- evidence group: evidence-group-52c48ba914ee3a3ee4dc
+- application provenance: none
+- boundary evidence kind: none
+- observed/inferred: inferred
+- executable/entrypoint evidence: no
+- ownership: structural_rejected via none
+- framework qualification: REJECTED
+- framework scope: local
+- framework fact ownership: RELATED_FRAMEWORK_BOUNDARY
+- framework boundary evidence: none
+
+### infrastructure:compose:benchmarks/fixtures/visualization_read_model/docker-compose.yml:postgres
+
+- role: database
+- significance: high
+- score: 1.0
+- projection eligible: yes
+- context root: no
+- root strength/kind: none / none
+- membership source: independent_boundary
+- membership strength: strong
+- globally contextualized: yes
+- locally significant: no
+- boundary justification: explicit infrastructure boundary relation
+- context root IDs: none
+- context chain: missing
+- strong reasons: explicit infrastructure boundary relation
+- supporting reasons: evidence-backed architectural relation: CONNECTS_TO, evidence-backed architectural relation: DEPENDS_ON, observed infrastructure candidate: DATABASE, participates in an architecture hypothesis
+- evidence count: 5
+- evidence group: none
+- application provenance: none
+- boundary evidence kind: none
+- observed/inferred: observed
+- executable/entrypoint evidence: no
+- ownership: none via none
+- framework qualification: none
+- framework scope: none
+- framework fact ownership: none
+- framework boundary evidence: none
+
 ## Projected Relations
+
+### projection-edge:component:architecture_recovery:component:benchmarks:CONTAINS
+
+- component:architecture_recovery → component:benchmarks
+- canonical kind: CONTAINS
+- relation strength: weak
+- context scope: CROSS_CONTEXT
+- DEPENDS_ON category: n/a
+- projection reason: both endpoints are projection-eligible and the canonical relation has evidence; relation is valid but does not propagate context; relation crosses independent context roots
+- support count: 1
+- evidence count / group: 1 / none
+- stronger relation kinds: none
+- context propagation: does_not_propagate_context
+
+### projection-edge:component:architecture_recovery:component:examples:CONTAINS
+
+- component:architecture_recovery → component:examples
+- canonical kind: CONTAINS
+- relation strength: weak
+- context scope: CROSS_CONTEXT
+- DEPENDS_ON category: n/a
+- projection reason: both endpoints are projection-eligible and the canonical relation has evidence; relation is valid but does not propagate context; relation crosses independent context roots
+- support count: 1
+- evidence count / group: 1 / none
+- stronger relation kinds: none
+- context propagation: does_not_propagate_context
+
+### projection-edge:component:benchmarks:component:architecture_recovery:DEPENDS_ON
+
+- component:benchmarks → component:architecture_recovery
+- canonical kind: DEPENDS_ON
+- relation strength: weak
+- context scope: CROSS_CONTEXT
+- DEPENDS_ON category: AGGREGATED_STRUCTURAL_SUPPORT
+- projection reason: both endpoints are projection-eligible and the canonical relation has evidence; relation crosses independent context roots
+- support count: 1
+- evidence count / group: 68 / evidence-group-573ba43d2341ea67d006
+- stronger relation kinds: none
+- context propagation: supports_context
+
+### projection-edge:component:benchmarks:component:examples:CONNECTS_TO
+
+- component:benchmarks → component:examples
+- canonical kind: CONNECTS_TO
+- relation strength: medium
+- context scope: SAME_CONTEXT
+- DEPENDS_ON category: n/a
+- projection reason: both endpoints are projection-eligible and the canonical relation has evidence
+- support count: 1
+- evidence count / group: 2 / none
+- stronger relation kinds: none
+- context propagation: can_propagate_context
+
+### projection-edge:component:benchmarks:infrastructure:compose:benchmarks/fixtures/visualization_read_model/docker-compose.yml:postgres:DEPENDS_ON
+
+- component:benchmarks → infrastructure:compose:benchmarks/fixtures/visualization_read_model/docker-compose.yml:postgres
+- canonical kind: DEPENDS_ON
+- relation strength: weak
+- context scope: UNCONTEXTUALIZED
+- DEPENDS_ON category: AGGREGATED_STRUCTURAL_SUPPORT
+- projection reason: both endpoints are projection-eligible and the canonical relation has evidence; relation is valid but does not propagate context
+- support count: 3
+- evidence count / group: 4 / none
+- stronger relation kinds: none
+- context propagation: does_not_propagate_context
 
 ## DEPENDS_ON Audit
 
-- total: 0
+- total: 2
 - ONLY_RELATION: 0
-- AGGREGATED_STRUCTURAL_SUPPORT: 0
+- AGGREGATED_STRUCTURAL_SUPPORT: 2
 - SHADOWED_BY_STRONGER_RELATION: 0
 - SAME_CONTEXT: 0
-- CROSS_CONTEXT: 0
+- CROSS_CONTEXT: 1
 - weak-only reachable projected nodes: 0
 - projected without strong context: 0
 - local-only significance: 0
-- weak evidence saturation: 8
-- structural ownership rejected: 16
+- weak evidence saturation: 5
+- structural ownership rejected: 5
 - globally contextualized by ownership: 0
 - framework context roots: 1
-- framework candidates / qualified / rejected: 3 / 1 / 2
-- owned framework applications / local usage: 1 / 1
+- framework candidates / qualified / rejected: 2 / 1 / 1
+- owned framework applications / local usage: 1 / 0
 - supporting-only global memberships: 0
-- globally eligible projected: 1
-- local-only significant / projected: 15 / 0
+- globally eligible projected: 4
+- local-only significant / projected: 12 / 0
 - projected without global justification: 0
 - navigation-only projected: 0
-- independent global boundaries projected: 0
-- DEPLOYS total / can propagate / supporting / non-propagating: 6 / 0 / 0 / 6
-- DEPLOYS provenance: {'navigation_derived': 6}
+- independent global boundaries projected: 1
+- DEPLOYS total / can propagate / supporting / non-propagating: 2 / 0 / 0 / 2
+- DEPLOYS provenance: {'navigation_derived': 2}
 - deployment memberships / navigation transit: 0 / 0
-- deployment boundary candidates / qualified global / rejected-local: 6 / 0 / 6
-- positive evidence produced / accepted / rejected / absent: 41 / 29 / 12 / 10
-- semantic memberships / explicit deployment ownership / directional propagation: 0 / 0 / 0
-- positive evidence rejection reasons: {'application boundary was not admitted as a global root': 1, 'deployment provenance does not establish global context': 6, 'framework fact lacks an accepted global context association': 5}
+- deployment boundary candidates / qualified global / rejected-local: 2 / 0 / 2
+- positive evidence produced / accepted / rejected / absent: 98 / 90 / 8 / 13
+- semantic memberships / explicit deployment ownership / directional propagation: 1 / 0 / 0
+- positive evidence rejection reasons: {'application boundary was not admitted as a global root': 1, 'deployment provenance does not establish global context': 2, 'raw positive relation has no architectural aggregation': 1, 'relation does not connect a root to an established context member': 4}
 
 ## Hypothesis Context Audit
 
 ### hexagonal
 
-- supporting evidence: 17783
-- contradicting evidence: 17380
-- context-root support: 17782
-- local-only support: 1
+- supporting evidence: 71
+- contradicting evidence: 0
+- context-root support: 71
+- local-only support: 0
 - cross-context support: 0
 - unclassified support: 0
 
 ### layered
 
-- supporting evidence: 2994
-- contradicting evidence: 2456
-- context-root support: 2994
+- supporting evidence: 72
+- contradicting evidence: 0
+- context-root support: 72
 - local-only support: 0
-- cross-context support: 0
+- cross-context support: 68
 - unclassified support: 0
 
 ### microservices
 
-- supporting evidence: 14
-- contradicting evidence: 14
-- context-root support: 7
-- local-only support: 5
+- supporting evidence: 21
+- contradicting evidence: 21
+- context-root support: 20
+- local-only support: 0
 - cross-context support: 0
-- unclassified support: 2
+- unclassified support: 1
 
 ### mvc
 
-- supporting evidence: 72
-- contradicting evidence: 0
-- context-root support: 26
-- local-only support: 46
-- cross-context support: 0
+- supporting evidence: 128
+- contradicting evidence: 74
+- context-root support: 128
+- local-only support: 0
+- cross-context support: 68
 - unclassified support: 0
 
 ## Positive Evidence Ledger
 
-### application:repository — application_boundary
+### application:architeture-view — application_boundary
 
 - producer: GraphAggregation
 - accepted: no
 - provenance: repository_aggregate
-- source relation / owner / direction: APPLICATION_BOUNDARY / application:repository / none
+- source relation / owner / direction: APPLICATION_BOUNDARY / application:architeture-view / none
 - role: APPLICATION
 - rejection reason: application boundary was not admitted as a global root
 - evidence count / group: 1 / none
 
-### component:Dockerfile — deployment_ownership
+### component:architecture_recovery — executable_entrypoint
+
+- producer: EntrypointAnalyzer
+- accepted: yes
+- provenance: MAIN_MODULE
+- source relation / owner / direction: architecture_recovery.__main__ / component:architecture_recovery / declaration_to_target_to_owner
+- role: EXECUTABLE_ENTRYPOINT
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### component:architecture_recovery — executable_entrypoint
+
+- producer: EntrypointAnalyzer
+- accepted: yes
+- provenance: PROJECT_SCRIPT
+- source relation / owner / direction: architecture_recovery.cli:main / component:architecture_recovery / declaration_to_target_to_owner
+- role: EXECUTABLE_ENTRYPOINT
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### component:architecture_recovery — executable_entrypoint
+
+- producer: EntrypointAnalyzer
+- accepted: yes
+- provenance: MAIN_MODULE
+- source relation / owner / direction: architecture_recovery.repository.__main__ / component:architecture_recovery / declaration_to_target_to_owner
+- role: EXECUTABLE_ENTRYPOINT
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### component:benchmarks — deployment_ownership
 
 - producer: GraphAggregation
 - accepted: no
 - provenance: navigation_derived
-- source relation / owner / direction: DEPLOYS:arch-edge:bd15b19e05b7d6e8 / repository:repository / forward
+- source relation / owner / direction: DEPLOYS:arch-edge:309a8a8a6287c5a8 / repository:architeture-view / forward
 - role: DEPLOYS
 - rejection reason: deployment provenance does not establish global context
-- evidence count / group: 2 / none
+- evidence count / group: 21 / evidence-group-b5bb7212a45e330d64b0
 
-### component:benches — global_context
-
-- producer: not_observed
-- accepted: no
-- provenance: absent
-- source relation / owner / direction: none / none / none
-- role: component
-- rejection reason: no positive architectural context evidence was produced
-- evidence count / group: 0 / none
-
-### component:client — deployment_ownership
-
-- producer: GraphAggregation
-- accepted: no
-- provenance: navigation_derived
-- source relation / owner / direction: DEPLOYS:arch-edge:c5cd40a76d3f0a53 / repository:repository / forward
-- role: DEPLOYS
-- rejection reason: deployment provenance does not establish global context
-- evidence count / group: 2 / none
-
-### component:examples — global_context
-
-- producer: not_observed
-- accepted: no
-- provenance: absent
-- source relation / owner / direction: none / none / none
-- role: component
-- rejection reason: no positive architectural context evidence was produced
-- evidence count / group: 0 / none
-
-### component:hatch_build.py — global_context
-
-- producer: not_observed
-- accepted: no
-- provenance: absent
-- source relation / owner / direction: none / none / none
-- role: component
-- rejection reason: no positive architectural context evidence was produced
-- evidence count / group: 0 / none
-
-### component:integration-tests — global_context
-
-- producer: not_observed
-- accepted: no
-- provenance: absent
-- source relation / owner / direction: none / none / none
-- role: component
-- rejection reason: no positive architectural context evidence was produced
-- evidence count / group: 0 / none
-
-### component:integrations — deployment_ownership
-
-- producer: GraphAggregation
-- accepted: no
-- provenance: navigation_derived
-- source relation / owner / direction: DEPLOYS:arch-edge:a65d8130ab5eb0dd / repository:repository / forward
-- role: DEPLOYS
-- rejection reason: deployment provenance does not establish global context
-- evidence count / group: 4 / none
-
-### component:integrations — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: no
-- provenance: LOCAL_FRAMEWORK_USAGE
-- source relation / owner / direction: APPLICATION / app / fact
-- role: APPLICATION
-- rejection reason: framework fact lacks an accepted global context association
-- evidence count / group: 1 / none
-
-### component:integrations — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: no
-- provenance: LOCAL_FRAMEWORK_USAGE
-- source relation / owner / direction: APPLICATION / app / fact
-- role: APPLICATION
-- rejection reason: framework fact lacks an accepted global context association
-- evidence count / group: 1 / none
-
-### component:integrations — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: no
-- provenance: LOCAL_FRAMEWORK_USAGE
-- source relation / owner / direction: APPLICATION / app / fact
-- role: APPLICATION
-- rejection reason: framework fact lacks an accepted global context association
-- evidence count / group: 1 / none
-
-### component:integrations — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: no
-- provenance: LOCAL_FRAMEWORK_USAGE
-- source relation / owner / direction: APPLICATION / kv_api_app / fact
-- role: APPLICATION
-- rejection reason: framework fact lacks an accepted global context association
-- evidence count / group: 1 / none
-
-### component:integrations — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: no
-- provenance: LOCAL_FRAMEWORK_USAGE
-- source relation / owner / direction: APPLICATION / app / fact
-- role: APPLICATION
-- rejection reason: framework fact lacks an accepted global context association
-- evidence count / group: 1 / none
-
-### component:load_testing — deployment_ownership
-
-- producer: GraphAggregation
-- accepted: no
-- provenance: navigation_derived
-- source relation / owner / direction: DEPLOYS:arch-edge:7920b9b776d4e05d / repository:repository / forward
-- role: DEPLOYS
-- rejection reason: deployment provenance does not establish global context
-- evidence count / group: 4 / none
-
-### component:prefect — framework_boundary
+### component:benchmarks — framework_boundary
 
 - producer: FrameworkAdapter
 - accepted: yes
 - provenance: OWNED_APPLICATION_BOUNDARY
-- source relation / owner / direction: APPLICATION / login_api / fact
+- source relation / owner / direction: APPLICATION / external.app / fact
 - role: APPLICATION
 - rejection reason: none
 - evidence count / group: 1 / none
 
-### component:prefect — framework_boundary
+### component:benchmarks — framework_boundary
 
 - producer: FrameworkAdapter
 - accepted: yes
 - provenance: OWNED_APPLICATION_BOUNDARY
-- source relation / owner / direction: APPLICATION / ui_app / fact
+- source relation / owner / direction: APPLICATION / external.app / fact
 - role: APPLICATION
 - rejection reason: none
 - evidence count / group: 1 / none
 
-### component:prefect — framework_boundary
+### component:benchmarks — framework_boundary
 
 - producer: FrameworkAdapter
 - accepted: yes
 - provenance: OWNED_APPLICATION_BOUNDARY
-- source relation / owner / direction: APPLICATION / api_app / fact
+- source relation / owner / direction: APPLICATION / external.app / fact
 - role: APPLICATION
 - rejection reason: none
 - evidence count / group: 1 / none
 
-### component:prefect — framework_boundary
+### component:benchmarks — framework_boundary
 
 - producer: FrameworkAdapter
 - accepted: yes
 - provenance: OWNED_APPLICATION_BOUNDARY
-- source relation / owner / direction: APPLICATION / app / fact
+- source relation / owner / direction: APPLICATION / external.app / fact
 - role: APPLICATION
 - rejection reason: none
 - evidence count / group: 1 / none
 
-### component:prefect — framework_boundary
+### component:benchmarks — framework_boundary
 
 - producer: FrameworkAdapter
 - accepted: yes
 - provenance: OWNED_APPLICATION_BOUNDARY
-- source relation / owner / direction: APPLICATION / webserver / fact
+- source relation / owner / direction: APPLICATION / external.app / fact
 - role: APPLICATION
 - rejection reason: none
 - evidence count / group: 1 / none
 
-### component:prefect — framework_boundary
+### component:benchmarks — framework_boundary
 
 - producer: FrameworkAdapter
 - accepted: yes
 - provenance: OWNED_APPLICATION_BOUNDARY
-- source relation / owner / direction: APPLICATION / status_app / fact
+- source relation / owner / direction: APPLICATION / external.app / fact
 - role: APPLICATION
 - rejection reason: none
 - evidence count / group: 1 / none
 
-### component:prefect — framework_boundary
+### component:benchmarks — framework_boundary
 
 - producer: FrameworkAdapter
 - accepted: yes
 - provenance: OWNED_APPLICATION_BOUNDARY
-- source relation / owner / direction: APPLICATION / app / fact
+- source relation / owner / direction: APPLICATION / external.app / fact
 - role: APPLICATION
 - rejection reason: none
 - evidence count / group: 1 / none
 
-### component:prefect — framework_boundary
+### component:benchmarks — framework_boundary
 
 - producer: FrameworkAdapter
 - accepted: yes
 - provenance: OWNED_APPLICATION_BOUNDARY
-- source relation / owner / direction: CONTROLLER_LIKE / component:prefect / fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: APPLICATION / application / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: APPLICATION / application / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: CONTROLLER_LIKE / component:benchmarks / fact
 - role: CONTROLLER_LIKE
 - rejection reason: none
 - evidence count / group: 3 / none
 
-### component:prefect — framework_boundary
+### component:benchmarks — framework_boundary
 
 - producer: FrameworkAdapter
 - accepted: yes
 - provenance: OWNED_APPLICATION_BOUNDARY
-- source relation / owner / direction: CONTROLLER_LIKE / component:prefect / fact
+- source relation / owner / direction: CONTROLLER_LIKE / component:benchmarks / fact
 - role: CONTROLLER_LIKE
 - rejection reason: none
 - evidence count / group: 3 / none
 
-### component:prefect — framework_boundary
+### component:benchmarks — framework_boundary
 
 - producer: FrameworkAdapter
 - accepted: yes
 - provenance: OWNED_APPLICATION_BOUNDARY
-- source relation / owner / direction: HTTP_ENDPOINT / login_api / fact
-- role: HTTP_ENDPOINT
+- source relation / owner / direction: CONTROLLER_LIKE / component:benchmarks / fact
+- role: CONTROLLER_LIKE
 - rejection reason: none
-- evidence count / group: 2 / none
+- evidence count / group: 3 / none
 
-### component:prefect — framework_boundary
+### component:benchmarks — framework_boundary
 
 - producer: FrameworkAdapter
 - accepted: yes
 - provenance: OWNED_APPLICATION_BOUNDARY
-- source relation / owner / direction: HTTP_ENDPOINT / login_api / fact
+- source relation / owner / direction: CONTROLLER_LIKE / component:benchmarks / fact
+- role: CONTROLLER_LIKE
+- rejection reason: none
+- evidence count / group: 3 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: CONTROLLER_LIKE / component:benchmarks / fact
+- role: CONTROLLER_LIKE
+- rejection reason: none
+- evidence count / group: 3 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: CONTROLLER_LIKE / users_router / fact
+- role: CONTROLLER_LIKE
+- rejection reason: none
+- evidence count / group: 3 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: CONTROLLER_LIKE / users_router / fact
+- role: CONTROLLER_LIKE
+- rejection reason: none
+- evidence count / group: 3 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: CONTROLLER_LIKE / component:benchmarks / fact
+- role: CONTROLLER_LIKE
+- rejection reason: none
+- evidence count / group: 3 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: CONTROLLER_LIKE / component:benchmarks / fact
+- role: CONTROLLER_LIKE
+- rejection reason: none
+- evidence count / group: 3 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: CONTROLLER_LIKE / component:benchmarks / fact
+- role: CONTROLLER_LIKE
+- rejection reason: none
+- evidence count / group: 3 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: CONTROLLER_LIKE / component:benchmarks / fact
+- role: CONTROLLER_LIKE
+- rejection reason: none
+- evidence count / group: 3 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: CONTROLLER_LIKE / router / fact
+- role: CONTROLLER_LIKE
+- rejection reason: none
+- evidence count / group: 3 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: CONTROLLER_LIKE / component:benchmarks / fact
+- role: CONTROLLER_LIKE
+- rejection reason: none
+- evidence count / group: 3 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: CONTROLLER_LIKE / component:benchmarks / fact
+- role: CONTROLLER_LIKE
+- rejection reason: none
+- evidence count / group: 3 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: CONTROLLER_LIKE / component:benchmarks / fact
+- role: CONTROLLER_LIKE
+- rejection reason: none
+- evidence count / group: 3 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: CONTROLLER_LIKE / users_router / fact
+- role: CONTROLLER_LIKE
+- rejection reason: none
+- evidence count / group: 3 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
 - role: HTTP_ENDPOINT
 - rejection reason: none
 - evidence count / group: 2 / none
 
-### component:prefect — framework_boundary
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: HTTP_ENDPOINT / application / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: HTTP_ENDPOINT / users_router / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: HTTP_ENDPOINT / router / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: HTTP_ENDPOINT / users_router / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: HTTP_ENDPOINT / users_router / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### component:benchmarks — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: OWNED_APPLICATION_BOUNDARY
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### component:benchmarks — framework_boundary
 
 - producer: FrameworkAdapter
 - accepted: yes
@@ -445,199 +946,69 @@
 - source relation / owner / direction: ROUTER / router / fact
 - role: ROUTER
 - rejection reason: none
-- evidence count / group: 32 / evidence-group-10c13b5b90638a556633
+- evidence count / group: 1 / none
 
-### component:prefect — framework_boundary
+### component:benchmarks — framework_boundary
 
 - producer: FrameworkAdapter
 - accepted: yes
 - provenance: OWNED_APPLICATION_BOUNDARY
-- source relation / owner / direction: ROUTER / router / fact
+- source relation / owner / direction: ROUTER / users_router / fact
 - role: ROUTER
 - rejection reason: none
-- evidence count / group: 32 / evidence-group-8ca28d9ccc930c0773e7
+- evidence count / group: 1 / none
 
-### component:scripts — deployment_ownership
+### component:benchmarks — raw_relation
 
-- producer: GraphAggregation
+- producer: RawGraph
 - accepted: no
-- provenance: navigation_derived
-- source relation / owner / direction: DEPLOYS:arch-edge:fefc13938a729391 / repository:repository / forward
-- role: DEPLOYS
-- rejection reason: deployment provenance does not establish global context
+- provenance: lost_before_architecture
+- source relation / owner / direction: CONNECTS_TO:edge:c0d23720b16b58d5 / configuration:DATABASE_URL / observed
+- role: CONNECTS_TO
+- rejection reason: raw positive relation has no architectural aggregation
 - evidence count / group: 4 / none
 
-### component:tests — deployment_ownership
+### component:examples — deployment_ownership
 
 - producer: GraphAggregation
 - accepted: no
 - provenance: navigation_derived
-- source relation / owner / direction: DEPLOYS:arch-edge:6cecba8964de0bad / repository:repository / forward
+- source relation / owner / direction: DEPLOYS:arch-edge:f3e76a4986dc0eb1 / repository:architeture-view / forward
 - role: DEPLOYS
 - rejection reason: deployment provenance does not establish global context
-- evidence count / group: 5 / none
+- evidence count / group: 2 / none
 
-### component:tests — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: yes
-- provenance: RELATED_FRAMEWORK_BOUNDARY
-- source relation / owner / direction: CONTROLLER_LIKE / component:tests / fact
-- role: CONTROLLER_LIKE
-- rejection reason: none
-- evidence count / group: 7 / none
-
-### component:tests — framework_boundary
+### component:examples — framework_boundary
 
 - producer: FrameworkAdapter
 - accepted: yes
 - provenance: RELATED_FRAMEWORK_BOUNDARY
-- source relation / owner / direction: CONTROLLER_LIKE / component:tests / fact
-- role: CONTROLLER_LIKE
-- rejection reason: none
-- evidence count / group: 7 / none
-
-### component:tests — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: yes
-- provenance: RELATED_FRAMEWORK_BOUNDARY
-- source relation / owner / direction: CONTROLLER_LIKE / component:tests / fact
-- role: CONTROLLER_LIKE
-- rejection reason: none
-- evidence count / group: 7 / none
-
-### component:tests — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: yes
-- provenance: RELATED_FRAMEWORK_BOUNDARY
-- source relation / owner / direction: CONTROLLER_LIKE / component:tests / fact
-- role: CONTROLLER_LIKE
-- rejection reason: none
-- evidence count / group: 7 / none
-
-### component:tests — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: yes
-- provenance: RELATED_FRAMEWORK_BOUNDARY
-- source relation / owner / direction: CONTROLLER_LIKE / component:tests / fact
-- role: CONTROLLER_LIKE
-- rejection reason: none
-- evidence count / group: 7 / none
-
-### component:tests — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: yes
-- provenance: RELATED_FRAMEWORK_BOUNDARY
-- source relation / owner / direction: CONTROLLER_LIKE / component:tests / fact
+- source relation / owner / direction: CONTROLLER_LIKE / component:examples / fact
 - role: CONTROLLER_LIKE
 - rejection reason: none
 - evidence count / group: 3 / none
 
-### component:tests — framework_boundary
+### component:examples — framework_boundary
 
 - producer: FrameworkAdapter
 - accepted: yes
 - provenance: RELATED_FRAMEWORK_BOUNDARY
-- source relation / owner / direction: CONTROLLER_LIKE / component:tests / fact
-- role: CONTROLLER_LIKE
-- rejection reason: none
-- evidence count / group: 3 / none
-
-### component:tests — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: yes
-- provenance: RELATED_FRAMEWORK_BOUNDARY
-- source relation / owner / direction: CONTROLLER_LIKE / component:tests / fact
-- role: CONTROLLER_LIKE
-- rejection reason: none
-- evidence count / group: 3 / none
-
-### component:tests — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: yes
-- provenance: RELATED_FRAMEWORK_BOUNDARY
-- source relation / owner / direction: HTTP_ENDPOINT / app / fact
+- source relation / owner / direction: HTTP_ENDPOINT / application / fact
 - role: HTTP_ENDPOINT
 - rejection reason: none
 - evidence count / group: 2 / none
 
-### component:tests — framework_boundary
+### component:examples — semantic_relation
 
-- producer: FrameworkAdapter
+- producer: GraphAggregation
 - accepted: yes
-- provenance: RELATED_FRAMEWORK_BOUNDARY
-- source relation / owner / direction: HTTP_ENDPOINT / app / fact
-- role: HTTP_ENDPOINT
+- provenance: inferred_architectural_relation
+- source relation / owner / direction: CONNECTS_TO:arch-edge:f0f2d77c5407f6fa / component:benchmarks / directed
+- role: CONNECTS_TO
 - rejection reason: none
 - evidence count / group: 2 / none
 
-### component:tests — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: yes
-- provenance: RELATED_FRAMEWORK_BOUNDARY
-- source relation / owner / direction: HTTP_ENDPOINT / app / fact
-- role: HTTP_ENDPOINT
-- rejection reason: none
-- evidence count / group: 2 / none
-
-### component:tests — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: yes
-- provenance: RELATED_FRAMEWORK_BOUNDARY
-- source relation / owner / direction: HTTP_ENDPOINT / app / fact
-- role: HTTP_ENDPOINT
-- rejection reason: none
-- evidence count / group: 2 / none
-
-### component:tests — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: yes
-- provenance: RELATED_FRAMEWORK_BOUNDARY
-- source relation / owner / direction: HTTP_ENDPOINT / app / fact
-- role: HTTP_ENDPOINT
-- rejection reason: none
-- evidence count / group: 2 / none
-
-### component:tests — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: yes
-- provenance: RELATED_FRAMEWORK_BOUNDARY
-- source relation / owner / direction: HTTP_ENDPOINT / kv_api_app / fact
-- role: HTTP_ENDPOINT
-- rejection reason: none
-- evidence count / group: 2 / none
-
-### component:tests — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: yes
-- provenance: RELATED_FRAMEWORK_BOUNDARY
-- source relation / owner / direction: HTTP_ENDPOINT / kv_api_app / fact
-- role: HTTP_ENDPOINT
-- rejection reason: none
-- evidence count / group: 2 / none
-
-### component:tests — framework_boundary
-
-- producer: FrameworkAdapter
-- accepted: yes
-- provenance: RELATED_FRAMEWORK_BOUNDARY
-- source relation / owner / direction: HTTP_ENDPOINT / kv_api_app / fact
-- role: HTTP_ENDPOINT
-- rejection reason: none
-- evidence count / group: 2 / none
-
-### component:ui-v2 — global_context
+### component:tests — global_context
 
 - producer: not_observed
 - accepted: no
@@ -646,6 +1017,316 @@
 - role: component
 - rejection reason: no positive architectural context evidence was produced
 - evidence count / group: 0 / none
+
+### configuration:DATABASE_URL — global_context
+
+- producer: not_observed
+- accepted: no
+- provenance: absent
+- source relation / owner / direction: none / none / none
+- role: configuration
+- rejection reason: no positive architectural context evidence was produced
+- evidence count / group: 0 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: APPLICATION / external.app / fact
+- role: APPLICATION
+- rejection reason: none
+- evidence count / group: 1 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: HTTP_ENDPOINT / external.app / fact
+- role: HTTP_ENDPOINT
+- rejection reason: none
+- evidence count / group: 2 / none
+
+### external.app — framework_boundary
+
+- producer: FrameworkAdapter
+- accepted: yes
+- provenance: framework_fact
+- source relation / owner / direction: ROUTER_INCLUSION / external.app / fact
+- role: ROUTER_INCLUSION
+- rejection reason: none
+- evidence count / group: 1 / none
 
 ### external.fastapi — global_context
 
@@ -657,7 +1338,7 @@
 - rejection reason: no positive architectural context evidence was produced
 - evidence count / group: 0 / none
 
-### infrastructure:compose:load_testing/local-telemetry/docker-compose.yml:collector — global_context
+### infrastructure:compose:benchmarks/fixtures/infrastructure_semantics/docker-compose.yml:api — global_context
 
 - producer: not_observed
 - accepted: no
@@ -667,7 +1348,27 @@
 - rejection reason: no positive architectural context evidence was produced
 - evidence count / group: 0 / none
 
-### infrastructure:compose:load_testing/local-telemetry/docker-compose.yml:jaeger — global_context
+### infrastructure:compose:benchmarks/fixtures/infrastructure_semantics/docker-compose.yml:postgres — global_context
+
+- producer: not_observed
+- accepted: no
+- provenance: absent
+- source relation / owner / direction: none / none / none
+- role: database
+- rejection reason: no positive architectural context evidence was produced
+- evidence count / group: 0 / none
+
+### infrastructure:compose:benchmarks/fixtures/infrastructure_semantics/docker-compose.yml:redis — global_context
+
+- producer: not_observed
+- accepted: no
+- provenance: absent
+- source relation / owner / direction: none / none / none
+- role: cache
+- rejection reason: no positive architectural context evidence was produced
+- evidence count / group: 0 / none
+
+### infrastructure:compose:benchmarks/fixtures/significance_calibration/docker-compose.yml:api — global_context
 
 - producer: not_observed
 - accepted: no
@@ -677,7 +1378,67 @@
 - rejection reason: no positive architectural context evidence was produced
 - evidence count / group: 0 / none
 
-### infrastructure:compose:load_testing/local-telemetry/docker-compose.yml:prometheus — global_context
+### infrastructure:compose:benchmarks/fixtures/significance_calibration/docker-compose.yml:postgres — global_context
+
+- producer: not_observed
+- accepted: no
+- provenance: absent
+- source relation / owner / direction: none / none / none
+- role: database
+- rejection reason: no positive architectural context evidence was produced
+- evidence count / group: 0 / none
+
+### infrastructure:compose:benchmarks/fixtures/significance_calibration/docker-compose.yml:redis — global_context
+
+- producer: not_observed
+- accepted: no
+- provenance: absent
+- source relation / owner / direction: none / none / none
+- role: cache
+- rejection reason: no positive architectural context evidence was produced
+- evidence count / group: 0 / none
+
+### infrastructure:compose:benchmarks/fixtures/visualization_read_model/docker-compose.yml:postgres — semantic_relation
+
+- producer: GraphAggregation
+- accepted: no
+- provenance: inferred_architectural_relation
+- source relation / owner / direction: CONNECTS_TO:arch-edge-env-configuration:DATABASE_URL-infrastructure:compose:benchmarks/fixtures/visualization_read_model/docker-compose.yml:postgres / configuration:DATABASE_URL / directed
+- role: CONNECTS_TO
+- rejection reason: relation does not connect a root to an established context member
+- evidence count / group: 2 / none
+
+### infrastructure:compose:benchmarks/fixtures/visualization_read_model/docker-compose.yml:postgres — semantic_relation
+
+- producer: GraphAggregation
+- accepted: no
+- provenance: inferred_architectural_relation
+- source relation / owner / direction: CONNECTS_TO:arch-edge-env-configuration:DATABASE_URL-infrastructure:compose:benchmarks/fixtures/visualization_read_model/docker-compose.yml:postgres / configuration:DATABASE_URL / directed
+- role: CONNECTS_TO
+- rejection reason: relation does not connect a root to an established context member
+- evidence count / group: 2 / none
+
+### infrastructure:compose:benchmarks/fixtures/visualization_read_model/docker-compose.yml:postgres — semantic_relation
+
+- producer: GraphAggregation
+- accepted: no
+- provenance: inferred_architectural_relation
+- source relation / owner / direction: CONNECTS_TO:arch-edge-env-configuration:DATABASE_URL-infrastructure:compose:benchmarks/fixtures/visualization_read_model/docker-compose.yml:postgres / configuration:DATABASE_URL / directed
+- role: CONNECTS_TO
+- rejection reason: relation does not connect a root to an established context member
+- evidence count / group: 2 / none
+
+### infrastructure:compose:benchmarks/fixtures/visualization_read_model/docker-compose.yml:postgres — semantic_relation
+
+- producer: InfrastructureAnalyzer
+- accepted: no
+- provenance: inferred_architectural_relation
+- source relation / owner / direction: CONNECTS_TO:infra-relation:configuration:DATABASE_URL:infrastructure:compose:benchmarks/fixtures/visualization_read_model/docker-compose.yml:postgres / configuration:DATABASE_URL / directed
+- role: CONNECTS_TO
+- rejection reason: relation does not connect a root to an established context member
+- evidence count / group: 2 / none
+
+### infrastructure:compose:examples/compose_stack/docker-compose.yml:api — global_context
 
 - producer: not_observed
 - accepted: no
@@ -687,7 +1448,27 @@
 - rejection reason: no positive architectural context evidence was produced
 - evidence count / group: 0 / none
 
-### repository:repository — global_context
+### infrastructure:compose:examples/compose_stack/docker-compose.yml:cache — global_context
+
+- producer: not_observed
+- accepted: no
+- provenance: absent
+- source relation / owner / direction: none / none / none
+- role: cache
+- rejection reason: no positive architectural context evidence was produced
+- evidence count / group: 0 / none
+
+### infrastructure:compose:examples/compose_stack/docker-compose.yml:database — global_context
+
+- producer: not_observed
+- accepted: no
+- provenance: absent
+- source relation / owner / direction: none / none / none
+- role: database
+- rejection reason: no positive architectural context evidence was produced
+- evidence count / group: 0 / none
+
+### repository:architeture-view — global_context
 
 - producer: not_observed
 - accepted: no
@@ -706,34 +1487,32 @@
 
 ## Evidence Groups
 
-- `evidence-group-10c13b5b90638a556633`: 32 refs; summary={'FRAMEWORK_ADAPTER': 1, 'SYMBOL_RESOLUTION': 31}; sources=src/prefect/server/api/admin.py, src/prefect/server/api/artifacts.py, src/prefect/server/api/automations.py, src/prefect/server/api/block_capabilities.py, src/prefect/server/api/block_documents.py, src/prefect/server/api/block_schemas.py, src/prefect/server/api/block_types.py, src/prefect/server/api/collections.py, src/prefect/server/api/concurrency_limits.py, src/prefect/server/api/concurrency_limits_v2.py, src/prefect/server/api/csrf_token.py, src/prefect/server/api/deployments.py, src/prefect/server/api/events.py, src/prefect/server/api/flow_run_states.py, src/prefect/server/api/flow_runs.py, src/prefect/server/api/flows.py, src/prefect/server/api/logs.py, src/prefect/server/api/root.py, src/prefect/server/api/saved_searches.py, src/prefect/server/api/task_run_states.py; source refs truncated
-- `evidence-group-65e1fa38aa837155be96`: 33450 refs; summary={'AST': 397, 'CALL_GRAPH': 23099, 'GRAPH_AGGREGATION': 1, 'IMPORT': 4624, 'SYMBOL_RESOLUTION': 5329}; sources=architecture-graph, tests/_experimental/bundles/test_bundles.py, tests/_experimental/bundles/test_dependency_validation.py, tests/_experimental/bundles/test_execute.py, tests/_experimental/bundles/test_file_collector.py, tests/_experimental/bundles/test_ignore_filter.py, tests/_experimental/bundles/test_include_files_integration.py, tests/_experimental/bundles/test_path_resolver.py, tests/_experimental/bundles/test_zip_builder.py, tests/_experimental/bundles/test_zip_extractor.py, tests/_internal/analytics/conftest.py, tests/_internal/analytics/test_ci_detection.py, tests/_internal/analytics/test_client.py, tests/_internal/analytics/test_device_id.py, tests/_internal/analytics/test_events.py, tests/_internal/analytics/test_milestones.py, tests/_internal/analytics/test_notice.py, tests/_internal/analytics/test_service.py, tests/_internal/compatibility/test_async_dispatch.py, tests/_internal/compatibility/test_backports.py; source refs truncated
-- `evidence-group-78bd97508794d88de2ad`: 93858 refs; summary={'AST': 12963, 'CALL_GRAPH': 57692, 'COMPONENT_DETECTION': 3, 'DOCKERFILE': 3, 'FRAMEWORK_ADAPTER': 481, 'GRAPH_AGGREGATION': 85, 'IMPORT': 13771, 'SYMBOL_RESOLUTION': 8860}; sources=architecture-graph, benches/bench_block_schemas.py, benches/bench_count_flow_runs.py, benches/bench_flows.py, benches/bench_tasks.py, client/client_deploy.py, component-detection, examples/ai_database_cleanup_with_approval.py, examples/atproto_dashboard_with_prefect_assets.py, examples/hello_world.py, examples/per_worker_task_concurrency.py, examples/run_dbt_with_prefect.py, integration-tests/test_automation_assessments.py, integration-tests/test_client_context_lifespan.py, integration-tests/test_concurrency_leases.py, integration-tests/test_deploy.py, integration-tests/test_docker_deploy.py, integration-tests/test_flow_pauses.py, integration-tests/test_flow_results.py, integration-tests/test_flow_suspension.py; source refs truncated
-- `evidence-group-8ca28d9ccc930c0773e7`: 32 refs; summary={'FRAMEWORK_ADAPTER': 1, 'SYMBOL_RESOLUTION': 31}; sources=src/prefect/runner/server.py, src/prefect/server/api/admin.py, src/prefect/server/api/artifacts.py, src/prefect/server/api/automations.py, src/prefect/server/api/block_capabilities.py, src/prefect/server/api/block_documents.py, src/prefect/server/api/block_schemas.py, src/prefect/server/api/block_types.py, src/prefect/server/api/collections.py, src/prefect/server/api/concurrency_limits.py, src/prefect/server/api/concurrency_limits_v2.py, src/prefect/server/api/csrf_token.py, src/prefect/server/api/deployments.py, src/prefect/server/api/events.py, src/prefect/server/api/flow_run_states.py, src/prefect/server/api/flow_runs.py, src/prefect/server/api/flows.py, src/prefect/server/api/logs.py, src/prefect/server/api/root.py, src/prefect/server/api/saved_searches.py; source refs truncated
-- `evidence-group-9cbba9785fabfc118ec5`: 100541 refs; summary={'AST': 27336, 'CALL_GRAPH': 49451, 'COMPONENT_DETECTION': 11, 'DOCKERFILE': 4, 'FRAMEWORK_ADAPTER': 486, 'GRAPH_AGGREGATION': 58, 'IMPORT': 13863, 'SYMBOL_RESOLUTION': 9332}; sources=architecture-graph, benches/bench_block_schemas.py, benches/bench_count_flow_runs.py, benches/bench_flows.py, benches/bench_tasks.py, client/client_deploy.py, component-detection, examples/ai_database_cleanup_with_approval.py, examples/atproto_dashboard_with_prefect_assets.py, examples/hello_world.py, examples/per_worker_task_concurrency.py, examples/run_dbt_with_prefect.py, hatch_build.py, integration-tests/test_automation_assessments.py, integration-tests/test_client_context_lifespan.py, integration-tests/test_concurrency_leases.py, integration-tests/test_deploy.py, integration-tests/test_docker_deploy.py, integration-tests/test_flow_pauses.py, integration-tests/test_flow_results.py; source refs truncated
-- `evidence-group-bfc634e63807af079f36`: 93953 refs; summary={'AST': 12658, 'CALL_GRAPH': 56359, 'COMPONENT_DETECTION': 6, 'FRAMEWORK_ADAPTER': 486, 'GRAPH_AGGREGATION': 81, 'IMPORT': 15029, 'SYMBOL_RESOLUTION': 9334}; sources=architecture-graph, benches/bench_block_schemas.py, benches/bench_count_flow_runs.py, benches/bench_flows.py, benches/bench_import.py, benches/bench_tasks.py, client/client_deploy.py, client/client_flow.py, component-detection, docs/conftest.py, docs/myproject/flows.py, docs/myproject/tasks.py, examples/ai_data_analyst_with_pydantic_ai.py, examples/ai_database_cleanup_with_approval.py, examples/atproto_dashboard_with_prefect_assets.py, examples/hello_world.py, examples/per_worker_task_concurrency.py, examples/resume_flow_run_on_pr_merge.py, examples/run_api_sourced_etl.py, examples/run_dbt_with_prefect.py; source refs truncated
-- `evidence-group-c883f11d7c8d0908aa57`: 52056 refs; summary={'AST': 51180, 'CALL_GRAPH': 844, 'DOCKERFILE': 10, 'DOCKER_COMPOSE': 5, 'GRAPH_AGGREGATION': 17}; sources=Dockerfile, architecture-graph, benches/__main__.py, benches/bench_block_schemas.py, benches/bench_cli.py, benches/bench_count_flow_runs.py, benches/bench_flows.py, benches/bench_import.py, benches/bench_tasks.py, client/Dockerfile, client/client_deploy.py, client/client_flow.py, docs/conftest.py, docs/myproject/cool.py, docs/myproject/db.py, docs/myproject/flows.py, docs/myproject/tasks.py, docs/myproject/utils.py, docs/script.js, examples/ai_data_analyst_with_pydantic_ai.py; source refs truncated
-- `evidence-group-fc550bc329ff7b29a4fc`: 68006 refs; summary={'AST': 1582, 'CALL_GRAPH': 44581, 'COMPONENT_DETECTION': 1, 'FRAMEWORK_ADAPTER': 476, 'GRAPH_AGGREGATION': 11, 'IMPORT': 12535, 'SYMBOL_RESOLUTION': 8820}; sources=architecture-graph, benches/bench_block_schemas.py, benches/bench_count_flow_runs.py, benches/bench_flows.py, benches/bench_tasks.py, client/client_deploy.py, component-detection, examples/ai_data_analyst_with_pydantic_ai.py, examples/ai_database_cleanup_with_approval.py, examples/atproto_dashboard_with_prefect_assets.py, examples/hello_world.py, examples/per_worker_task_concurrency.py, examples/resume_flow_run_on_pr_merge.py, examples/run_api_sourced_etl.py, examples/run_dbt_with_prefect.py, examples/simple_web_scraper.py, integration-tests/test_automation_assessments.py, integration-tests/test_client_context_lifespan.py, integration-tests/test_concurrency_leases.py, integration-tests/test_deploy.py; source refs truncated
+- `evidence-group-33cff2a6abf835f8cb10`: 3825 refs; summary={'AST': 724, 'CALL_GRAPH': 2046, 'COMPONENT_DETECTION': 1, 'CONFIGURATION': 1, 'FRAMEWORK_ADAPTER': 36, 'GRAPH_AGGREGATION': 8, 'IMPORT': 768, 'SYMBOL_RESOLUTION': 241}; sources=architecture-graph, benchmarks/projection_audit.py, benchmarks/refinement_investigation.py, benchmarks/runner.py, benchmarks/scale_profile.py, component-detection, pyproject.toml, src/architecture_recovery/__init__.py, src/architecture_recovery/__main__.py, src/architecture_recovery/architecture/__init__.py, src/architecture_recovery/architecture/hypotheses.py, src/architecture_recovery/architecture/inference.py, src/architecture_recovery/classification/__init__.py, src/architecture_recovery/classification/base.py, src/architecture_recovery/classification/python.py, src/architecture_recovery/cli.py, src/architecture_recovery/components/__init__.py, src/architecture_recovery/components/detection.py, src/architecture_recovery/entrypoints.py, src/architecture_recovery/frameworks/__init__.py; source refs truncated
+- `evidence-group-52c48ba914ee3a3ee4dc`: 49 refs; summary={'AST': 26, 'CALL_GRAPH': 4, 'DOCKER_COMPOSE': 2, 'FRAMEWORK_ADAPTER': 4, 'GRAPH_AGGREGATION': 7, 'IMPORT': 6}; sources=architecture-graph, examples/compose_stack/app.py, examples/compose_stack/docker-compose.yml, examples/fastapi_sample/app/api.py, examples/fastapi_sample/app/services.py, examples/fastapi_sample/generated/schema_generated.py, examples/fastapi_sample/src/app/core.py, examples/simple_python_layered/app/controllers/user.py, examples/simple_python_layered/app/repositories/user.py, examples/simple_python_layered/app/services/user.py
+- `evidence-group-573ba43d2341ea67d006`: 68 refs; summary={'CALL_GRAPH': 37, 'GRAPH_AGGREGATION': 1, 'IMPORT': 18, 'SYMBOL_RESOLUTION': 12}; sources=architecture-graph, benchmarks/projection_audit.py, benchmarks/refinement_investigation.py, benchmarks/runner.py, benchmarks/scale_profile.py
+- `evidence-group-6f06e7640e261b2fd5ba`: 3656 refs; summary={'AST': 576, 'CALL_GRAPH': 1843, 'COMPONENT_DETECTION': 5, 'DOCKERFILE': 1, 'DOCKER_COMPOSE': 21, 'FRAMEWORK_ADAPTER': 96, 'GRAPH_AGGREGATION': 28, 'IMPORT': 837, 'SYMBOL_RESOLUTION': 249}; sources=architecture-graph, benchmarks/__init__.py, benchmarks/fixtures/ambiguous_short_name/consumer.py, benchmarks/fixtures/ambiguous_short_name/consumer_explicit.py, benchmarks/fixtures/ambiguous_short_name/module_a.py, benchmarks/fixtures/ambiguous_short_name/module_b.py, benchmarks/fixtures/basic_data_flow/logic.py, benchmarks/fixtures/basic_data_flow/main.py, benchmarks/fixtures/basic_data_flow/storage.py, benchmarks/fixtures/component_detection/api.py, benchmarks/fixtures/component_detection/isolated.py, benchmarks/fixtures/component_detection/logic.py, benchmarks/fixtures/component_detection/repository.py, benchmarks/fixtures/component_detection/schemas.py, benchmarks/fixtures/component_detection/suggested_service.py, benchmarks/fixtures/duplicate_edge_evidence/consumer.py, benchmarks/fixtures/duplicate_edge_evidence/services.py, benchmarks/fixtures/dynamic_dispatch/consumer.py, benchmarks/fixtures/evidence_payload_stress/app.py, benchmarks/fixtures/evidence_payload_stress/helper.py; source refs truncated
+- `evidence-group-8621b2987f4e5bee030d`: 1634 refs; summary={'AST': 1615, 'CALL_GRAPH': 4, 'DOCKERFILE': 1, 'DOCKER_COMPOSE': 8, 'GRAPH_AGGREGATION': 6}; sources=architecture-graph, benchmarks/__init__.py, benchmarks/fixtures/ambiguous_short_name/consumer.py, benchmarks/fixtures/ambiguous_short_name/consumer_explicit.py, benchmarks/fixtures/ambiguous_short_name/module_a.py, benchmarks/fixtures/ambiguous_short_name/module_b.py, benchmarks/fixtures/basic_data_flow/logic.py, benchmarks/fixtures/basic_data_flow/main.py, benchmarks/fixtures/basic_data_flow/storage.py, benchmarks/fixtures/component_detection/api.py, benchmarks/fixtures/component_detection/isolated.py, benchmarks/fixtures/component_detection/logic.py, benchmarks/fixtures/component_detection/repository.py, benchmarks/fixtures/component_detection/schemas.py, benchmarks/fixtures/component_detection/suggested_service.py, benchmarks/fixtures/duplicate_edge_evidence/consumer.py, benchmarks/fixtures/duplicate_edge_evidence/services.py, benchmarks/fixtures/dynamic_dispatch/consumer.py, benchmarks/fixtures/evidence_payload_stress/app.py, benchmarks/fixtures/evidence_payload_stress/helper.py; source refs truncated
+- `evidence-group-b5bb7212a45e330d64b0`: 21 refs; summary={'DOCKERFILE': 1, 'DOCKER_COMPOSE': 19, 'GRAPH_AGGREGATION': 1}; sources=architecture-graph, benchmarks/fixtures/hex_infrastructure/docker-compose.yml, benchmarks/fixtures/hypothesis_engine/docker-compose.yml, benchmarks/fixtures/infrastructure_semantics/Dockerfile, benchmarks/fixtures/infrastructure_semantics/docker-compose.yml, benchmarks/fixtures/microservices_ambiguous/docker-compose.yml, benchmarks/fixtures/microservices_containers/docker-compose.yml, benchmarks/fixtures/microservices_containers_only/docker-compose.yml, benchmarks/fixtures/significance_calibration/docker-compose.yml, benchmarks/fixtures/visualization_read_model/docker-compose.yml, examples/compose_stack/docker-compose.yml
 
 ## Profile
 
-- total seconds: 142.8858489000704
+- total seconds: 3.5997177999815904
 
-- repository_acquisition: 8.411099 s; counts={}
-- scanner: 2.235907 s; counts={'files': 5358, 'file_count': 5358, 'source_files': 2513}
-- stack_detection: 13.014372 s; counts={'evidence': 129}
-- parser: 15.557144 s; counts={'parsed_files': 1901, 'definitions': 36405, 'imports': 25844, 'calls': 158176}
-- basic_data_flow: 0.227413 s; counts={'assignments': 75029, 'returns': 12277, 'scopes': 4200, 'flow_entries': 0}
-- symbol_resolution: 0.742450 s; counts={'symbols': 36041, 'symbol_count': 36041, 'unresolved_calls': 113890, 'flow_entries': 3971}
-- source_origin: 2.694252 s; counts={'local_modules': 1803, 'classified_nodes': 43969, 'raw_node_count': 43969, 'classifications': 43969}
-- raw_graph: 39.397837 s; counts={'nodes': 43954, 'raw_node_count': 43954, 'edges': 139282, 'raw_edge_count': 139282, 'evidence': 178829, 'evidence_count': 178829, 'unresolved_calls': 66399}
-- framework_adapters: 20.470359 s; counts={'facts': 506, 'evidence': 519}
-- infrastructure_semantics: 0.100468 s; counts={'resources': 15, 'relations': 3, 'evidence': 18}
-- architectural_graph: 1.294333 s; counts={'nodes': 147, 'edges': 268, 'evidence': 179260}
-- component_detection: 1.988386 s; counts={'components': 15, 'component_count': 15, 'unassigned_nodes': 392, 'pairs': 8159}
-- architecture_ir: 8.764425 s; counts={'nodes': 162, 'edges': 268, 'evidence': 179923, 'raw_nodes': 43969, 'raw_edges': 139300, 'architectural_nodes': 162, 'architectural_edges': 268, 'components': 15, 'projected_nodes': 0, 'projected_edges': 0, 'evidence_groups': 0}
-- architecture_hypotheses: 10.623078 s; counts={'hypotheses': 4}
-- architecture_validation: 6.698790 s; counts={'valid': True, 'warnings': 15}
-- architectural_significance_projection: 5.136791 s; counts={'detailed_nodes': 177, 'projected_nodes': 1, 'projected_edges': 0}
-- projection_audit: 5.528745 s; counts={'projected_nodes': 1, 'projected_edges': 0, 'evidence_coverage': 1.0}
-- projection_audit_report: 0.000000 s; counts={'evidence_groups': 8, 'projected_nodes': 1, 'projected_edges': 0, 'components': 30, 'architectural_components': 15, 'component_candidates': 15}
+- scanner: 0.574518 s; counts={'files': 340, 'file_count': 340, 'source_files': 248}
+- stack_detection: 0.053357 s; counts={'evidence': 17}
+- parser: 0.717753 s; counts={'parsed_files': 248, 'definitions': 967, 'imports': 1110, 'calls': 7042}
+- basic_data_flow: 0.006932 s; counts={'assignments': 3319, 'returns': 739, 'scopes': 106, 'flow_entries': 0}
+- symbol_resolution: 0.018141 s; counts={'symbols': 967, 'symbol_count': 967, 'unresolved_calls': 5254, 'flow_entries': 66}
+- source_origin: 0.474841 s; counts={'local_modules': 246, 'classified_nodes': 1643, 'raw_node_count': 1643, 'classifications': 1643}
+- raw_graph: 0.979801 s; counts={'nodes': 1634, 'raw_node_count': 1634, 'edges': 4393, 'raw_edge_count': 4393, 'evidence': 5375, 'evidence_count': 5375, 'unresolved_calls': 4632}
+- framework_adapters: 0.052342 s; counts={'facts': 103, 'evidence': 103}
+- infrastructure_semantics: 0.012440 s; counts={'resources': 22, 'relations': 11, 'evidence': 33}
+- architectural_graph: 0.018290 s; counts={'nodes': 32, 'edges': 42, 'evidence': 5474}
+- component_detection: 0.016392 s; counts={'components': 5, 'component_count': 5, 'unassigned_nodes': 150, 'pairs': 276}
+- entrypoints: 0.002816 s; counts={'entrypoints': 3, 'resolved_entrypoints': 3, 'accepted_entrypoints': 3}
+- architecture_ir: 0.195073 s; counts={'nodes': 54, 'edges': 51, 'evidence': 5606, 'raw_nodes': 1644, 'raw_edges': 4413, 'architectural_nodes': 54, 'architectural_edges': 51, 'components': 5, 'projected_nodes': 0, 'projected_edges': 0, 'evidence_groups': 0}
+- architecture_hypotheses: 0.071077 s; counts={'hypotheses': 4}
+- architecture_validation: 0.193794 s; counts={'valid': True, 'warnings': 20}
+- architectural_significance_projection: 0.084954 s; counts={'detailed_nodes': 76, 'projected_nodes': 4, 'projected_edges': 5}
+- projection_audit: 0.127197 s; counts={'projected_nodes': 4, 'projected_edges': 5, 'evidence_coverage': 1.0}
+- projection_audit_report: 0.000000 s; counts={'evidence_groups': 6, 'projected_nodes': 4, 'projected_edges': 5, 'components': 10, 'architectural_components': 5, 'component_candidates': 5}

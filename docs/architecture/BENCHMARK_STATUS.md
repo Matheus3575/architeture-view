@@ -581,3 +581,15 @@ The workspace operational audit with `--profile` measured:
 | profile total | 3.243 s |
 
 Both local DEPLOYS were `navigation_derived`, non-propagating observations. The generated report was written to a temporary directory. The final report sizes were 53,396 bytes Markdown and 110,335 bytes JSON; these are operational observations, not contracts. No Prefect checkout was available for a separate real-world run, and no timing threshold was added.
+
+## M8.1.13a - executable entrypoint measurements
+
+The new entrypoint fixture tests passed for project scripts, literal `setup.cfg`/`setup.py`, package `__main__.py`, unresolved targets, third-party targets, dynamic setup, missing ownership and deterministic output. The report fixture confirms that Markdown and JSON expose the same compact entrypoint payload and do not inline unnecessary evidence.
+
+The local profiled audit measured 340 files, 967 symbols, 1,644 raw nodes, 4,414 raw edges, 5,607 evidence items, 54 architectural nodes, 51 architectural edges, 4 projected nodes, 5 projected edges, 3 entrypoint declarations, 3 resolved, 3 accepted, and 1 distinct entrypoint root. The `entrypoints` stage was 0.002 s; total profile time was 3.784 s. No timing threshold was added. No large external repository was available locally. Existing benchmark runner, refinement investigation, projection audit (text and JSON), compileall, `git diff --check`, and the full pytest suite passed.
+Final deterministic rerun note: two consecutive analyses of the same workspace
+returned identical IR JSON, raw node/edge cardinalities (1,644 / 4,413), evidence
+(5,606), and entrypoint records. The final profiled audit was 3.348 s with
+0.003 s in `entrypoints`; report sizes were 58,457 bytes Markdown and 123,515
+bytes JSON. Earlier 3.784 s / 4,414-edge observations were retained as prior
+run observations, not contracts.

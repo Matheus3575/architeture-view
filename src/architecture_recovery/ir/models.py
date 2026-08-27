@@ -117,6 +117,25 @@ class FrameworkFact(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class ExecutableEntrypoint(BaseModel):
+    """Deterministically resolved executable declaration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    provenance: str
+    declared_name: str
+    declared_target: str
+    target_module: str | None = None
+    target_symbol: str | None = None
+    resolved_target: str | None = None
+    owner_id: str | None = None
+    declaration_source: SourceRef
+    status: EvidenceStatus = EvidenceStatus.UNKNOWN
+    accepted: bool = False
+    rejection_reason: str | None = None
+    evidence_refs: list[str] = Field(default_factory=list)
+
 class Node(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -345,6 +364,7 @@ class ArchitectureIR(BaseModel):
     # Additive optional extension: framework facts are not graph nodes or
     # architecture hypotheses, and older consumers may safely ignore them.
     framework_facts: list[FrameworkFact] = Field(default_factory=list)
+    entrypoints: list[ExecutableEntrypoint] = Field(default_factory=list)
     # Additive optional extension for M5: infrastructure resources and relations
     infrastructure_resources: list[InfrastructureResource] = Field(default_factory=list)
     infrastructure_relations: list[InfrastructureRelation] = Field(default_factory=list)
@@ -390,6 +410,10 @@ class ArchitectureIR(BaseModel):
                 item.get("source", {}).get("path", "") if item.get("source") else "",
                 item.get("source", {}).get("start_line", 0) if item.get("source") else 0,
             ),
+        )
+        data["entrypoints"] = sorted(
+            data.get("entrypoints", []),
+            key=lambda item: item["id"],
         )
         data["infrastructure_resources"] = sorted(
             data.get("infrastructure_resources", []),

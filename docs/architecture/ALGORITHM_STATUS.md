@@ -460,3 +460,11 @@ Projection audit now exposes a read-only positive-evidence ledger. It reports ev
 The only inference correction was directional: `DEPLOYS` is a source-to-target relation and can no longer establish context membership through reverse traversal. Aggregated, navigation-derived or unresolved deployment observations remain valid detailed facts but do not gain propagation strength. No new positive evidence producer was invented because the audit did not prove a generally safe missing producer for entrypoints or application ownership.
 
 This preserves `CORRECT > UNKNOWN >> WRONG`, deterministic projection, raw/architectural traceability and the separation between relation validity and context propagation. No significance weights, hypothesis scoring, ArchitectureIR semantics or renderer behavior changed.
+
+## M8.1.13a - Executable Entrypoint Provenance
+
+Executable-boundary evidence is now produced by a read-only, deterministic `EntrypointAnalyzer`. Supported sources are literal `pyproject.toml` scripts and entry-point tables, Poetry scripts, `setup.cfg`, literal `setup.py` entry-point configuration, and `__main__.py`. Arbitrary setup/configuration code is never executed. An entrypoint is accepted only after target resolution, first-party origin validation and unambiguous ownership by an existing component/application index. Otherwise it remains UNKNOWN with a reason.
+
+The additive `ArchitectureIR.entrypoints` records declaration provenance, target/owner resolution, status, acceptance and evidence refs. The projection uses accepted owner evidence through the existing global-root policy; it does not treat repository existence or a filename alone as a global boundary. The Projection Audit and Positive Evidence Ledger expose compact entrypoint counts, owners and rejection reasons. Detailed graph and evidence collections remain intact. No significance, framework, deployment, propagation, hypothesis or renderer semantics changed.
+
+No new ADR was required; this implements a positive evidence producer under ADR-001/002/003 without changing their contracts.
