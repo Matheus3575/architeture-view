@@ -468,3 +468,20 @@ Executable-boundary evidence is now produced by a read-only, deterministic `Entr
 The additive `ArchitectureIR.entrypoints` records declaration provenance, target/owner resolution, status, acceptance and evidence refs. The projection uses accepted owner evidence through the existing global-root policy; it does not treat repository existence or a filename alone as a global boundary. The Projection Audit and Positive Evidence Ledger expose compact entrypoint counts, owners and rejection reasons. Detailed graph and evidence collections remain intact. No significance, framework, deployment, propagation, hypothesis or renderer semantics changed.
 
 No new ADR was required; this implements a positive evidence producer under ADR-001/002/003 without changing their contracts.
+## M8.1.14 - Framework Application Ownership & Semantic Boundary Provenance
+
+Framework boundary qualification no longer treats module co-location as
+application ownership. `APPLICATION` facts must be associated with an existing
+boundary fact through explicit application, endpoint-owner, router-owner or
+router-inclusion attributes, or carry explicit architectural-boundary metadata.
+Facts that only share a module remain local/related or UNKNOWN. Evidence volume,
+imports, generic dependencies, names and paths cannot qualify a boundary.
+
+The audit explanation records `framework_ownership_relations` and compact
+`framework_ownership_evidence`. New counts distinguish related, unresolved and
+qualified-local framework boundaries, ownership evidence and local false
+promotions. The ArchitectureIR, global eligibility gate, context propagation,
+DEPLOYS, hypotheses, renderer and ReadModel semantics are unchanged.
+
+No new ADR was required; this is a bounded evidence/provenance refinement of
+ADR-001/002/003.

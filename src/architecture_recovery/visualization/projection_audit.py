@@ -87,6 +87,8 @@ class ProjectionExplanation(BaseModel):
     framework_boundary_scope: str | None = None
     framework_fact_ownership: str | None = None
     framework_boundary_evidence: list[str] = Field(default_factory=list)
+    framework_ownership_relations: list[str] = Field(default_factory=list)
+    framework_ownership_evidence_refs: list[str] = Field(default_factory=list)
 
 
 class ProjectedRelationExplanation(BaseModel):
@@ -208,6 +210,12 @@ class ProjectionAudit(BaseModel):
     rejection_reason_counts: dict[str, int] = Field(default_factory=dict)
     executable_root_count: int = Field(default=0, ge=0)
     owned_framework_boundary_count: int = Field(default=0, ge=0)
+    related_framework_boundary_count: int = Field(default=0, ge=0)
+    unresolved_framework_boundary_count: int = Field(default=0, ge=0)
+    qualified_local_framework_boundary_count: int = Field(default=0, ge=0)
+    framework_ownership_evidence_count: int = Field(default=0, ge=0)
+    framework_ownership_lost_count: int = Field(default=0, ge=0)
+    framework_local_false_promotion_count: int = Field(default=0, ge=0)
     semantic_membership_count: int = Field(default=0, ge=0)
     explicit_deployment_ownership_count: int = Field(default=0, ge=0)
     directional_propagation_count: int = Field(default=0, ge=0)
@@ -1074,6 +1082,8 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
             framework_boundary_scope=framework_assessment.get("boundary_scope"),
             framework_fact_ownership=framework_assessment.get("ownership"),
             framework_boundary_evidence=list(framework_assessment.get("boundary_evidence", [])),
+            framework_ownership_relations=list(framework_assessment.get("ownership_relations", [])),
+            framework_ownership_evidence_refs=list(framework_assessment.get("ownership_evidence_refs", [])),
         ))
     explanation_by_subject = {item.subject_id: item for item in explanations}
     pairs = _edge_endpoints(ir, selected, arch_nodes, raw_to_arch)
@@ -1337,8 +1347,14 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
         if supporting and not establishing and item.globally_contextualized:
             supporting_only_membership += 1
     qualified_framework = sum(1 for item in framework_assessments.values() if item["qualified"])
-    framework_candidates = sum(1 for item in framework_assessments.values() if item["candidate"])
+    framework_candidate_subjects = {subject for subject, item in framework_assessments.items() if item["candidate"]}
+    framework_candidates = len(framework_candidate_subjects)
     owned_framework = sum(1 for item in framework_assessments.values() if item["ownership"] == "OWNED_APPLICATION_BOUNDARY")
+    related_framework = sum(1 for item in framework_assessments.values() if item["ownership"] == "RELATED_FRAMEWORK_BOUNDARY")
+    unresolved_framework = sum(1 for item in framework_assessments.values() if item["ownership"] == "UNRESOLVED")
+    qualified_local_framework = sum(1 for item in framework_assessments.values() if item["qualified"] and not item["global_qualified"])
+    framework_ownership_evidence = sum(len(item.get("ownership_evidence_refs", [])) for item in framework_assessments.values())
+    framework_ownership_lost = len(framework_candidate_subjects - set(framework_assessments))
     local_framework_usage = sum(1 for item in framework_assessments.values() if item["ownership"] == "LOCAL_FRAMEWORK_USAGE")
     weak_only_projected = sum(
         item.subject_id in weak_reachable
@@ -1403,6 +1419,17 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
         qualified_framework_boundary_count=qualified_framework,
         rejected_framework_boundary_count=max(0, framework_candidates - qualified_framework),
         owned_framework_application_count=owned_framework,
+        related_framework_boundary_count=related_framework,
+        unresolved_framework_boundary_count=unresolved_framework,
+        qualified_local_framework_boundary_count=qualified_local_framework,
+        framework_ownership_evidence_count=framework_ownership_evidence,
+        framework_ownership_lost_count=framework_ownership_lost,
+        framework_local_false_promotion_count=sum(
+            item.subject_id in selected
+            and item.framework_boundary_scope == "local"
+            and not item.globally_contextualized
+            for item in projected_explanations
+        ),
         local_framework_usage_count=local_framework_usage,
         supporting_only_global_membership_count=supporting_only_membership,
         membership_established_by_relation_kind=dict(sorted(membership_established_counts.items())),

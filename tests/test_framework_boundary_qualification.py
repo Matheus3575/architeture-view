@@ -185,3 +185,112 @@ def test_two_explicit_framework_boundaries_remain_independent_roots():
     assert audit.framework_context_root_count == 2
     assert audit.qualified_framework_boundary_count == 2
     assert audit.traceability is True
+
+
+def test_same_module_framework_facts_without_explicit_association_are_not_ownership():
+    nodes = [
+        Node(
+            id="component:co_located",
+            type=NodeType.COMPONENT,
+            name="co_located",
+            metadata={"raw_node_ids": ["module:api"]},
+        )
+    ]
+    facts = [
+        FrameworkFact(
+            kind="APPLICATION",
+            subject="app",
+            attributes={"application": "app", "module": "api"},
+            evidence_refs=["application"],
+        ),
+        FrameworkFact(
+            kind="HTTP_ENDPOINT",
+            subject="handler",
+            attributes={"path": "/items", "module": "api"},
+            evidence_refs=["endpoint"],
+        ),
+    ]
+    ir = _ir(nodes, facts=facts, evidence_ids=["application", "endpoint"])
+
+    projection = ArchitecturalProjectionBuilder().build(ir)
+    audit = audit_projection(ir, projection)
+    item = next(item for item in audit.node_explanations if item.subject_id == "component:co_located")
+
+    assert projection.context_root_ids == []
+    assert item.framework_fact_ownership == "LOCAL_FRAMEWORK_USAGE"
+    assert item.framework_boundary_qualification == "REJECTED"
+    assert item.framework_ownership_relations == []
+    assert audit.qualified_local_framework_boundary_count == 0
+    assert audit.framework_ownership_lost_count == 0
+
+
+def test_framework_ownership_provenance_records_explicit_endpoint_association():
+    nodes = [
+        Node(
+            id="component:api",
+            type=NodeType.COMPONENT,
+            name="api",
+            metadata={"raw_node_ids": ["module:api"]},
+        )
+    ]
+    facts = [
+        FrameworkFact(
+            kind="APPLICATION",
+            subject="app",
+            attributes={"application": "app", "module": "api"},
+            evidence_refs=["application"],
+        ),
+        FrameworkFact(
+            kind="HTTP_ENDPOINT",
+            subject="component:api",
+            attributes={"owner": "app", "module": "different", "path": "/items"},
+            evidence_refs=["endpoint"],
+        ),
+    ]
+    ir = _ir(nodes, facts=facts, evidence_ids=["application", "endpoint"])
+
+    projection = ArchitecturalProjectionBuilder().build(ir)
+    audit = audit_projection(ir, projection)
+    item = next(item for item in audit.node_explanations if item.subject_id == "component:api")
+
+    assert item.framework_fact_ownership == "OWNED_APPLICATION_BOUNDARY"
+    assert item.framework_ownership_relations == ["HTTP_ENDPOINT_OWNER"]
+    assert item.framework_ownership_evidence_refs == ["application", "endpoint"]
+    assert audit.framework_ownership_evidence_count == 2
+
+def test_framework_ownership_provenance_is_exposed_in_compact_audit_report():
+    nodes = [
+        Node(
+            id="component:api",
+            type=NodeType.COMPONENT,
+            name="api",
+            metadata={"raw_node_ids": ["module:api"]},
+        )
+    ]
+    facts = [
+        FrameworkFact(
+            kind="APPLICATION",
+            subject="app",
+            attributes={"application": "app", "module": "api"},
+            evidence_refs=["application"],
+        ),
+        FrameworkFact(
+            kind="HTTP_ENDPOINT",
+            subject="component:api",
+            attributes={"owner": "app", "module": "other", "path": "/items"},
+            evidence_refs=["endpoint"],
+        ),
+    ]
+    ir = _ir(nodes, facts=facts, evidence_ids=["application", "endpoint"])
+    projection = ArchitecturalProjectionBuilder().build(ir)
+    audit = audit_projection(ir, projection)
+    from architecture_recovery.visualization import build_projection_audit_report, render_projection_audit_json
+
+    report = build_projection_audit_report(ir, projection, audit)
+    payload = render_projection_audit_json(report)
+
+    node = next(item for item in report["framework_boundary_nodes"] if item["subject_id"] == "component:api")
+    assert node["framework_ownership_relations"] == ["HTTP_ENDPOINT_OWNER"]
+    assert node["framework_ownership_evidence"]["evidence_count"] == 2
+    assert '"framework_ownership_relations"' in payload
+    assert report["summary"]["framework_ownership_evidence_count"] == 2

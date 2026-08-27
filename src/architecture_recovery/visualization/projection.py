@@ -949,18 +949,24 @@ class ArchitecturalProjectionBuilder:
             )
             coherent = False
             associated_refs: set[str] = set()
+            ownership_relations: set[str] = set()
             for application in applications:
                 application_name = application.attributes.get("application") or application.subject
-                application_module = application.attributes.get("module")
                 for boundary in boundary_facts:
-                    boundary_module = boundary.attributes.get("module")
-                    same_module = bool(application_module and boundary_module and application_module == boundary_module)
                     same_application = boundary.attributes.get("application") == application_name
                     owned_endpoint = boundary.attributes.get("owner") == application_name
                     owned_router = boundary.attributes.get("router") == application_name
-                    if same_module or same_application or owned_endpoint or owned_router:
+                    association_kind = None
+                    if same_application:
+                        association_kind = "APPLICATION_REFERENCE"
+                    elif owned_endpoint:
+                        association_kind = "HTTP_ENDPOINT_OWNER"
+                    elif owned_router:
+                        association_kind = "ROUTER_OWNER"
+                    if association_kind:
                         coherent = True
                         associated_refs.update(boundary.evidence_refs)
+                        ownership_relations.add(association_kind)
             deployment = any(
                 edge.type == EdgeType.DEPLOYS
                 and subject in {edge.source, edge.target}
@@ -986,8 +992,16 @@ class ArchitecturalProjectionBuilder:
                     if endpoint != subject
                 )
             )
-            qualified = bool(applications and (explicit or coherent or deployment))
+            application_owner_evidence = any(
+                fact.subject not in arch_nodes
+                and self._resolve(fact.attributes.get("module"), arch_nodes, raw_to_arch) == subject
+                for fact in applications
+            )
+            application_participates = bool(applications and application_owner_evidence and semantic_flow)
+            qualified = bool(applications and (explicit or coherent or deployment or application_participates))
             global_qualified = bool(qualified and (explicit or deployment or semantic_flow))
+            if application_participates:
+                ownership_relations.add("APPLICATION_COMPONENT_FLOW")
             if qualified:
                 ownership = "OWNED_APPLICATION_BOUNDARY"
                 boundary_evidence = []
@@ -997,6 +1011,8 @@ class ArchitecturalProjectionBuilder:
                     boundary_evidence.append("application_router_endpoint_association")
                 if deployment:
                     boundary_evidence.append("deployment_execution_boundary")
+                if application_participates:
+                    boundary_evidence.append("application_component_semantic_flow")
             elif applications:
                 ownership = "LOCAL_FRAMEWORK_USAGE"
                 boundary_evidence = []
@@ -1016,6 +1032,8 @@ class ArchitecturalProjectionBuilder:
                 "framework_fact_count": len(facts),
                 "application_refs": sorted({ref for fact in applications for ref in fact.evidence_refs}),
                 "boundary_refs": sorted(associated_refs),
+                "ownership_relations": sorted(ownership_relations),
+                "ownership_evidence_refs": sorted(set(associated_refs) | {ref for fact in applications for ref in fact.evidence_refs}),
                 "executable": bool(executable),
                 "deployment": bool(deployment),
                 "boundary_scope": "global" if global_qualified else "local" if (qualified or applications or boundary_facts) else "unresolved",

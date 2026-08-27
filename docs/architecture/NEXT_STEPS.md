@@ -357,3 +357,16 @@ Do not add score weight, fallback global roots, bidirectional deployment travers
 Completed: deterministic executable-entrypoint provenance recovery. The next investigation should inspect the real repository again when a local checkout is available and distinguish whether its remaining projection gap is due to absent framework/application ownership evidence, deployment ownership, or another producer. Use the Positive Evidence Ledger and entrypoint records to separate absent, lost, rejected and accepted evidence before changing any gate.
 
 Do not infer a primary application from entrypoint count, command names or `__main__.py` filenames. Preserve multiple independent roots, unresolved ownership as UNKNOWN, detailed-only information and the existing global eligibility gate. A future framework/application ownership producer should be implemented only after a neutral fixture proves positive precision and does not relax global projection criteria.
+## M8.1.14 - next steps
+
+Completed: framework boundary ownership now requires explicit application,
+router or endpoint association; same-module co-location is insufficient. The
+next step should rerun the audit on a locally available large repository and
+inspect whether remaining sparse projection is caused by missing semantic
+participation evidence (`ROUTES_TO`, `QUERIES`, `CONNECTS_TO`, `PUBLISHES`, or
+`CONSUMES`) or by another producer gap.
+
+Do not relax the global eligibility gate or promote framework facts by volume.
+If the existing adapters cannot prove ownership, preserve local/UNKNOWN status
+and implement the next positive producer only after a neutral precision fixture
+and a provenance chain demonstrate that it is general.

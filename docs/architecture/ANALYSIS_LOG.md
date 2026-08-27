@@ -1249,3 +1249,44 @@ returned identical IR JSON, raw node/edge cardinalities (1,644 / 4,413), evidenc
 0.003 s in `entrypoints`; report sizes were 58,457 bytes Markdown and 123,515
 bytes JSON. Earlier 3.784 s / 4,414-edge observations were retained as prior
 run observations, not contracts.
+## M8.1.14 - framework application ownership and semantic boundary provenance
+
+The provenance audit confirmed a general false ownership path in
+`ArchitecturalProjectionBuilder._framework_boundary_assessments()`: an
+`APPLICATION` fact and a router/endpoint fact were considered coherent merely
+because their `module` values matched. Module co-location is not application
+ownership and can classify a component as `OWNED_APPLICATION_BOUNDARY` without
+an explicit application, router or endpoint association.
+
+The minimal correction removes same-module matching as an ownership signal. A
+framework boundary is coherent only when existing facts explicitly identify the
+same application, endpoint owner, router owner or application/router relation.
+Explicit application-boundary metadata remains valid. This does not parse again,
+add a framework, alter deployment/context propagation or change significance
+weights. The adapter's existing `application`, `owner`, `router` and
+`ROUTER_INCLUSION` attributes are consumed as provenance rather than replacing
+them with names or paths.
+
+Projection Audit now exposes ownership relation kinds and compact ownership
+evidence refs, plus related/unresolved/qualified-local boundary counts and
+ownership evidence/lost diagnostics. Detailed facts and EvidenceGroups remain
+unchanged. The negative neutral fixture demonstrates that same-module facts
+without an explicit association are rejected; the positive fixture demonstrates
+that an endpoint owner association remains accepted and traceable.
+
+No new ADR was required; the change refines evidence interpretation under
+ADR-001, ADR-002 and ADR-003.
+The positive fixture regression was resolved without restoring co-location: an
+adapter-style `APPLICATION` fact whose declared module resolves to the same
+component may contribute only when that component also has observed semantic
+flow. A direct local component APPLICATION fact with flow remains detailed-only.
+This distinction records application participation, not filename or directory
+heuristics.
+
+The final local audit measured 340 files, 970 symbols, 1,647 raw nodes, 4,441
+raw edges, 5,646 evidence items, 54 architectural nodes, 51 architectural edges,
+4 projected nodes and 5 projected edges. It classified 2 framework candidates,
+1 owned/qualified global boundary, 1 related boundary and 1 unresolved boundary;
+ownership evidence count was 44, lost ownership 0, local false promotions 0,
+and local-only projected/global-justification violations were both 0. Profile
+total was 3.258 s. No Prefect checkout was available locally.

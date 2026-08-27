@@ -91,6 +91,8 @@ def _node_record(item: ProjectionExplanation, index: EvidencePayloadIndex) -> di
     record.update(_compact_refs(item.evidence_refs, index))
     ownership_refs = record.pop("ownership_evidence_refs", [])
     record["ownership_evidence"] = _compact_refs(ownership_refs, index)
+    framework_ownership_refs = record.pop("framework_ownership_evidence_refs", [])
+    record["framework_ownership_evidence"] = _compact_refs(framework_ownership_refs, index)
     record["context_chain"] = [
         _compact_context_link(link, index)
         for link in item.context_chain
@@ -317,6 +319,12 @@ def build_projection_audit_report(
         "rejection_reason_counts": audit.rejection_reason_counts,
         "executable_root_count": audit.executable_root_count,
         "owned_framework_boundary_count": audit.owned_framework_boundary_count,
+        "related_framework_boundary_count": audit.related_framework_boundary_count,
+        "unresolved_framework_boundary_count": audit.unresolved_framework_boundary_count,
+        "qualified_local_framework_boundary_count": audit.qualified_local_framework_boundary_count,
+        "framework_ownership_evidence_count": audit.framework_ownership_evidence_count,
+        "framework_ownership_lost_count": audit.framework_ownership_lost_count,
+        "framework_local_false_promotion_count": audit.framework_local_false_promotion_count,
         "semantic_membership_count": audit.semantic_membership_count,
         "explicit_deployment_ownership_count": audit.explicit_deployment_ownership_count,
         "directional_propagation_count": audit.directional_propagation_count,
@@ -395,6 +403,9 @@ def render_projection_audit_markdown(report: dict[str, Any]) -> str:
         f"- framework context roots: {summary['framework_context_roots']}",
         f"- framework boundary candidates / qualified / rejected: {summary['framework_boundary_candidates']} / {summary['qualified_framework_boundaries']} / {summary['rejected_framework_boundaries']}",
         f"- owned framework applications / local usage: {summary['owned_framework_applications']} / {summary['local_framework_usage']}",
+        f"- related / unresolved / qualified-local framework boundaries: {summary['related_framework_boundary_count']} / {summary['unresolved_framework_boundary_count']} / {summary['qualified_local_framework_boundary_count']}",
+        f"- framework ownership evidence / lost: {summary['framework_ownership_evidence_count']} / {summary['framework_ownership_lost_count']}",
+        f"- framework local false promotions: {summary['framework_local_false_promotion_count']}",
         f"- supporting-only global memberships: {summary['supporting_only_global_memberships']}",
         f"- globally eligible projected: {summary['globally_eligible_projected_count']}",
         f"- local-only significant / projected: {summary['local_only_significant_count']} / {summary['local_only_projected_count']}",
@@ -463,7 +474,9 @@ def render_projection_audit_markdown(report: dict[str, Any]) -> str:
                 f"- qualification: {node.get('framework_boundary_qualification') or 'none'}",
                 f"- scope: {node.get('framework_boundary_scope') or 'none'}",
                 f"- fact ownership: {node.get('framework_fact_ownership') or 'none'}",
+                f"- ownership relations: {', '.join(node.get('framework_ownership_relations', [])) or 'none'}",
                 f"- boundary evidence: {', '.join(node.get('framework_boundary_evidence', [])) or 'none'}",
+                f"- ownership evidence: {node.get('framework_ownership_evidence', {}).get('evidence_count', 0)} / {node.get('framework_ownership_evidence', {}).get('evidence_group_ref') or 'none'}",
                 f"- context root: {_yes_no(bool(node.get('context_root_ids')))}",
                 f"- evidence count/group: {node.get('evidence_count', 0)} / {node.get('evidence_group_ref') or 'none'}",
                 "",

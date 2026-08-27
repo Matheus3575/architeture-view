@@ -593,3 +593,23 @@ returned identical IR JSON, raw node/edge cardinalities (1,644 / 4,413), evidenc
 0.003 s in `entrypoints`; report sizes were 58,457 bytes Markdown and 123,515
 bytes JSON. Earlier 3.784 s / 4,414-edge observations were retained as prior
 run observations, not contracts.
+## M8.1.14 - framework ownership measurements
+
+Neutral tests cover framework facts with high volume but no ownership, explicit
+application/router/endpoint association, declarative applications, independent
+boundaries, local framework usage, same-module false ownership, compact audit
+serialization, traceability and determinism. The same-module negative case
+changes from a qualified ownership candidate to `LOCAL_FRAMEWORK_USAGE` with
+`REJECTED` boundary qualification; the explicit endpoint-owner case remains
+`OWNED_APPLICATION_BOUNDARY` with `HTTP_ENDPOINT_OWNER` provenance.
+
+The workspace audit and full benchmark results are recorded after the complete
+validation run. No cardinality or runtime threshold is a quality target. No
+large external repository was available locally, so no Prefect comparison is
+claimed.
+Final M8.1.14 measurements on the workspace: 340 files, 970 symbols, 1,647 raw
+nodes, 4,441 raw edges, 5,646 evidence items, 54 architectural nodes, 51
+architectural edges, 4 projected nodes and 5 projected edges. Framework
+ownership audit: 2 candidates, 1 owned/qualified global, 1 related and 1
+unresolved; 44 ownership evidence refs, 0 lost, 0 local false promotions. The
+profile total was 3.258 s. These values are observations, not thresholds.
