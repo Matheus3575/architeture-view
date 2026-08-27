@@ -522,3 +522,27 @@ qualified roots, local usage, established membership and supporting membership.
 
 No new ADR was required; this refines the evidence/uncertainty and graph/renderer
 separation contracts from ADR-001, ADR-002 and ADR-003.
+
+## M8.1.11 - measured projection gate
+
+The neutral gate fixture measured 8 detailed subjects/resources and 6 projected
+nodes. It retained 2 locally significant subjects as detailed-only:
+`local_only_significant_count=2` and `local_only_projected_count=0`.
+The projected set was root-anchored application/API/domain/persistence/database
+plus one independently justified API; projected edges had valid endpoints.
+
+Current benchmark observations after the gate (diagnostic, not timing contracts):
+
+| scenario | projected nodes | local-only significant | local-only projected | without global justification |
+|---|---:|---:|---:|---:|
+| significance_calibration | 1 | 7 | 0 | 0 |
+| visualization_read_model | 0 | 6 | 0 | 0 |
+| infrastructure_semantics | 0 | 8 | 0 | 0 |
+| projection_many_modules | 1 | 2 | 0 | 0 |
+| workspace | 3 | 12 | 0 | 0 |
+| neutral_context_generated | 1 | 2 | 0 | 0 |
+
+The existing isolated infrastructure fixture now remains detailed-only, so its
+high-level relation count is zero while its infrastructure semantic details are
+preserved. No large real-world repository was available locally for a manual
+comparison.

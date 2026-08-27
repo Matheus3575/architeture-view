@@ -109,8 +109,9 @@ def alpha_fixture() -> ArchitectureIR:
     ]
     edges = [
         _edge("a-contains-api", "application:alpha", "component:api", EdgeType.CONTAINS, "e-app"),
-        _edge("a-api-domain", "component:api", "component:domain", EdgeType.DEPENDS_ON, "e-flow", "raw-api-domain"),
-        _edge("a-domain-persistence", "component:domain", "component:persistence", EdgeType.DEPENDS_ON, "e-flow", "raw-domain-persistence"),
+        _edge("a-routes-api", "application:alpha", "component:api", EdgeType.ROUTES_TO, "e-app"),
+        _edge("a-api-domain", "component:api", "component:domain", EdgeType.ROUTES_TO, "e-flow", "raw-api-domain"),
+        _edge("a-domain-persistence", "component:domain", "component:persistence", EdgeType.QUERIES, "e-flow", "raw-domain-persistence"),
     ]
     raw_edges = [
         _edge("raw-api-domain", "component:api", "component:domain", EdgeType.CALLS, "e-flow"),

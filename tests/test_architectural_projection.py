@@ -31,10 +31,13 @@ def _evidence(*names):
 def _projection_ir():
     arch_nodes = [
         Node(id="repository:demo", type=NodeType.REPOSITORY, name="demo", evidence_refs=["repo"]),
+
+        Node(id="application:demo", type=NodeType.APPLICATION, name="demo-app", evidence_refs=["app"], metadata={"entrypoint": True}),
         Node(id="component:users", type=NodeType.COMPONENT, name="users", evidence_refs=["component"], metadata={"raw_node_ids": ["module:users", "module:users_model"]}),
         Node(id="module:entry", type=NodeType.MODULE, name="entry", evidence_refs=["entry"]),
         Node(id="module:utility", type=NodeType.MODULE, name="utility", evidence_refs=["utility"]),
         Node(id="database:postgres", type=NodeType.DATABASE, name="postgres", evidence_refs=["database"]),
+        Node(id="external:service", type=NodeType.EXTERNAL_SERVICE, name="service", evidence_refs=["service"]),
     ] + [Node(id=f"module:internal_{index}", type=NodeType.MODULE, name=f"internal_{index}") for index in range(12)]
     raw_nodes = [
         Node(id="module:users", type=NodeType.MODULE, name="users", evidence_refs=["users"]),
@@ -44,6 +47,12 @@ def _projection_ir():
         Edge(id=f"edge-{index}", source="component:users", target="database:postgres", type=EdgeType.DEPENDS_ON, evidence_refs=[f"edge-{index}"])
         for index in range(3)
     ]
+    edges.insert(0, Edge(id="app-users", source="application:demo", target="component:users", type=EdgeType.ROUTES_TO, evidence_refs=["app"]))
+    edges.extend([
+        Edge(id="app-contains", source="application:demo", target="component:users", type=EdgeType.CONTAINS, evidence_refs=["app"]),
+        Edge(id="app-deploys", source="application:demo", target="database:postgres", type=EdgeType.DEPLOYS, evidence_refs=["app"]),
+        Edge(id="app-service", source="application:demo", target="external:service", type=EdgeType.DEPENDS_ON, evidence_refs=["service"]),
+    ])
     edges.extend(
         Edge(id=f"utility-{index}", source="module:utility", target="component:users", type=EdgeType.CALLS, evidence_refs=["utility"])
         for index in range(5)
@@ -51,7 +60,7 @@ def _projection_ir():
     edges.append(Edge(id="entry-flow", source="module:entry", target="component:users", type=EdgeType.CALLS, evidence_refs=["entry-flow"]))
     framework = [FrameworkFact(kind="HTTP_ENDPOINT", subject="module:entry", evidence_refs=["http"])]
     resources = [InfrastructureResource(id="database:postgres", name="postgres", kind="DATABASE", evidence_refs=["database"])]
-    evidence = _evidence("repo", "component", "entry", "utility", "database", "users", "users-model", "http", "entry-flow", "edge-0", "edge-1", "edge-2")
+    evidence = _evidence("repo", "app", "component", "service", "entry", "utility", "database", "users", "users-model", "http", "entry-flow", "edge-0", "edge-1", "edge-2")
     return ArchitectureIR(
         repository=RepositoryInfo(name="demo", path="."),
         raw_graph=RawCodeGraph(nodes=raw_nodes, edges=[]),

@@ -111,13 +111,8 @@ def test_external_dependency_precision_and_projection_traceability():
     ir = _calibration_ir()
     projection = ArchitecturalProjectionBuilder().build(ir)
     expected = {
-        "repository:calibration",
         "application:calibration",
         "component:entry",
-        "component:core",
-        "external.mainframework",
-        "external.dbdriver",
-        "database:primary",
     }
     projected = set(projection.projected_node_ids)
     assert expected <= projected

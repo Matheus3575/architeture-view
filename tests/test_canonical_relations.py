@@ -44,7 +44,8 @@ def test_canonical_relation_identity_is_shared_by_read_model_and_svg():
         "DEPENDS_ON", "CONNECTS_TO", "CONTAINS", "DEPLOYS"
     }
     assert "data-kind=\"depends_on\"" not in svg
-    assert "data-kind=\"DEPENDS_ON\"" in svg
+    # Isolated infrastructure is detailed-only after the global eligibility gate.
+    assert "data-kind=\"DEPENDS_ON\"" not in svg
     assert model.metadata["projection_traceability"] is True
     assert all(
         ref in {evidence.id for evidence in model.evidence}

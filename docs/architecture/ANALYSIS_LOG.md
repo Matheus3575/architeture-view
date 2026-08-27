@@ -1179,3 +1179,29 @@ qualified roots, local usage, established membership and supporting membership.
 
 No new ADR was required; this refines the evidence/uncertainty and graph/renderer
 separation contracts from ADR-001, ADR-002 and ADR-003.
+
+## M8.1.11 - global projection eligibility gate
+
+The post-M8.1.10 audit exposed a final-stage mismatch: local significance and
+bounded contextual support could leave a HIGH/MEDIUM subject marked
+`projection_eligible`, while the subject had no global context membership or
+independent global boundary. The selector also re-added repository navigation
+nodes after significance filtering. This caused local-only elements to occupy
+the high-level view even when their local significance was correctly retained.
+
+M8.1.11 adds a final, explicit eligibility gate. A HIGH/MEDIUM subject is
+projected only when it is in a root-anchored context frontier, has an existing
+explicit global role (API/external service), or is an infrastructure resource
+explicitly related to that frontier. Navigation/repository nodes do not qualify
+by navigation alone. Local significance, score, evidence, and detailed semantic
+records remain unchanged; omitted nodes and relations remain available in the
+Detailed Model. Projection edge closure is still enforced by requiring both
+endpoints to be selected.
+
+The gate is bounded (two existing context passes over indexed architectural and
+infrastructure relations) and does not change significance weights, context
+classification, relation semantics, hypotheses, DEPLOYS, or rendering. The new
+metrics distinguish `local_only_significant_count` from
+`local_only_projected_count`; the latter is an invariant and must be zero.
+
+No repository-specific heuristic or new ADR was introduced.

@@ -165,6 +165,12 @@ class ProjectionAudit(BaseModel):
     supporting_only_global_membership_count: int = Field(default=0, ge=0)
     membership_established_by_relation_kind: dict[str, int] = Field(default_factory=dict)
     membership_supported_by_relation_kind: dict[str, int] = Field(default_factory=dict)
+    globally_eligible_projected_count: int = Field(default=0, ge=0)
+    local_only_significant_count: int = Field(default=0, ge=0)
+    local_only_projected_count: int = Field(default=0, ge=0)
+    projected_without_global_justification_count: int = Field(default=0, ge=0)
+    navigation_only_projected_count: int = Field(default=0, ge=0)
+    independent_global_boundary_projected_count: int = Field(default=0, ge=0)
 
 
 _CONTEXT_RELATIONS = {
@@ -710,11 +716,14 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
             or "explicit architectural boundary" in reason
             or "observed application boundary" in reason
         ]
+        independent_global_role = bool(
+            node and node.type in {NodeType.API, NodeType.EXTERNAL_SERVICE}
+        )
         global_context = bool(root_ids or global_boundary_reasons or subject in globally_linked_boundaries)
         if boundary and not root_ids:
             membership_source = "independent_boundary"
             membership_strength = "strong" if global_context else "weak"
-        local = item.significance in {SignificanceLevel.HIGH, SignificanceLevel.MEDIUM} and not global_context
+        local = item.significance in {SignificanceLevel.HIGH, SignificanceLevel.MEDIUM} and not global_context and not independent_global_role
         explanations.append(ProjectionExplanation(
             subject_id=subject,
             significance=item.significance,
@@ -865,6 +874,37 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
     )
     traceability = all(ref in evidence_ids for ref in audited_refs)
     projected_explanations = [item for item in explanations if item.projection_eligible]
+    def has_global_justification(item: ProjectionExplanation) -> bool:
+        node = arch_nodes.get(item.subject_id)
+        independent_role = bool(
+            node and node.type in {NodeType.API, NodeType.EXTERNAL_SERVICE}
+        )
+        return bool(item.globally_contextualized or item.context_root_ids or independent_role)
+
+    globally_justified_projected = [
+        item for item in projected_explanations if has_global_justification(item)
+    ]
+    local_only_significant = sum(item.locally_significant for item in explanations)
+    local_only_projected = sum(
+        item.projection_eligible and item.locally_significant
+        for item in explanations
+    )
+    projected_without_global = sum(
+        not has_global_justification(item) for item in projected_explanations
+    )
+    navigation_only_projected = sum(
+        item.projection_eligible
+        and item.subject_id in set(projection.navigation_root_ids)
+        and not has_global_justification(item)
+        for item in explanations
+    )
+    independent_global_boundary_projected = sum(
+        item.projection_eligible
+        and bool(item.boundary_justification)
+        and has_global_justification(item)
+        and not item.context_root_ids
+        for item in explanations
+    )
     contextualized = sum(bool(item.context_root_ids or item.boundary_justification) for item in projected_explanations)
     independent_boundaries = sum(bool(item.boundary_justification) for item in projected_explanations)
     without_context = sum(
@@ -1009,6 +1049,12 @@ def audit_projection(ir: ArchitectureIR, projection: HighLevelArchitectureProjec
         supporting_only_global_membership_count=supporting_only_membership,
         membership_established_by_relation_kind=dict(sorted(membership_established_counts.items())),
         membership_supported_by_relation_kind=dict(sorted(membership_supported_counts.items())),
+        globally_eligible_projected_count=len(globally_justified_projected),
+        local_only_significant_count=local_only_significant,
+        local_only_projected_count=local_only_projected,
+        projected_without_global_justification_count=projected_without_global,
+        navigation_only_projected_count=navigation_only_projected,
+        independent_global_boundary_projected_count=independent_global_boundary_projected,
         traceability=traceability,
         evidence_coverage=round(evidence_coverage, 6),
         node_explanations=explanations,

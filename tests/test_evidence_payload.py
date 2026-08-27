@@ -47,15 +47,23 @@ def _stress_ir(count: int = 1200) -> ArchitectureIR:
         name="stress-app",
         origin=SourceOrigin.FIRST_PARTY,
         evidence_refs=refs + refs[:50],
+        metadata={"entrypoint": True},
+    )
+    boundary = Node(
+        id="api:stress",
+        type=NodeType.API,
+        name="stress-api",
+        origin=SourceOrigin.FIRST_PARTY,
+        evidence_refs=refs,
     )
     edge = Edge(
         id="edge:stress",
         source=application.id,
-        target=repository.id,
+        target=boundary.id,
         type=EdgeType.DEPENDS_ON,
         evidence_refs=refs + refs[:25],
     )
-    nodes = [repository, application]
+    nodes = [repository, application, boundary]
     return ArchitectureIR(
         repository=RepositoryInfo(name="evidence_payload_stress", path="."),
         raw_graph=RawCodeGraph(nodes=nodes, edges=[edge]),

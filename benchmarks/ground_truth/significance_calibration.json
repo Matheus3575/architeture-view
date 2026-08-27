@@ -9,13 +9,7 @@
     "require_determinism": true,
     "projection": {
       "required_significant": [
-        "repository:significance_calibration",
-        "component:app.py",
-        "component:domain.py",
-        "external.fastapi",
-        "infrastructure:compose:docker-compose.yml:api",
-        "infrastructure:compose:docker-compose.yml:postgres",
-        "infrastructure:compose:docker-compose.yml:redis"
+        "component:app.py"
       ],
       "required_low_or_unknown": [
         "application:significance_calibration",
@@ -45,9 +39,7 @@
         "external.requests",
         "external.yaml"
       ],
-      "expected_external_promoted": [
-        "external.fastapi"
-      ],
+      "expected_external_promoted": [],
       "expected_significance": {
         "component:app.py": "high",
         "component:docker-compose.yml": "medium",

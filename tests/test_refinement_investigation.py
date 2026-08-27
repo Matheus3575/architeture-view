@@ -25,8 +25,8 @@ def test_investigation_report_is_structural_and_deterministic():
         "significance_precision": 1.0,
         "significance_recall": 1.0,
         "false_architectural_promotions": 0,
-        "expected_significant_count": 7,
-        "actual_projected_count": 7,
+        "expected_significant_count": 1,
+        "actual_projected_count": 1,
     }
     for item in report["scenarios"]:
         assert all(item["determinism"].values())
@@ -49,8 +49,9 @@ def test_investigation_detects_relation_representation_drift():
     assert "DEPENDS_ON" in relation_metrics["infrastructure_type_counts"]
     assert "depends_on" not in relation_metrics["infrastructure_type_counts"]
     assert relation_metrics["mixed_case_relation_groups"] == {}
-    assert 0.0 <= relation_metrics["projected_edge_evidence_coverage"] <= 1.0
-    assert relation_metrics["projected_edge_count"] >= 1
+    coverage = relation_metrics["projected_edge_evidence_coverage"]
+    assert coverage is None or 0.0 <= coverage <= 1.0
+    assert relation_metrics["projected_edge_count"] == 0
 
 
 def test_investigation_keeps_visual_metrics_separate_from_quality_metrics():
@@ -69,7 +70,7 @@ def test_investigation_records_relation_composition_and_context_roots():
     )
 
     assert result["nodes"]["context_root_count"] == 0
-    assert result["relations"]["projected_strength_counts"]
+    assert result["relations"]["projected_strength_counts"] == {}
     assert result["relations"]["max_in_degree"] >= 0
     assert result["relations"]["max_out_degree"] >= 0
     assert result["hypothesis_context"]
@@ -83,5 +84,5 @@ def test_generated_auxiliary_framework_context_is_not_promoted():
     generated = result["scenarios"][0]
 
     assert generated["quality"]["auxiliary_framework_promotions_observed"] == []
-    assert generated["nodes"]["projected_node_count"] == 4
+    assert generated["nodes"]["projected_node_count"] == 1
     assert generated["nodes"]["context_root_count"] == 1

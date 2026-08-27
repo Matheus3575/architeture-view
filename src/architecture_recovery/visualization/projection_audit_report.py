@@ -150,6 +150,24 @@ def _diagnostics(audit: ProjectionAudit) -> list[dict[str, str]]:
             "severity": "candidate_issue",
             "message": "Projected nodes without a context root or explicit boundary require review.",
         })
+    if audit.projected_without_global_justification_count:
+        diagnostics.append({
+            "kind": "projected_without_global_justification",
+            "severity": "candidate_issue",
+            "message": "A projected node lacks global context or an independent global justification.",
+        })
+    if audit.local_only_projected_count:
+        diagnostics.append({
+            "kind": "local_only_projected",
+            "severity": "candidate_issue",
+            "message": "A locally significant node passed the final high-level projection gate.",
+        })
+    if audit.navigation_only_projected_count:
+        diagnostics.append({
+            "kind": "navigation_only_projected",
+            "severity": "candidate_issue",
+            "message": "A navigation-only node passed the final high-level projection gate.",
+        })
     if audit.structural_ownership_rejected_count:
         diagnostics.append({
             "kind": "structural_ownership_rejected",
@@ -250,6 +268,12 @@ def build_projection_audit_report(
         "owned_framework_applications": audit.owned_framework_application_count,
         "local_framework_usage": audit.local_framework_usage_count,
         "supporting_only_global_memberships": audit.supporting_only_global_membership_count,
+        "globally_eligible_projected_count": audit.globally_eligible_projected_count,
+        "local_only_significant_count": audit.local_only_significant_count,
+        "local_only_projected_count": audit.local_only_projected_count,
+        "projected_without_global_justification_count": audit.projected_without_global_justification_count,
+        "navigation_only_projected_count": audit.navigation_only_projected_count,
+        "independent_global_boundary_projected_count": audit.independent_global_boundary_projected_count,
     }
     profile_payload = profile.as_dict() if profile is not None else None
     return {
@@ -317,6 +341,11 @@ def render_projection_audit_markdown(report: dict[str, Any]) -> str:
         f"- framework boundary candidates / qualified / rejected: {summary['framework_boundary_candidates']} / {summary['qualified_framework_boundaries']} / {summary['rejected_framework_boundaries']}",
         f"- owned framework applications / local usage: {summary['owned_framework_applications']} / {summary['local_framework_usage']}",
         f"- supporting-only global memberships: {summary['supporting_only_global_memberships']}",
+        f"- globally eligible projected: {summary['globally_eligible_projected_count']}",
+        f"- local-only significant / projected: {summary['local_only_significant_count']} / {summary['local_only_projected_count']}",
+        f"- projected without global justification: {summary['projected_without_global_justification_count']}",
+        f"- navigation-only projected: {summary['navigation_only_projected_count']}",
+        f"- independent global boundaries projected: {summary['independent_global_boundary_projected_count']}",
         f"- semantic details: {summary['semantic_details']}",
         f"- external dependencies: {summary['external_dependencies']}",
         f"- evidence groups: {summary['evidence_groups']}",
@@ -427,6 +456,11 @@ def render_projection_audit_markdown(report: dict[str, Any]) -> str:
         f"- framework candidates / qualified / rejected: {metrics.get('framework_boundary_candidate_count', 0)} / {metrics.get('qualified_framework_boundary_count', 0)} / {metrics.get('rejected_framework_boundary_count', 0)}",
         f"- owned framework applications / local usage: {metrics.get('owned_framework_application_count', 0)} / {metrics.get('local_framework_usage_count', 0)}",
         f"- supporting-only global memberships: {metrics.get('supporting_only_global_membership_count', 0)}",
+        f"- globally eligible projected: {metrics.get('globally_eligible_projected_count', 0)}",
+        f"- local-only significant / projected: {metrics.get('local_only_significant_count', 0)} / {metrics.get('local_only_projected_count', 0)}",
+        f"- projected without global justification: {metrics.get('projected_without_global_justification_count', 0)}",
+        f"- navigation-only projected: {metrics.get('navigation_only_projected_count', 0)}",
+        f"- independent global boundaries projected: {metrics.get('independent_global_boundary_projected_count', 0)}",
         "",
         "## Hypothesis Context Audit",
         "",

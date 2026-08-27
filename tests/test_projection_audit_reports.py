@@ -184,6 +184,9 @@ def test_report_payload_contains_projection_relation_and_hypothesis_sections(tmp
     assert "## DEPENDS_ON Audit" in markdown
     assert "## Hypothesis Context Audit" in markdown
     assert "## Diagnostics" in markdown
+    assert payload["metrics"]["local_only_projected_count"] == 0
+    assert payload["metrics"]["projected_without_global_justification_count"] == 0
+    assert "local-only significant / projected" in markdown
 
 
 def test_large_context_chain_and_raw_edge_lists_are_compact():

@@ -325,3 +325,17 @@ qualified roots, local usage, established membership and supporting membership.
 
 No new ADR was required; this refines the evidence/uncertainty and graph/renderer
 separation contracts from ADR-001, ADR-002 and ADR-003.
+
+## M8.1.11 - next steps
+
+Completed: separate local significance from final global projection eligibility.
+The projection selector now excludes local-only HIGH/MEDIUM nodes and
+navigation-only repository envelopes, retains detailed semantic information,
+and enforces projected-edge closure. The invariant
+`local_only_projected_count == 0` is covered by neutral tests and audit output.
+
+The next investigation should audit remaining global-boundary admission and
+DEPLOYS/infrastructure provenance on a locally available large repository. It
+must not compensate for missing context with score or cardinality thresholds.
+Keep the policy bounded, evidence-based, deterministic, and prefer detailed-only
+or UNKNOWN over an unsupported global promotion.

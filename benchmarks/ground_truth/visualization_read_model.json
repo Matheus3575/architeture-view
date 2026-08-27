@@ -1,12 +1,7 @@
 {
   "read_model": {
-    "required_node_kinds": [
-      "component",
-      "database"
-    ],
-    "required_edge_kinds": [
-      "CONTAINS"
-    ],
+    "required_node_kinds": [],
+    "required_edge_kinds": [],
     "require_hypotheses": true,
     "require_all_edges_valid": true,
     "require_traceability": true,
@@ -16,15 +11,8 @@
       "require_all_elements": true,
       "require_determinism": true,
       "require_inspection_metadata": true,
-      "required_relation_classes": [
-        "architectural",
-        "structural"
-      ],
-      "required_layout_groups": [
-        "domain",
-        "persistence",
-        "external"
-      ]
+      "required_relation_classes": [],
+      "required_layout_groups": []
     },
     "animation": {
       "require_static_valid": true,

@@ -617,6 +617,29 @@ class ArchitecturalProjectionBuilder:
             if not context_frontier:
                 break
 
+        # The earlier context set also contains local component-flow seeds used
+        # for bounded significance support. Recompute a root-anchored frontier
+        # for the final projection gate without changing those semantics.
+        root_contextual_subjects = set(context_root_ids) | set(root_context_component_ids)
+        root_frontier = set(root_contextual_subjects)
+        for _ in range(2):
+            next_root_frontier: set[str] = set()
+            for source, target, relation_type, raw_types, ownership in context_candidates:
+                propagation = context_propagation_kind(
+                    relation_type,
+                    raw_relation_types=raw_types,
+                    semantic_ownership=ownership,
+                )
+                if propagation != ContextPropagation.CAN_PROPAGATE_CONTEXT:
+                    continue
+                if source in root_frontier and target not in root_contextual_subjects:
+                    next_root_frontier.add(target)
+                if target in root_frontier and source not in root_contextual_subjects:
+                    next_root_frontier.add(source)
+            root_contextual_subjects.update(next_root_frontier)
+            root_frontier = next_root_frontier
+            if not root_frontier:
+                break
         independent_global_subjects: set[str] = set()
         for subject in strong:
             node = arch_nodes.get(subject)
@@ -661,7 +684,25 @@ class ArchitecturalProjectionBuilder:
             if target in strong_subjects and source in medium:
                 independent_global_subjects.add(source)
 
-        globally_eligible_subjects = contextual_subjects | independent_global_subjects | set(navigation_root_ids)
+        # Significance is local evidence; projection eligibility is a separate final gate.
+        # Navigation roots remain available for detailed/read-model navigation,
+        # but their existence must not satisfy this gate.
+        independently_global_resource_subjects = {
+            boundary
+            for source, target, relation_type, raw_types, ownership in context_candidates
+            if (source in resource_ids or target in resource_ids)
+            for boundary, other in ((source, target), (target, source))
+            if boundary in resource_ids and other in root_contextual_subjects
+        }
+        independently_global_role_subjects = {
+            subject
+            for subject in independent_global_subjects
+            if arch_nodes.get(subject)
+            and arch_nodes[subject].type in {NodeType.API, NodeType.EXTERNAL_SERVICE}
+        }
+        globally_eligible_subjects = (
+            root_contextual_subjects | independently_global_role_subjects | independently_global_resource_subjects
+        ) - set(navigation_root_ids)
 
         significances: list[ArchitecturalSignificance] = []
         for subject in sorted(set(arch_nodes) | resource_ids):
@@ -703,8 +744,7 @@ class ArchitecturalProjectionBuilder:
             and item.subject in globally_eligible_subjects
             and not (arch_nodes.get(item.subject) and arch_nodes[item.subject].type == NodeType.CONFIGURATION)
         }
-        repository_ids = {node.id for node in arch_nodes.values() if node.type == NodeType.REPOSITORY}
-        selected.update(repository_ids)
+
         selected &= set(arch_nodes) | resource_ids
         projected_edges = self._project_edges(ir, selected, arch_nodes, raw_to_arch)
         low_refs = sorted({ref for item in significances if item.significance == SignificanceLevel.LOW for ref in item.contains_refs or [item.subject]})

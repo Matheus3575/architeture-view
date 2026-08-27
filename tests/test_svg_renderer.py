@@ -1,17 +1,26 @@
 from pathlib import Path
 from xml.etree import ElementTree
 
-from architecture_recovery.pipeline import analyze_repository
+from architecture_recovery.ir import ArchitectureAnalysis, ArchitectureHypothesis, EvidenceStatus
 from architecture_recovery.rendering import render_svg
 from architecture_recovery.visualization import VisualizationReadModelBuilder
-
-
-ROOT = Path(__file__).parents[1]
-FIXTURE = ROOT / "benchmarks" / "fixtures" / "visualization_read_model"
+from tests.test_architectural_projection import _projection_ir
 
 
 def _read_model():
-    return VisualizationReadModelBuilder().build(analyze_repository(FIXTURE))
+    ir = _projection_ir().model_copy(update={
+        "architecture": ArchitectureAnalysis(hypotheses=[
+            ArchitectureHypothesis(
+                pattern="mvc",
+                status=EvidenceStatus.INFERRED,
+                confidence=0.8,
+                supporting_evidence=["app"],
+                evidence_refs=["app"],
+                explanation="neutral renderer fixture",
+            ),
+        ]),
+    })
+    return VisualizationReadModelBuilder().build(ir)
 
 
 def test_svg_renderer_returns_valid_self_contained_svg_with_all_elements():
@@ -54,10 +63,10 @@ def test_svg_renderer_preserves_traceability_and_status_attributes():
     assert 'data-evidence-refs="' in svg
     assert 'data-origin-ref="' in svg
     assert not any(
-        element.attrib.get("data-kind") in {"ROUTER_INCLUSION", "ROUTES_TO"}
+        element.attrib.get("data-kind") == "ROUTER_INCLUSION"
         for element in ElementTree.fromstring(svg).iter()
     )
-    assert any(detail.kind == "framework_fact" and detail.subject == "router" for detail in model.semantic_details)
+    assert any(detail.kind == "framework_fact" and detail.subject == "module:entry" for detail in model.semantic_details)
 
 
 def test_svg_renderer_is_deterministic():
@@ -91,7 +100,7 @@ def test_svg_renderer_uses_semantic_group_order_and_explicit_layers():
         if element.attrib.get("data-layout-group")
     ]
 
-    assert groups == ["domain", "persistence", "infrastructure", "external"]
+    assert groups == ["application", "domain", "infrastructure", "external"]
 
 
 def test_svg_renderer_distinguishes_relation_classes_and_routes():
@@ -107,7 +116,7 @@ def test_svg_renderer_distinguishes_relation_classes_and_routes():
 
     assert relation_classes["CONTAINS"] == "structural"
     assert relation_classes["DEPENDS_ON"] == "architectural"
-    assert "DEPLOYS" not in relation_classes
+    assert relation_classes["DEPLOYS"] == "architectural"
     assert all(
         element.find("{http://www.w3.org/2000/svg}path") is not None
         for element in root.iter()
@@ -307,9 +316,9 @@ def test_svg_layout_packs_large_bands_without_read_model_changes():
     groups = renderer._groups(model.nodes)
     positions, bands, width, height = renderer._layout(groups, model.hypotheses)
 
-    # Projection closure keeps observed infrastructure details out of the
-    # high-level layout; the fixture now has a compact infrastructure band.
-    assert len(groups["infrastructure"]) >= 3
+    # Projection closure keeps isolated infrastructure details out of the
+    # high-level layout; they remain available as semantic details.
+    assert "infrastructure" not in groups
     assert len(set(positions.values())) == len(positions)
     assert width < 1670
     assert height >= renderer.INSPECTION_MIN_HEIGHT

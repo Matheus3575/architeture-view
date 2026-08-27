@@ -428,3 +428,19 @@ qualified roots, local usage, established membership and supporting membership.
 
 No new ADR was required; this refines the evidence/uncertainty and graph/renderer
 separation contracts from ADR-001, ADR-002 and ADR-003.
+
+## M8.1.11 - Global Projection Eligibility Gate
+
+Projection eligibility is now a final global gate, separate from local
+architectural significance. HIGH/MEDIUM alone is insufficient. Eligibility
+requires a strong/root-anchored context membership, an existing explicit global
+role, or an infrastructure resource with an explicit relation to a root-anchored
+subject. Navigation/repository envelopes are excluded unless independently
+justified. Local-only HIGH/MEDIUM nodes retain their significance and evidence
+but are detailed-only. This preserves `CORRECT > UNKNOWN >> WRONG` and prevents
+ReadModel reintroduction through projection closure.
+
+The implementation does not recalibrate significance, context propagation,
+framework boundaries, DEPLOYS, dependencies, hypotheses, or the renderer. It
+uses a bounded indexed pass and preserves deterministic IDs, evidence refs,
+Detailed Model records, and projected-edge endpoint validity.

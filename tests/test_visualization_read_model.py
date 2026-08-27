@@ -3,6 +3,8 @@ from pathlib import Path
 import pytest
 
 from architecture_recovery.pipeline import analyze_repository
+from tests.test_architectural_projection import _projection_ir
+
 from architecture_recovery.visualization import (
     VisualizationNode,
     VisualizationReadModelBuilder,
@@ -44,10 +46,13 @@ def test_read_model_preserves_infrastructure_as_distinct_nodes():
     ir = analyze_repository(INFRA_FIXTURE)
     read_model = VisualizationReadModelBuilder().build(ir)
 
-    assert any(node.layout_hints.get("semantic_kind") == "infrastructure" or node.kind == "infrastructure" for node in read_model.nodes)
-    assert any(node.kind == "database" for node in read_model.nodes)
-    assert any(edge.kind == "DEPENDS_ON" for edge in read_model.edges)
-    assert all(node.origin_ref for node in read_model.nodes)
+    # The fixture has no global application boundary. Infrastructure remains
+    # traceable as detailed-only semantic records.
+    assert not read_model.nodes
+    assert not read_model.edges
+    assert any(detail.kind == "infrastructure_detail" for detail in read_model.semantic_details)
+    assert any(detail.attributes.get("resource_kind") == "DATABASE" for detail in read_model.semantic_details)
+    assert all(detail.origin_ref for detail in read_model.semantic_details)
 
 
 def test_read_model_preserves_hypotheses_as_hypotheses():
@@ -72,7 +77,7 @@ def test_read_model_is_deterministic_and_does_not_mutate_ir():
 
 
 def test_read_model_validator_rejects_orphan_edges():
-    ir = analyze_repository(FASTAPI_FIXTURE)
+    ir = _projection_ir()
     read_model = VisualizationReadModelBuilder().build(ir)
     read_model.edges.append(
         read_model.edges[0].model_copy(update={"id": "orphan", "target": "missing-node"})
